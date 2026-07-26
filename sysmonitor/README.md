@@ -71,7 +71,7 @@ everything on a live auto-refreshing web dashboard.
 └─────────────────────────────────────────────────────────┘
          │                              │
          ▼                              ▼
-  192.168.30.56                  192.168.1.155
+  <HOLDER_DEVICE_IP>                  <NVR_DEVICE_IP>
   Holder Device                  NVR Device
   (PDB indicator)                (Generator indicator)
 ```
@@ -83,14 +83,14 @@ everything on a live auto-refreshing web dashboard.
 The entire outage detection logic is built around two devices:
 
 ### Holder (Primary — PDB Power Indicator)
-- **IP:** `192.168.30.56`
+- **IP:** `<HOLDER_DEVICE_IP>`
 - **Role:** Master device — its UP/DOWN state directly reflects whether
   PDB (grid power) is available
 - **DOWN** = Power outage has started
 - **UP** = Grid power has been restored
 
 ### NVR (Secondary — Generator Indicator)
-- **IP:** `192.168.1.155`
+- **IP:** `<NVR_DEVICE_IP>`
 - **Role:** Slave/cross-check device — runs on UPS/generator power
 - **DOWN with Holder DOWN** = Full power outage confirmed
 - **UP while Holder DOWN** = Generator has kicked in and is running
