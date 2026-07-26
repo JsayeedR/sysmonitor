@@ -114,6 +114,7 @@ def build_message(event_type, cycle=None, extra=None):
         dur_str = f"{dur_min}min {dur_sec}s" if dur_sec else f"{dur_min}min"
         ctype   = cycle.cycle_type if cycle else '—'
         icon    = '✅' if ctype == 'NORMAL' else ('🟠' if ctype == 'ALARM' else '🔴')
+        note_line = f"\n📝 Note: {cycle.alarm_reason}" if cycle and getattr(cycle, 'alarm_reason', '') else ""
         return (
             f"{icon} *OUTAGE CYCLE COMPLETE*\n"
             f"📅 Date: {cycle.outage_start.astimezone(BDT).strftime('%d/%m/%Y') if cycle else '—'}\n"
@@ -121,6 +122,7 @@ def build_message(event_type, cycle=None, extra=None):
             f"🕑 Restored: {end}\n"
             f"⏱️ Duration: {dur_str}\n"
             f"📋 Type: {ctype}"
+            f"{note_line}"
         )
 
     elif event_type == 'DAILY_SUMMARY':

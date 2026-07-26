@@ -6,6 +6,9 @@ from django.contrib import messages
 from django.http import JsonResponse
 from .models import Device, DeviceStatus, Event, SystemStatus, UserProfile, ActivityLog, OutageCycle
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -808,7 +811,7 @@ def api_report(request):
 # ══════════════════════════════════════════════════════════════════════════════
 
 from monitor.models import NotificationGateway, NotificationRecipient, NotificationLog
-from monitor.notifications import send_test, get_telegram_chat_id
+from monitor.notifications import send_test, get_telegram_chat_id, dispatch as notify_dispatch
 
 @role_required('admin')
 def notifications_page(request):
@@ -1609,6 +1612,11 @@ def system_manual_cycle_add(request):
         f'{generator or "unassigned"})',
         get_ip(request)
     )
+
+    try:
+        notify_dispatch('COMPLETE', cycle=cycle)
+    except Exception as e:
+        logger.error(f"Manual cycle notify failed for cycle ID:{cycle.id}: {e}")
 
     return JsonResponse({
         'ok': True,
