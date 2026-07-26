@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Generator Shifting Entry</title>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg: #0f172a; --surface: #1e293b; --border: #334155;
+      --text: #f1f5f9; --muted: #94a3b8; --faint: #475569;
+      --blue: #3b82f6; --green: #22c55e; --red: #ef4444; --yellow: #fbbf24;
+    }
+    body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; }
+
+    nav { background:var(--surface); border-bottom:1px solid var(--border); padding:.6rem 2rem; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
+    .brand { font-size:1rem; font-weight:700; }
+    .brand span { color:var(--blue); }
+    .nav-links { display:flex; align-items:center; gap:.25rem; }
+    .nav-links a { color:var(--muted); font-size:.8rem; text-decoration:none; padding:.3rem .65rem; border-radius:6px; }
+    .nav-links a:hover, .nav-links a.active { background:var(--border); color:var(--text); }
+    .nav-logout { color:var(--muted); font-size:.78rem; text-decoration:none; padding:.3rem .65rem; border-radius:6px; }
+    .nav-logout:hover { background:var(--border); color:var(--text); }
+
+    .main { max-width:900px; margin:0 auto; padding:1.5rem; }
+    .page-title { font-size:1.3rem; font-weight:700; margin-bottom:.5rem; }
+    .page-sub { color:var(--muted); font-size:.85rem; margin-bottom:1.5rem; }
+
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.5rem; margin-bottom:1.5rem; }
+    .card-title { font-size:1rem; font-weight:600; margin-bottom:1.1rem; }
+
+    .form-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:.85rem; margin-bottom:1rem; }
+    .form-group { display:flex; flex-direction:column; gap:.4rem; }
+    .form-group.full { grid-column:1/-1; }
+    label { font-size:.78rem; color:var(--muted); font-weight:500; }
+    input, select {
+      background:#0f172a; border:1px solid var(--border); border-radius:8px;
+      color:var(--text); padding:.55rem .8rem; font-size:.88rem; width:100%;
+    }
+    input:focus, select:focus { outline:none; border-color:var(--blue); }
+
+    .btn { padding:.55rem 1.1rem; border-radius:8px; border:none; cursor:pointer; font-size:.85rem; font-weight:500; }
+    .btn-primary { background:var(--blue); color:white; }
+    .btn-primary:hover { background:#2563eb; }
+    .btn-danger { background:var(--red); color:white; padding:.3rem .6rem; font-size:.72rem; }
+    .btn-danger:hover { background:#dc2626; }
+
+    table { width:100%; border-collapse:collapse; }
+    th { text-align:left; padding:.6rem .75rem; font-size:.75rem; color:var(--muted); font-weight:500; border-bottom:1px solid var(--border); }
+    td { padding:.6rem .75rem; font-size:.82rem; border-bottom:1px solid var(--border); }
+    tr:last-child td { border-bottom:none; }
+    .badge { display:inline-block; padding:2px 10px; border-radius:12px; font-size:.72rem; font-weight:600; }
+    .badge-g1 { background:#1e3a5f; color:#60a5fa; }
+    .badge-g2 { background:#16532d; color:#4ade80; }
+
+    .toast { position:fixed; bottom:1.5rem; right:1.5rem; padding:.75rem 1.25rem; border-radius:10px; font-size:.85rem; font-weight:500; z-index:9999; }
+    .toast-ok  { background:#14532d; color:#4ade80; border:1px solid #16a34a; }
+    .toast-err { background:#450a0a; color:#fca5a5; border:1px solid #dc2626; }
+
+    .info-box { background:#0f172a; border:1px solid var(--border); border-radius:8px; padding:.85rem 1rem; font-size:.78rem; color:var(--muted); line-height:1.6; margin-bottom:1rem; }
+  
+    .hamburger { display:none; flex-direction:column; gap:4px; cursor:pointer; padding:.3rem; border:none; background:none; }
+    .hamburger span { display:block; width:20px; height:2px; background:var(--muted); border-radius:2px; transition:.2s; }
+    .hamburger.open span:nth-child(1) { transform:translateY(6px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity:0; }
+    .hamburger.open span:nth-child(3) { transform:translateY(-6px) rotate(-45deg); }
+
+    @media (max-width: 768px) {
+      nav { padding:.55rem 1rem; flex-wrap:wrap; gap:.4rem; position:relative; }
+      .hamburger { display:flex; }
+      .nav-links {
+        display:none; flex-direction:column; width:100%;
+        background:var(--surface); border-top:1px solid var(--border);
+        padding:.5rem 0; gap:0;
+      }
+      .nav-links.open { display:flex; }
+      .nav-links a { padding:.55rem 1rem; border-radius:0; font-size:.85rem; border-bottom:1px solid var(--border); }
+      .nav-links a:last-child { border-bottom:none; }
+      .nav-meta { gap:.4rem; }
+      .main { padding: 1rem .75rem; }
+      .container { padding: 1.25rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">Sys<span>Monitor</span></div>
+  <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="nav-links">
+    <a href="{% url 'dashboard' %}">🏠 Dashboard</a>
+    <a href="{% url 'report' %}">📊 Report</a>
+    {% if role != "guest" %}<a href="{% url 'event_log' %}">📋 Events</a>{% endif %}
+    <a href="{% url 'generator_log_page' %}" class="active">🔧 Generator Shifting Entry</a>
+    <a href="/about/">ℹ️ About Me</a>
+    {% if role == "admin" %}
+    <a href="{% url 'device_list' %}">🖥️ Devices</a>
+    <a href="{% url 'user_list' %}">👥 Users</a>
+    <a href="{% url 'notifications' %}">🔔 Notifications</a>
+    <a href="{% url 'activity_log' %}">🕵️ Activity</a>
+    <a href="/system/">🛠️ System</a>
+    {% endif %}
+  </div>
+  <div>
+    <a href="{% url 'logout' %}" class="nav-logout">Logout</a>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-title">🔧 Generator Mode Log</div>
+  <div class="page-sub">Log when each generator is switched to auto mode. This is used to match outage cycles to the correct generator in the daily summary report.</div>
+
+  <div class="info-box">
+    💡 Example: if Gen-02 was put in auto mode at 09:52 AM, every outage starting after that time will be credited to Gen-02 — until you log a switch to another generator.<br>
+    🔒 Any logged-in user can add entries. Editing or deleting an entry requires admin access.
+  </div>
+
+  <div class="card">
+    <div class="card-title">➕ Log a Generator Switch</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Generator</label>
+        <select id="new-gen">
+          <option value="Gen-01">Gen-01</option>
+          <option value="Gen-02">Gen-02</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="new-date">
+      </div>
+      <div class="form-group">
+        <label>Time (auto mode started)</label>
+        <input type="time" id="new-time">
+      </div>
+      <div class="form-group full">
+        <label>Note (optional)</label>
+        <input type="text" id="new-note" placeholder="e.g. switched from Gen-01 for maintenance">
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="addEntry()">✅ Log Entry</button>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden;">
+    <table>
+      <thead>
+        <tr>
+          <th>Generator</th>
+          <th>Switched to Auto At</th>
+          <th>Note</th>
+          <th>Logged By</th>
+          {% if role == "admin" %}<th></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody id="log-tbody">
+        {% for e in entries %}
+        <tr id="row-{{ e.id }}">
+          <td><span class="badge {% if e.generator == 'Gen-01' %}badge-g1{% else %}badge-g2{% endif %}">{{ e.generator }}</span></td>
+          <td style="font-family:monospace;">{{ e.switched_at }}</td>
+          <td style="color:var(--muted);">{{ e.note|default:"—" }}</td>
+          <td style="color:var(--muted);">{{ e.added_by|default:"—" }}</td>
+          {% if role == "admin" %}
+          <td style="display:flex;gap:.35rem;">
+            <button class="btn btn-ghost" style="padding:.3rem .6rem;font-size:.72rem;" onclick="openEdit({{ e.id }},'{{ e.generator }}','{{ e.switched_date_raw }}','{{ e.switched_time_raw }}','{{ e.note|escapejs }}')">✏️</button>
+            <button class="btn btn-danger" onclick="deleteEntry({{ e.id }})">🗑️</button>
+          </td>
+          {% endif %}
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem;">No entries logged yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if role == "admin" %}
+<div class="modal-overlay" id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;">
+  <div class="card" style="width:100%;max-width:440px;margin:0;">
+    <div class="card-title">✏️ Edit Entry</div>
+    <input type="hidden" id="edit-id">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Generator</label>
+        <select id="edit-gen">
+          <option value="Gen-01">Gen-01</option>
+          <option value="Gen-02">Gen-02</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="edit-date">
+      </div>
+      <div class="form-group">
+        <label>Time</label>
+        <input type="time" id="edit-time">
+      </div>
+      <div class="form-group full">
+        <label>Note</label>
+        <input type="text" id="edit-note">
+      </div>
+    </div>
+    <div style="display:flex;gap:.5rem;">
+      <button class="btn btn-primary" onclick="saveEdit()">💾 Save Changes</button>
+      <button class="btn" style="background:var(--border);color:var(--text);" onclick="closeEdit()">Cancel</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+const CSRF = '{{ csrf_token }}';
+
+function toast(msg, ok=true) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// Pre-fill date/time with current BDT moment for convenience
+(function setDefaults() {
+  const now = new Date();
+  document.getElementById('new-date').value = now.toISOString().slice(0, 10);
+  document.getElementById('new-time').value = now.toTimeString().slice(0, 5);
+})();
+
+function addEntry() {
+  const generator = document.getElementById('new-gen').value;
+  const date = document.getElementById('new-date').value;
+  const time = document.getElementById('new-time').value;
+  const note = document.getElementById('new-note').value.trim();
+
+  if (!date || !time) { toast('Date and time are required', false); return; }
+
+  fetch('/generator-log/add/', {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({ generator, date, time, note }),
+  }).then(r => r.json()).then(r => {
+    if (r.ok) { toast('✅ Entry logged!'); location.reload(); }
+    else toast('❌ ' + r.error, false);
+  });
+}
+
+function deleteEntry(id) {
+  if (!confirm('Delete this log entry? This is an admin-only action.')) return;
+  fetch(`/generator-log/${id}/delete/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': CSRF },
+  }).then(r => r.json()).then(r => {
+    if (r.ok) { document.getElementById('row-'+id).remove(); toast('Deleted'); }
+    else toast('❌ Failed — admin access required', false);
+  });
+}
+
+function openEdit(id, generator, date, time, note) {
+  document.getElementById('edit-id').value = id;
+  document.getElementById('edit-gen').value = generator;
+  document.getElementById('edit-date').value = date;
+  document.getElementById('edit-time').value = time;
+  document.getElementById('edit-note').value = note;
+  document.getElementById('edit-modal').style.display = 'flex';
+}
+
+function closeEdit() {
+  document.getElementById('edit-modal').style.display = 'none';
+}
+
+function saveEdit() {
+  const id = document.getElementById('edit-id').value;
+  fetch(`/generator-log/${id}/edit/`, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({
+      generator: document.getElementById('edit-gen').value,
+      date:      document.getElementById('edit-date').value,
+      time:      document.getElementById('edit-time').value,
+      note:      document.getElementById('edit-note').value.trim(),
+    }),
+  }).then(r => r.json()).then(r => {
+    if (r.ok) { toast('✅ Saved'); closeEdit(); location.reload(); }
+    else toast('❌ ' + r.error, false);
+  });
+}
+</script>
+
+
+<!-- FOOTER -->
+{% include "monitor/footer.html" %}
+
+
+<script>
+function toggleNav() {
+  const btn = document.getElementById('hamburger');
+  const links = document.getElementById('nav-links');
+  if (!btn || !links) return;
+  btn.classList.toggle('open');
+  links.classList.toggle('open');
+}
+document.addEventListener('DOMContentLoaded', function() {
+  const links = document.getElementById('nav-links');
+  if (!links) return;
+  links.querySelectorAll('a').forEach(function(a) {
+    a.addEventListener('click', function() {
+      var btn = document.getElementById('hamburger');
+      if (btn) btn.classList.remove('open');
+      links.classList.remove('open');
+    });
+  });
+});
+</script>
+</body>
+</html>
+

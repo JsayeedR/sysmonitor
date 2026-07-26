@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — About &amp; Documentation</title>
+  <meta name="description" content="SysMonitor is a passive power & network outage monitoring tool for COX's Bazar CLS (BSCPLC). Learn how it works, the architecture, and who built it.">
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:#0f172a; --surface:#1e293b; --surface2:#162032; --border:#334155;
+      --text:#f1f5f9; --muted:#94a3b8; --dim:#64748b;
+      --blue:#3b82f6; --green:#22c55e; --yellow:#eab308; --red:#ef4444; --purple:#a78bfa;
+      --cyan:#22d3ee;
+    }
+    body {
+      font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text);
+      min-height:100vh; line-height:1.6;
+    }
+    nav {
+      background:var(--surface); border-bottom:1px solid var(--border);
+      padding:.75rem 2rem; display:flex; align-items:center; justify-content:space-between;
+      position:sticky; top:0; z-index:50;
+    }
+    nav .brand { font-size:1.1rem; font-weight:700; }
+    nav .brand span { color:var(--blue); }
+    nav .nav-actions a {
+      color:var(--muted); font-size:.82rem; text-decoration:none;
+      padding:.5rem 1rem; border-radius:8px; font-weight:600;
+    }
+    nav .nav-actions a.primary { background:var(--blue); color:white; }
+    nav .nav-actions a:not(.primary):hover { color:var(--text); }
+
+    .hero {
+      max-width:920px; margin:0 auto; padding:3.5rem 1.5rem 2rem; text-align:center;
+    }
+    .hero .badge {
+      display:inline-flex; align-items:center; gap:.4rem;
+      background:#451a03; border:1px solid #fdba7444; color:#fdba74;
+      font-size:.75rem; font-weight:600; padding:.4rem .9rem; border-radius:30px;
+      margin-bottom:1.5rem;
+    }
+    .hero h1 { font-size:2.1rem; font-weight:800; letter-spacing:-0.5px; margin-bottom:.6rem; }
+    .hero h1 span { color:var(--blue); }
+    .hero .tagline { color:var(--muted); font-size:1rem; max-width:640px; margin:0 auto 1.75rem; }
+    .hero .cta-row { display:flex; gap:.75rem; justify-content:center; flex-wrap:wrap; }
+    .btn {
+      display:inline-flex; align-items:center; gap:.5rem;
+      padding:.7rem 1.4rem; border-radius:10px; font-size:.88rem; font-weight:600;
+      text-decoration:none; border:none; cursor:pointer; transition:.15s;
+    }
+    .btn-primary { background:var(--blue); color:white; }
+    .btn-primary:hover { background:#2563eb; }
+    .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); }
+    .btn-outline:hover { border-color:var(--blue); color:var(--blue); }
+
+    /* LIVE STATS STRIP */
+    .stats-strip {
+      max-width:920px; margin:0 auto; padding:0 1.5rem 2.5rem;
+      display:grid; grid-template-columns:repeat(4,1fr); gap:.9rem;
+    }
+    .stat-card {
+      background:var(--surface); border:1px solid var(--border); border-radius:14px;
+      padding:1.1rem 1rem; text-align:center;
+    }
+    .stat-num {
+      font-size:1.6rem; font-weight:800; color:var(--cyan); letter-spacing:-.5px;
+      font-variant-numeric:tabular-nums;
+    }
+    .stat-label { font-size:.72rem; color:var(--muted); margin-top:.25rem; text-transform:uppercase; letter-spacing:.04em; }
+
+    .main { max-width:920px; margin:0 auto; padding:1rem 1.5rem 4rem; }
+
+    .toc {
+      background:var(--surface); border:1px solid var(--border); border-radius:14px;
+      padding:1.25rem 1.5rem; margin-bottom:2.5rem;
+    }
+    .toc h3 { font-size:.85rem; text-transform:uppercase; letter-spacing:.05em; color:var(--dim); margin-bottom:.75rem; }
+    .toc ul { list-style:none; display:grid; grid-template-columns:1fr 1fr; gap:.4rem .5rem; }
+    .toc a { color:var(--muted); font-size:.85rem; text-decoration:none; }
+    .toc a:hover { color:var(--blue); }
+
+    section { margin-bottom:3rem; scroll-margin-top:5rem; }
+    section h2 {
+      font-size:1.3rem; font-weight:700; margin-bottom:.9rem;
+      display:flex; align-items:center; gap:.55rem;
+    }
+    section h3.sub { font-size:1.02rem; font-weight:700; margin:1.5rem 0 .6rem; color:#e2e8f0; }
+    section p { color:#cbd5e1; font-size:.92rem; margin-bottom:.9rem; }
+    section p:last-child { margin-bottom:0; }
+    section ul.plain, section ol.plain { margin:.6rem 0 .9rem 1.3rem; color:#cbd5e1; font-size:.92rem; }
+    section ul.plain li, section ol.plain li { margin-bottom:.4rem; }
+
+    .grid-cards {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; margin-top:1rem;
+    }
+    .card {
+      background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.1rem 1.2rem;
+    }
+    .card .icon { font-size:1.3rem; margin-bottom:.5rem; display:block; }
+    .card h4 { font-size:.92rem; font-weight:700; margin-bottom:.35rem; }
+    .card p { font-size:.8rem; color:var(--muted); margin:0; }
+
+    .flow {
+      background:var(--surface); border:1px solid var(--border); border-radius:14px;
+      padding:1.5rem; margin-top:1rem;
+    }
+    .flow-step {
+      display:flex; gap:1rem; padding:.85rem 0; border-bottom:1px dashed var(--border);
+    }
+    .flow-step:last-child { border-bottom:none; }
+    .flow-step .num {
+      flex:0 0 28px; height:28px; border-radius:50%; background:#1d4ed8; color:#bfdbfe;
+      display:flex; align-items:center; justify-content:center; font-size:.78rem; font-weight:700;
+    }
+    .flow-step .body strong { display:block; font-size:.88rem; margin-bottom:.15rem; }
+    .flow-step .body span { font-size:.8rem; color:var(--muted); }
+
+    .status-legend { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1rem; }
+    .status-pill {
+      font-size:.78rem; font-weight:600; padding:.4rem .85rem; border-radius:20px;
+      display:flex; align-items:center; gap:.4rem;
+    }
+    .status-pill.normal { background:#052e16; color:#4ade80; border:1px solid #166534; }
+    .status-pill.outage { background:#450a0a; color:#fca5a5; border:1px solid #b91c1c; }
+    .status-pill.gen { background:#451a03; color:#fdba74; border:1px solid #b45309; }
+    .status-pill.ats { background:#1e3a8a33; color:#93c5fd; border:1px solid #1d4ed8; }
+    .status-pill.down { background:#431407; color:#fdba74; border:1px solid #c2410c; }
+
+    table.simple { width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-top:1rem; }
+    table.simple th { text-align:left; padding:.65rem .9rem; font-size:.72rem; text-transform:uppercase; letter-spacing:.04em; color:var(--dim); background:var(--surface2); }
+    table.simple td { padding:.65rem .9rem; font-size:.85rem; border-top:1px solid var(--border); color:#cbd5e1; }
+
+    .apk-box {
+      background:linear-gradient(135deg,#1e293b,#162032);
+      border:1px solid var(--border); border-radius:16px; padding:1.75rem;
+      display:flex; align-items:center; justify-content:space-between; gap:1.5rem; flex-wrap:wrap;
+      margin-top:1rem;
+    }
+    .apk-box .info h4 { font-size:1.05rem; margin-bottom:.3rem; }
+    .apk-box .info p { color:var(--muted); font-size:.82rem; margin:0; }
+    .note-box {
+      background:#0c2340; border:1px solid #1e40af55; border-radius:10px;
+      padding:.85rem 1.1rem; font-size:.8rem; color:#93c5fd; margin-top:1rem;
+    }
+
+    .dev-card {
+      background:var(--surface); border:1px solid var(--border); border-radius:16px;
+      padding:1.75rem; display:flex; gap:1.25rem; align-items:flex-start; margin-top:1rem; flex-wrap:wrap;
+    }
+    .dev-avatar {
+      width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,#3b82f6,#1d4ed8);
+      display:flex; align-items:center; justify-content:center; font-size:1.5rem; font-weight:800; flex-shrink:0;
+    }
+    .dev-card h4 { font-size:1.05rem; margin-bottom:.2rem; }
+    .dev-card .role { color:var(--blue); font-size:.82rem; font-weight:600; margin-bottom:.6rem; }
+    .dev-card .links { display:flex; gap:.6rem; flex-wrap:wrap; margin-top:.7rem; }
+    .dev-card .links a {
+      font-size:.78rem; color:var(--muted); text-decoration:none; border:1px solid var(--border);
+      padding:.35rem .8rem; border-radius:20px;
+    }
+    .dev-card .links a:hover { color:var(--blue); border-color:var(--blue); }
+
+    .contact-strip {
+      background:var(--surface); border:1px solid var(--border); border-radius:14px;
+      padding:1.5rem; margin-top:1rem; text-align:center;
+    }
+    .contact-strip a { color:var(--blue); font-weight:700; text-decoration:none; font-size:1rem; }
+
+    code.inline { background:#0f172a; border:1px solid var(--border); padding:.1rem .4rem; border-radius:5px; font-size:.82rem; color:#93c5fd; }
+
+    /* ARCHITECTURE DIAGRAM */
+    .arch-wrap {
+      background:var(--surface); border:1px solid var(--border); border-radius:16px;
+      padding:1.25rem; margin-top:1rem; overflow-x:auto;
+    }
+    .arch-wrap svg { display:block; min-width:640px; width:100%; height:auto; }
+    .arch-node rect { fill:var(--surface2); stroke:var(--border); stroke-width:1.5; }
+    .arch-node text { fill:var(--text); font-family:'Segoe UI',system-ui,sans-serif; }
+    .arch-node .label { font-size:13px; font-weight:700; }
+    .arch-node .sub { font-size:10px; fill:var(--muted); }
+    .arch-node.blue rect { stroke:var(--blue); }
+    .arch-node.green rect { stroke:var(--green); }
+    .arch-node.yellow rect { stroke:var(--yellow); }
+    .arch-node.purple rect { stroke:var(--purple); }
+    .arch-edge { stroke:var(--dim); stroke-width:1.5; fill:none; }
+    .arch-edge-label { fill:var(--muted); font-size:9.5px; font-family:'Segoe UI',system-ui,sans-serif; }
+
+    /* TECH STACK */
+    .tech-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1rem; margin-top:1rem; }
+    .tech-card {
+      background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.1rem 1.2rem;
+    }
+    .tech-card .eyebrow { font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin-bottom:.4rem; }
+    .tech-card h4 { font-size:.95rem; font-weight:700; margin-bottom:.4rem; }
+    .tech-card p { font-size:.8rem; color:var(--muted); margin:0; }
+
+    /* FAQ */
+    .faq-item {
+      background:var(--surface); border:1px solid var(--border); border-radius:12px;
+      margin-bottom:.6rem; overflow:hidden;
+    }
+    .faq-item summary {
+      padding:.9rem 1.1rem; cursor:pointer; font-size:.9rem; font-weight:600;
+      list-style:none; display:flex; align-items:center; justify-content:space-between; gap:1rem;
+    }
+    .faq-item summary::-webkit-details-marker { display:none; }
+    .faq-item summary::after {
+      content:'+'; color:var(--blue); font-size:1.1rem; font-weight:700; flex-shrink:0;
+      transition:transform .15s;
+    }
+    .faq-item[open] summary::after { transform:rotate(45deg); }
+    .faq-item .faq-body { padding:0 1.1rem 1rem; color:#cbd5e1; font-size:.85rem; }
+
+    /* PHONE MOCKUP */
+    .phone-mockup-wrap { display:flex; gap:1.5rem; align-items:center; flex-wrap:wrap; margin-top:1rem; }
+    .phone-frame {
+      width:200px; height:410px; background:#000; border-radius:28px; padding:9px;
+      box-shadow:0 15px 40px rgba(0,0,0,.45); flex-shrink:0;
+    }
+    .phone-screen {
+      width:100%; height:100%; background:var(--bg); border-radius:20px; overflow:hidden;
+      display:flex; flex-direction:column; font-size:7px; position:relative;
+    }
+    .phone-screen .p-nav { background:var(--surface); padding:8px 10px; font-size:8px; font-weight:700; border-bottom:1px solid var(--border); }
+    .phone-screen .p-banner {
+      margin:8px; padding:10px; border-radius:8px; background:#052e16; border:1px solid #166534;
+      color:#4ade80; font-size:8px; font-weight:700;
+    }
+    .phone-screen .p-card {
+      margin:0 8px 6px; padding:7px 8px; border-radius:7px; background:var(--surface); border:1px solid var(--border);
+      display:flex; justify-content:space-between; color:var(--muted);
+    }
+    .phone-screen .p-card b { color:var(--text); font-size:7.5px; }
+    .phone-caption { color:var(--muted); font-size:.8rem; max-width:340px; }
+    .phone-caption strong { color:var(--text); }
+
+    @media (max-width:640px) {
+      nav { padding:.6rem 1rem; }
+      .hero { padding:2.5rem 1rem 1.5rem; }
+      .hero h1 { font-size:1.6rem; }
+      .toc ul { grid-template-columns:1fr; }
+      .apk-box { flex-direction:column; align-items:flex-start; }
+      .stats-strip { grid-template-columns:1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">⚡ Sys<span>Monitor</span></div>
+  <div class="nav-actions">
+    {% if user.is_authenticated %}
+    <a href="/" class="primary">Dashboard →</a>
+    {% else %}
+    <a href="/login/" class="primary">Login →</a>
+    {% endif %}
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="badge">⚠️ Passive Monitoring Only (No Direct Power System Connectivity)</div>
+  <h1>⚡ Sys<span>Monitor</span></h1>
+  <p class="tagline">
+    A real-time power outage &amp; network monitoring tool built for
+    COX's Bazar Cable Landing Station (COXCLS), BSCPLC — watching grid power,
+    generator, and ATS behaviour around the clock, so nobody has to.
+  </p>
+  <div class="cta-row">
+    <a href="#android-app" class="btn btn-primary">📱 Get the Android App</a>
+    <a href="#how-it-works" class="btn btn-outline">See how it works</a>
+  </div>
+</div>
+
+<!-- LIVE STATS -->
+<div class="stats-strip">
+  <div class="stat-card">
+    <div class="stat-num">{{ device_count }}</div>
+    <div class="stat-label">Devices Monitored</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ total_events }}</div>
+    <div class="stat-label">Events Logged</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ total_cycles }}</div>
+    <div class="stat-label">Completed Cycles</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ days_monitoring }}</div>
+    <div class="stat-label">Days Monitoring</div>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="toc">
+    <h3>On this page</h3>
+    <ul>
+      <li><a href="#overview">1. What is SysMonitor?</a></li>
+      <li><a href="#how-it-works">2. How it works</a></li>
+      <li><a href="#architecture">3. Architecture</a></li>
+      <li><a href="#logic">4. The detection logic</a></li>
+      <li><a href="#features">5. Features</a></li>
+      <li><a href="#tech-stack">6. Tech stack</a></li>
+      <li><a href="#notifications">7. Notifications</a></li>
+      <li><a href="#android-app">8. Android app</a></li>
+      <li><a href="#roles">9. Roles &amp; access control</a></li>
+      <li><a href="#faq">10. FAQ</a></li>
+      <li><a href="#about-us">11. About us</a></li>
+    </ul>
+  </div>
+
+  <section id="overview">
+    <h2>📖 1. What is SysMonitor?</h2>
+    <p>
+      SysMonitor is a lightweight, self-hosted <strong>power &amp; network outage
+      monitoring tool</strong> built specifically for COX's Bazar CLS (COXCLS),
+      a facility operated by BSCPLC that relies on grid power (PDB) with a
+      generator + Automatic Transfer Switch (ATS) as backup.
+    </p>
+    <p>
+      It runs entirely on the local network and works <strong>passively</strong> —
+      it only observes network reachability of monitoring points already on
+      site. It does not connect to, control, or issue commands to the
+      generator, ATS, or any power infrastructure. Its only job is to watch,
+      record, and alert.
+    </p>
+    <p>
+      The idea is simple: instead of someone on shift having to notice a power
+      drop, write it down on paper, and remember to log when the generator
+      kicked in, SysMonitor watches two always-on network devices and infers
+      the facility's power state from their reachability — then keeps a
+      permanent, timestamped record of everything that happened, without
+      anyone needing to touch a keyboard.
+    </p>
+    <div class="grid-cards">
+      <div class="card">
+        <span class="icon">🔍</span>
+        <h4>Detects outages automatically</h4>
+        <p>No manual logging — the system notices the moment power drops.</p>
+      </div>
+      <div class="card">
+        <span class="icon">⏱️</span>
+        <h4>Tracks exact durations</h4>
+        <p>PDB outage time and generator runtime, down to the second.</p>
+      </div>
+      <div class="card">
+        <span class="icon">📚</span>
+        <h4>Permanent history</h4>
+        <p>Every outage cycle and event is preserved for reporting and audits.</p>
+      </div>
+      <div class="card">
+        <span class="icon">📢</span>
+        <h4>Instant alerts</h4>
+        <p>Telegram, WhatsApp, and email notifications the moment something changes.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="how-it-works">
+    <h2>⚙️ 2. How it works</h2>
+    <p>
+      SysMonitor is a Django web application paired with a lightweight
+      background monitor process. The two run as separate, independent
+      services and communicate only through the shared database — so a
+      restart of one never takes down the other:
+    </p>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="num">1</div>
+        <div class="body">
+          <strong>Background monitor pings two reference points</strong>
+          <span>A "Holder" device (reflects grid/PDB power) and an "NVR" device (reflects generator/UPS power) are pinged every few seconds.</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="num">2</div>
+        <div class="body">
+          <strong>State changes are cross-checked between the two</strong>
+          <span>Comparing both devices together filters out false alarms like brief WiFi drops or a single device rebooting.</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="num">3</div>
+        <div class="body">
+          <strong>Confirmed changes are written to the database</strong>
+          <span>Outage start, generator start, power restore, and ATS switch-back are each timestamped as they happen.</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="num">4</div>
+        <div class="body">
+          <strong>The dashboard reflects it live</strong>
+          <span>The web dashboard auto-refreshes, showing current status, live device health, and a running event log.</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="num">5</div>
+        <div class="body">
+          <strong>Notifications fire in parallel</strong>
+          <span>The background monitor calls the notification dispatcher directly the moment a cycle-defining event happens — outages, generator starts, restores, and alarms.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <h2>🏗️ 3. Architecture</h2>
+    <p>
+      SysMonitor is deliberately split into small, independent pieces, each
+      run as its own <code class="inline">systemd</code> service so a crash
+      or restart in one never brings down the rest of the system:
+    </p>
+    <div class="arch-wrap">
+      <svg viewBox="0 0 900 430" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#64748b"></path>
+          </marker>
+        </defs>
+
+        <!-- Edges (drawn first, under nodes) -->
+        <path class="arch-edge" d="M150,75 L280,115" marker-end="url(#arrow)"></path>
+        <path class="arch-edge" d="M150,175 L280,135" marker-end="url(#arrow)"></path>
+        <path class="arch-edge" d="M480,125 L555,125" marker-end="url(#arrow)"></path>
+        <text class="arch-edge-label" x="490" y="118">writes state</text>
+
+        <path class="arch-edge" d="M645,160 L645,205" marker-end="url(#arrow)"></path>
+        <text class="arch-edge-label" x="655" y="187">reads</text>
+        <path class="arch-edge" d="M625,205 L625,160" marker-end="url(#arrow)"></path>
+
+        <path class="arch-edge" d="M745,225 L800,197" marker-end="url(#arrow)"></path>
+        <path class="arch-edge" d="M745,255 L800,268" marker-end="url(#arrow)"></path>
+
+        <path class="arch-edge" d="M380,160 L380,315" marker-end="url(#arrow)"></path>
+        <text class="arch-edge-label" x="388" y="245">daily read</text>
+
+        <path class="arch-edge" d="M300,125 Q470,300 555,340" marker-end="url(#arrow)"></path>
+        <text class="arch-edge-label" x="420" y="300">fires alerts</text>
+
+        <!-- Holder device -->
+        <g class="arch-node blue" transform="translate(20,40)">
+          <rect width="170" height="60" rx="10"></rect>
+          <text class="label" x="14" y="26">🖥️ Holder Device</text>
+          <text class="sub" x="14" y="44">reflects grid / PDB power</text>
+        </g>
+
+        <!-- NVR device -->
+        <g class="arch-node blue" transform="translate(20,140)">
+          <rect width="170" height="60" rx="10"></rect>
+          <text class="label" x="14" y="26">🎥 NVR Device</text>
+          <text class="sub" x="14" y="44">reflects generator / UPS power</text>
+        </g>
+
+        <!-- Background monitor -->
+        <g class="arch-node yellow" transform="translate(280,90)">
+          <rect width="200" height="70" rx="10"></rect>
+          <text class="label" x="14" y="26">📡 Background Monitor</text>
+          <text class="sub" x="14" y="44">systemd: sysmonitor-ping.service</text>
+          <text class="sub" x="14" y="58">pings every few seconds</text>
+        </g>
+
+        <!-- Database -->
+        <g class="arch-node purple" transform="translate(555,90)">
+          <rect width="180" height="70" rx="10"></rect>
+          <text class="label" x="14" y="26">🗄️ SQLite Database</text>
+          <text class="sub" x="14" y="44">events · cycles · users</text>
+          <text class="sub" x="14" y="58">devices · notifications</text>
+        </g>
+
+        <!-- Django app -->
+        <g class="arch-node green" transform="translate(555,205)">
+          <rect width="180" height="70" rx="10"></rect>
+          <text class="label" x="14" y="26">🌐 Django Web App</text>
+          <text class="sub" x="14" y="44">systemd: sysmonitor-web.service</text>
+          <text class="sub" x="14" y="58">serves dashboard + APIs</text>
+        </g>
+
+        <!-- Browser -->
+        <g class="arch-node blue" transform="translate(730,168)">
+          <rect width="150" height="55" rx="10"></rect>
+          <text class="label" x="12" y="24">💻 Browser</text>
+          <text class="sub" x="12" y="40">any device on the network</text>
+        </g>
+
+        <!-- Android app -->
+        <g class="arch-node blue" transform="translate(730,242)">
+          <rect width="150" height="55" rx="10"></rect>
+          <text class="label" x="12" y="24">📱 Android App</text>
+          <text class="sub" x="12" y="40">auto network detection</text>
+        </g>
+
+        <!-- Backup timer -->
+        <g class="arch-node purple" transform="translate(280,315)">
+          <rect width="200" height="65" rx="10"></rect>
+          <text class="label" x="14" y="26">💾 Backup Timer</text>
+          <text class="sub" x="14" y="44">systemd: sysmonitor-backup.timer</text>
+          <text class="sub" x="14" y="58">daily snapshot of the database</text>
+        </g>
+
+        <!-- Notification gateways -->
+        <g class="arch-node yellow" transform="translate(555,315)">
+          <rect width="220" height="65" rx="10"></rect>
+          <text class="label" x="14" y="24">📢 Notification Gateways</text>
+          <text class="sub" x="14" y="42">Telegram · WhatsApp · Email</text>
+          <text class="sub" x="14" y="56">sent directly by the monitor</text>
+        </g>
+      </svg>
+    </div>
+    <p style="margin-top:1rem">
+      Three independent services, one shared database — that's the whole
+      system:
+    </p>
+    <table class="simple">
+      <thead><tr><th>Service</th><th>Job</th></tr></thead>
+      <tbody>
+        <tr><td><code class="inline">sysmonitor-ping</code></td><td>Pings the Holder &amp; NVR devices continuously, writes confirmed state changes to the database, and fires notifications the instant something changes.</td></tr>
+        <tr><td><code class="inline">sysmonitor-web</code></td><td>The Django app — serves the dashboard, report, events, admin pages, and this documentation page, reading straight from the same database.</td></tr>
+        <tr><td><code class="inline">sysmonitor-backup</code></td><td>A timer that snapshots the database on a daily schedule, so a bad write or disk issue never means losing the whole history.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="logic">
+    <h2>🧠 4. The detection logic</h2>
+    <p>
+      A full, healthy outage cycle looks like this — grid drops, generator
+      picks up the load, grid comes back, and the ATS quietly switches the
+      load back to grid power:
+    </p>
+    <div class="status-legend">
+      <span class="status-pill outage">🔴 Outage</span>
+      <span class="status-pill gen">🟡 Generator Running</span>
+      <span class="status-pill ats">🔵 ATS Switching</span>
+      <span class="status-pill normal">🟢 Normal</span>
+    </div>
+    <p style="margin-top:1rem">
+      Every completed cycle is classified so abnormal situations stand out
+      instead of getting lost in the log:
+    </p>
+    <table class="simple">
+      <thead><tr><th>Cycle Type</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td>🟢 Normal</td><td>Clean cycle — outage, generator ran, power restored, ATS switched back cleanly.</td></tr>
+        <tr><td>🔵 ATS-only</td><td>Just a brief ATS switch blip — not a real power outage.</td></tr>
+        <tr><td>🟡 Incomplete</td><td>An outage is currently in progress.</td></tr>
+        <tr><td>🟠 Alarm</td><td>Power was restored but the generator/ATS didn't switch back as expected — flagged for review.</td></tr>
+        <tr><td>🔴 Critical</td><td>An extended total failure — both reference points unreachable for a long stretch.</td></tr>
+        <tr><td>⚪ Manual</td><td>Entered or corrected by hand via System Tools — for an outage the automatic monitor missed.</td></tr>
+      </tbody>
+    </table>
+    <h3 class="sub">Why two devices instead of one?</h3>
+    <p>
+      Relying on a single ping target is unreliable — a device rebooting, a
+      single WiFi hiccup, or a switch port flapping can all look identical to
+      a real power outage. By requiring <strong>both</strong> the Holder and
+      the NVR to agree before a state change is confirmed, one-off blips are
+      filtered out automatically, and only genuine power events reach the log
+      and the notification channels.
+    </p>
+    <p>
+      A <strong>maintenance mode</strong> can be switched on before planned
+      network work (e.g. restarting a router), which pauses outage detection
+      and notifications so planned downtime never gets logged as a false
+      power outage.
+    </p>
+  </section>
+
+  <section id="features">
+    <h2>✨ 5. Features</h2>
+    <div class="grid-cards">
+      <div class="card"><span class="icon">📊</span><h4>Live Dashboard</h4><p>Auto-refreshing status, device health, and daily outage summary.</p></div>
+      <div class="card"><span class="icon">📋</span><h4>Event &amp; Activity Logs</h4><p>Full history of state changes plus an admin audit trail of every user action.</p></div>
+      <div class="card"><span class="icon">🔧</span><h4>Generator Shifting Entry</h4><p>Manual log of which generator is in auto mode and when it was switched.</p></div>
+      <div class="card"><span class="icon">🛠️</span><h4>System Tools</h4><p>Live internal state viewer, journal inspection, and manual cycle correction for admins.</p></div>
+      <div class="card"><span class="icon">🧾</span><h4>Reports</h4><p>Daily / historical outage &amp; generator runtime reporting.</p></div>
+      <div class="card"><span class="icon">👥</span><h4>Role-Based Access</h4><p>Admin, User, Viewer, and Guest roles, each with a different set of visible pages.</p></div>
+      <div class="card"><span class="icon">🙋</span><h4>Self-Service Profiles</h4><p>Users manage their own contact details; sensitive fields need admin approval.</p></div>
+      <div class="card"><span class="icon">💾</span><h4>Automated Backups</h4><p>The database is backed up daily on a schedule, automatically.</p></div>
+      <div class="card"><span class="icon">🔔</span><h4>Multi-Channel Alerts</h4><p>Telegram, WhatsApp, and email — configured independently per recipient.</p></div>
+      <div class="card"><span class="icon">📱</span><h4>Companion Android App</h4><p>Auto-detects local vs external network and loads the right address.</p></div>
+      <div class="card"><span class="icon">🚧</span><h4>Maintenance Mode</h4><p>Pause detection during planned network work so it's never logged as an outage.</p></div>
+      <div class="card"><span class="icon">ℹ️</span><h4>Public Docs Page</h4><p>This page — readable by anyone, logged in or not, with no secrets exposed.</p></div>
+    </div>
+  </section>
+
+  <section id="tech-stack">
+    <h2>🧩 6. Tech stack</h2>
+    <p>
+      Built to be simple to operate on a single on-site machine — no external
+      cloud dependency for the core monitoring loop:
+    </p>
+    <div class="tech-grid">
+      <div class="tech-card">
+        <div class="eyebrow">Backend</div>
+        <h4>Django (Python)</h4>
+        <p>Serves the dashboard, admin pages, and internal APIs.</p>
+      </div>
+      <div class="tech-card">
+        <div class="eyebrow">Database</div>
+        <h4>SQLite</h4>
+        <p>Single-file database, backed up automatically every day.</p>
+      </div>
+      <div class="tech-card">
+        <div class="eyebrow">Monitoring</div>
+        <h4>Python ping loop</h4>
+        <p>Independent background service, decoupled from the web app.</p>
+      </div>
+      <div class="tech-card">
+        <div class="eyebrow">Frontend</div>
+        <h4>Vanilla HTML / CSS / JS</h4>
+        <p>No build step or framework — fast to load, easy to audit.</p>
+      </div>
+      <div class="tech-card">
+        <div class="eyebrow">Time handling</div>
+        <h4>pytz — Asia/Dhaka</h4>
+        <p>All timestamps are normalised to local Bangladesh time.</p>
+      </div>
+      <div class="tech-card">
+        <div class="eyebrow">Notifications</div>
+        <h4>Telegram · WhatsApp · SMTP</h4>
+        <p>Telegram Bot API, Meta WhatsApp Cloud API, Gmail SMTP.</p>
+      </div>
+      <div class="tech-card">
+        <div class="eyebrow">Process management</div>
+        <h4>systemd services &amp; timers</h4>
+        <p>Web app, ping monitor, and backups each run as their own unit.</p>
+      </div>
+      <div class="tech-card">
+        <div class="eyebrow">Mobile</div>
+        <h4>Native Android wrapper (Java)</h4>
+        <p>WebView-based app with network auto-detection and retry logic.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="notifications">
+    <h2>📢 7. Notifications</h2>
+    <p>
+      SysMonitor can alert designated recipients the moment a power event
+      happens, over multiple channels:
+    </p>
+    <table class="simple">
+      <thead><tr><th>Channel</th><th>Use case</th></tr></thead>
+      <tbody>
+        <tr><td>🤖 Telegram Bot</td><td>Instant push alerts to any number of subscribed chats.</td></tr>
+        <tr><td>💬 WhatsApp</td><td>Business API-based alerts to configured phone numbers.</td></tr>
+        <tr><td>✉️ Email</td><td>SMTP-based alerts for recipients who prefer email.</td></tr>
+      </tbody>
+    </table>
+    <h3 class="sub">What triggers an alert</h3>
+    <ul class="plain">
+      <li><strong>Outage start</strong> — sent once, the moment the Holder device goes down.</li>
+      <li><strong>Critical</strong> — sent once if both reference devices are unreachable for an extended period.</li>
+      <li><strong>Alarm</strong> — sent once per cycle if the generator or ATS doesn't behave as expected.</li>
+      <li><strong>Cycle complete</strong> — sent once the cycle closes cleanly (power restored, ATS switched back).</li>
+    </ul>
+    <p>
+      Each of these fires <strong>at most once per cycle</strong> — the
+      dispatcher keeps track of what's already been sent, so recipients never
+      get spammed with duplicate alerts for the same event.
+    </p>
+    <div class="note-box">
+      🤖 To receive real-time Telegram alerts, message <strong>"Hi"</strong> to
+      the SysMonitor notification bot on Telegram: <code class="inline">@SysMonitorCOXCLS_bot</code>.
+      Access to the dashboard itself, and the exact notification recipient list,
+      is managed privately by the COXCLS NOC team.
+    </div>
+  </section>
+
+  <section id="android-app">
+    <h2>📱 8. Android App</h2>
+    <p>
+      A lightweight Android wrapper app is available for quick access to the
+      SysMonitor dashboard from a phone — it automatically detects whether
+      you're on the facility's local network or an external connection and
+      loads the right address for you.
+    </p>
+    <div class="phone-mockup-wrap">
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <div class="p-nav">⚡ SysMonitor</div>
+          <div class="p-banner">🟢 All Systems Normal</div>
+          <div class="p-card"><span>Holder Device</span><b>UP · 4ms</b></div>
+          <div class="p-card"><span>NVR Device</span><b>UP · 6ms</b></div>
+          <div class="p-card"><span>Generator</span><b>Standby</b></div>
+          <div class="p-card"><span>Last Outage</span><b>2h 14m ago</b></div>
+        </div>
+      </div>
+      <p class="phone-caption">
+        <strong>SysMonitor Android App Preview</strong> — mobile dashboard interface
+        showing system status, device cards, and monitoring information.
+      </p>
+    </div>
+    <div class="apk-box">
+      <div class="info">
+        <h4>⚡ SysMonitor for Android</h4>
+        <p>Auto network detection · swipe-to-refresh · connection retry · in-app log viewer</p>
+      </div>
+      <a class="btn btn-primary" href="https://BSCPLC.com.bd/uploads/file-manager/b80e5308-8b3b-4453-bbe7-5a2bfcdbc2ed.apk">⬇️ Download APK</a>
+    </div>
+    <div class="note-box">
+      Installing requires enabling "Install from unknown sources" for your
+      file manager / browser, since this is a direct APK download rather
+      than a Play Store listing. Login credentials for the dashboard itself
+      are issued privately by the COXCLS NOC team and are not published here.
+    </div>
+  </section>
+
+  <section id="roles">
+    <h2>🔐 9. Roles &amp; Access Control</h2>
+    <p>
+      Access to the dashboard is account-based. Every account is assigned a
+      role that determines exactly which pages appear in its navigation:
+    </p>
+    <table class="simple">
+      <thead><tr><th>Role</th><th>Can see</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Admin</strong></td><td>Everything — Dashboard, Report, Events, Generator Shifting Entry, plus Devices, Users, Notifications, Activity Log, and System Tools, including review/approval of pending profile changes.</td></tr>
+        <tr><td><strong>User</strong></td><td>Dashboard, Report, Events, and Generator Shifting Entry.</td></tr>
+        <tr><td><strong>Viewer</strong></td><td>Dashboard, Report, and Events (no Generator Shifting Entry).</td></tr>
+        <tr><td><strong>Guest</strong></td><td>Dashboard and Report only.</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:1rem">
+      When a user updates a sensitive field on their own profile (like their
+      email or mobile number), the change is held as <strong>pending</strong>
+      until an admin reviews and approves or rejects it — this page and its
+      approval controls live right inside the admin's Users tab, so nothing
+      changes silently.
+    </p>
+    <p>
+      This <strong>About &amp; Docs</strong> page itself is the one exception
+      to account-based access — it's intentionally public so anyone can
+      understand what SysMonitor does before ever needing an account.
+    </p>
+  </section>
+
+  <section id="faq">
+    <h2>❓ 10. FAQ</h2>
+
+    <details class="faq-item">
+      <summary>Does SysMonitor control the generator or ATS?</summary>
+      <div class="faq-body">No. It's strictly passive — it only pings network devices to infer power state. It never sends a command to the generator, ATS, or any power hardware.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>What's the difference between Viewer and Guest?</summary>
+      <div class="faq-body">Both can see the Dashboard and Report. Viewer additionally sees the Events log; Guest does not, and neither role sees Generator Shifting Entry or any admin page.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>How are false alarms like a brief WiFi drop filtered out?</summary>
+      <div class="faq-body">By requiring both the Holder and NVR devices to agree on a state change before it's confirmed. A single device blip on its own never gets logged as an outage.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>What happens if I'm doing planned network maintenance?</summary>
+      <div class="faq-body">Turn on Maintenance Mode from the dashboard first. It pauses outage detection and notifications for the duration you set, so a router restart or switch reboot is never mistaken for a real power outage.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Is my activity on the dashboard tracked?</summary>
+      <div class="faq-body">Admin actions (creating/editing users and devices, approving profile changes, etc.) are recorded in an Activity Log visible only to admins, as an audit trail.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>How often is the database backed up?</summary>
+      <div class="faq-body">Automatically, once a day, via a dedicated systemd timer — independent of the web app and monitor services.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>How do I get an account?</summary>
+      <div class="faq-body">Accounts are created privately by the COXCLS NOC team, who also assign your role. Reach out using the contact details at the bottom of this page.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Can I use the dashboard without installing the Android app?</summary>
+      <div class="faq-body">Yes — the web dashboard is fully responsive and works in any mobile browser. The Android app is just a convenience wrapper that also auto-detects local vs external network.</div>
+    </details>
+  </section>
+
+  <section id="about-us">
+    <h2>👤 11. About Us</h2>
+    <p>
+      SysMonitor is built and maintained in-house for the COXCLS NOC team at
+      BSCPLC, to reduce manual outage tracking and give the team real-time
+      visibility into facility power health.
+    </p>
+    <div class="dev-card">
+      <div class="dev-avatar">JS</div>
+      <div>
+        <h4>MD. Jikrul Sayeed Hossain</h4>
+        <div class="role">Developer · KUET, EEE (2K15) · COXCLS NOC, BSCPLC</div>
+        <p style="color:var(--muted);font-size:.85rem;margin:0">
+          Designed, built, and maintains SysMonitor end-to-end — the Django
+          backend, the outage-detection logic, the notification system, and
+          the companion Android app.
+        </p>
+        <div class="links">
+          <a href="mailto:jikrul.sayeed@gmail.com">✉️ jikrul.sayeed@gmail.com</a>
+          <a href="https://linkedin.com/in/jikrulsayeed">🔗 LinkedIn</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="contact-strip" style="margin-top:1.5rem">
+      <p style="color:var(--muted);margin-bottom:.6rem">Questions, feedback, or issues with SysMonitor?</p>
+      <a href="mailto:jikrul.sayeed@gmail.com">jikrul.sayeed@gmail.com</a>
+    </div>
+  </section>
+
+</div>
+
+<!-- FOOTER -->
+{% include "monitor/footer.html" %}
+
+</body>
+</html>
+

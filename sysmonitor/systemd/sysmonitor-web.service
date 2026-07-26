@@ -1,0 +1,14 @@
+[Unit]
+Description=SysMonitor Django Web Server
+After=network.target
+
+[Service]
+Type=simple
+User=nanolab
+WorkingDirectory=/home/nanolab/Desktop/sysmonitor
+ExecStart=/home/nanolab/Desktop/sysmonitor/venv/bin/python3 manage.py runserver 0.0.0.0:8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

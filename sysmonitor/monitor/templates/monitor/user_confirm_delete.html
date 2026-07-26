@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SysMonitor — Delete User</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#f1f5f9; min-height:100vh; }
+    nav {
+      background:#1e293b; border-bottom:1px solid #334155;
+      padding:.75rem 2rem; display:flex; align-items:center; justify-content:space-between;
+    }
+    nav .brand { font-size:1.1rem; font-weight:700; }
+    nav .brand span { color:#3b82f6; }
+    nav a { color:#94a3b8; font-size:.85rem; text-decoration:none; }
+    .container { max-width:440px; margin:4rem auto; padding:0 1.5rem; }
+    .card { background:#1e293b; border:1px solid #991b1b; border-radius:12px; padding:2rem; text-align:center; }
+    .icon { font-size:2.5rem; margin-bottom:1rem; }
+    h1 { font-size:1.2rem; margin-bottom:.75rem; }
+    p  { color:#94a3b8; font-size:.9rem; margin-bottom:1.5rem; }
+    .btn-row { display:flex; gap:.75rem; }
+    .btn {
+      flex:1; padding:.65rem; border-radius:8px; font-size:.9rem;
+      font-weight:600; cursor:pointer; text-align:center;
+      text-decoration:none; border:none;
+    }
+    .btn-danger     { background:#dc2626; color:white; }
+    .btn-danger:hover { background:#b91c1c; }
+    .btn-secondary  { background:#334155; color:#f1f5f9; }
+    .btn-secondary:hover { background:#475569; }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="brand">⚡ Sys<span>Monitor</span></div>
+  <a href="/users/">← Back to Users</a>
+</nav>
+<div class="container">
+  <div class="card">
+    <div class="icon">⚠️</div>
+    <h1>Delete User?</h1>
+    <p>You are about to permanently delete <strong>{{ target_user.username }}</strong>. This cannot be undone.</p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="btn-row">
+        <a href="/users/" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% include "monitor/footer.html" %}
+</body>
+</html>

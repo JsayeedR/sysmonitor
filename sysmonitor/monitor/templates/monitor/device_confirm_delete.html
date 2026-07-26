@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SysMonitor — Delete Device</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#f1f5f9;
+           display:flex; align-items:center; justify-content:center; min-height:100vh; }
+    .card {
+      background:#1e293b; border:1px solid #991b1b;
+      border-radius:12px; padding:2.5rem; max-width:420px;
+      width:100%; text-align:center;
+    }
+    .icon { font-size:2.5rem; margin-bottom:1rem; }
+    h1 { font-size:1.2rem; margin-bottom:.75rem; }
+    p  { color:#94a3b8; font-size:.9rem; margin-bottom:.5rem; }
+    .ip { font-family:monospace; color:#64748b; font-size:.85rem; margin-bottom:1.5rem; }
+    .btn-row { display:flex; gap:.75rem; }
+    .btn {
+      flex:1; padding:.65rem; border-radius:8px; font-size:.9rem;
+      font-weight:600; cursor:pointer; text-align:center;
+      text-decoration:none; border:none;
+    }
+    .btn-danger    { background:#dc2626; color:white; }
+    .btn-danger:hover { background:#b91c1c; }
+    .btn-secondary { background:#334155; color:#f1f5f9; }
+    .btn-secondary:hover { background:#475569; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🗑️</div>
+    <h1>Delete Device?</h1>
+    <p><strong>{{ device.name }}</strong></p>
+    <p class="ip">{{ device.ip_address }}</p>
+    <p style="margin-bottom:1.5rem">All status history and events for this device will also be deleted. This cannot be undone.</p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="btn-row">
+        <a href="/devices/" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+      </div>
+    </form>
+  </div>
+{% include "monitor/footer.html" %}
+</body>
+</html>

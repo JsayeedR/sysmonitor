@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — My Profile</title>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:#0f172a; --surface:#1e293b; --border:#334155; --text:#f1f5f9;
+      --muted:#94a3b8; --blue:#3b82f6; --green:#22c55e; --yellow:#fbbf24;
+    }
+    body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; }
+    nav { background:var(--surface); border-bottom:1px solid var(--border); padding:.6rem 2rem; display:flex; align-items:center; justify-content:space-between; }
+    .brand { font-size:1rem; font-weight:700; }
+    .brand span { color:var(--blue); }
+    .nav-links a { color:var(--muted); font-size:.8rem; text-decoration:none; padding:.3rem .65rem; border-radius:6px; }
+    .nav-links a:hover, .nav-links a.active { background:var(--border); color:var(--text); }
+    .nav-meta { display:flex; align-items:center; gap:.7rem; }
+    .nav-meta a { color:var(--muted); font-size:.78rem; text-decoration:none; padding:.3rem .65rem; border-radius:6px; }
+    .nav-meta a:hover { background:var(--border); color:var(--text); }
+
+    .main { max-width:640px; margin:0 auto; padding:1.5rem; }
+    .page-title { font-size:1.3rem; font-weight:700; margin-bottom:1.5rem; }
+
+    .profile-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:2rem; text-align:center; margin-bottom:1.5rem; }
+    .avatar { width:96px; height:96px; border-radius:50%; background:var(--border); margin:0 auto 1rem; display:flex; align-items:center; justify-content:center; font-size:2.2rem; overflow:hidden; }
+    .avatar img { width:100%; height:100%; object-fit:cover; }
+    .profile-name { font-size:1.2rem; font-weight:700; }
+    .profile-role { color:var(--blue); font-size:.85rem; margin-top:.2rem; }
+    .profile-designation { color:var(--muted); font-size:.85rem; margin-top:.2rem; }
+
+    .info-grid { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.5rem; margin-bottom:1.5rem; }
+    .info-row { display:flex; justify-content:space-between; padding:.65rem 0; border-bottom:1px solid var(--border); font-size:.85rem; }
+    .info-row:last-child { border-bottom:none; }
+    .info-label { color:var(--muted); }
+    .info-value { font-weight:500; }
+    .pending-tag { color:var(--yellow); font-size:.72rem; margin-left:.4rem; }
+
+    .btn-row { display:flex; gap:.6rem; }
+    .btn { flex:1; text-align:center; padding:.7rem; border-radius:8px; text-decoration:none; font-size:.85rem; font-weight:500; }
+    .btn-primary { background:var(--blue); color:white; }
+    .btn-ghost { background:var(--border); color:var(--text); }
+
+    .pending-box { background:#451a03; border:1px solid #fdba7444; color:#fdba74; border-radius:10px; padding:1rem; font-size:.8rem; margin-bottom:1.5rem; line-height:1.6; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">Sys<span>Monitor</span></div>
+  <div class="nav-links">
+    <a href="{% url 'dashboard' %}">🏠 Dashboard</a>
+    <a href="/about/">ℹ️ About Me</a>
+  </div>
+  <div class="nav-meta">
+    <a href="{% url 'profile_view' %}" class="active">👤 {{ user.username }}</a>
+    <a href="{% url 'logout' %}">Logout</a>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-title">👤 My Profile</div>
+
+  {% if pending_requests %}
+  <div class="pending-box">
+    ⏳ You have {{ pending_requests|length }} change request(s) awaiting admin approval:
+    {% for p in pending_requests %}
+    <br>• {{ p.get_field_display }} → {{ p.new_value }}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="profile-card">
+    <div class="avatar">
+      {% if profile.profile_picture %}
+        <img src="{{ profile.profile_picture.url }}" alt="">
+      {% else %}
+        {{ user.username|first|upper }}
+      {% endif %}
+    </div>
+    <div class="profile-name">{{ user.first_name }} {{ user.last_name }}</div>
+    <div class="profile-role">{{ role|upper }}</div>
+    {% if profile.designation %}<div class="profile-designation">{{ profile.designation }}</div>{% endif %}
+  </div>
+
+  <div class="info-grid">
+    <div class="info-row"><span class="info-label">Username</span><span class="info-value">{{ user.username }}</span></div>
+    <div class="info-row"><span class="info-label">Email</span><span class="info-value">{{ user.email|default:"—" }}</span></div>
+    <div class="info-row"><span class="info-label">Mobile Number</span><span class="info-value">{{ profile.mobile_number|default:"—" }}</span></div>
+    <div class="info-row"><span class="info-label">WhatsApp Number</span><span class="info-value">{{ profile.whatsapp_number|default:"—" }}</span></div>
+    <div class="info-row"><span class="info-label">Telegram</span><span class="info-value">{{ profile.telegram_handle|default:"—" }}</span></div>
+    <div class="info-row"><span class="info-label">Designation</span><span class="info-value">{{ profile.designation|default:"—" }}</span></div>
+  </div>
+
+  <div class="btn-row">
+    <a href="{% url 'profile_edit' %}" class="btn btn-primary">✏️ Edit Profile</a>
+    <a href="{% url 'profile_password' %}" class="btn btn-ghost">🔒 Change Password</a>
+  </div>
+</div>
+
+
+<!-- FOOTER -->
+{% include "monitor/footer.html" %}
+
+</body>
+</html>
+

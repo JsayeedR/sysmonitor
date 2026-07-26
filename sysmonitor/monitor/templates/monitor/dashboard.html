@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Dashboard</title>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:      #0f172a;
+      --surface: #1e293b;
+      --border:  #334155;
+      --text:    #f1f5f9;
+      --muted:   #94a3b8;
+      --faint:   #475569;
+      --blue:    #3b82f6;
+      --green:   #22c55e;
+      --red:     #ef4444;
+      --yellow:  #fbbf24;
+      --orange:  #fb923c;
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex; flex-direction: column;
+      font-size: 14px;
+    }
+
+    /* NAV */
+    nav {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: .6rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .brand { font-size: 1rem; font-weight: 700; white-space: nowrap; }
+    .brand span { color: var(--blue); }
+    .nav-links { display: flex; align-items: center; gap: .25rem; }
+    .nav-links a {
+      color: var(--muted); font-size: .8rem; text-decoration: none;
+      padding: .3rem .65rem; border-radius: 6px; transition: all .15s; white-space: nowrap;
+    }
+    .nav-links a:hover { background: var(--border); color: var(--text); }
+    .nav-meta { display: flex; align-items: center; gap: .6rem; }
+    .role-badge {
+      font-size: .68rem; padding: 2px 8px; border-radius: 20px;
+      font-weight: 600; background: #1d4ed8; color: #bfdbfe;
+    }
+    .nav-user { color: var(--faint); font-size: .78rem; }
+    .nav-logout {
+      color: var(--muted); font-size: .78rem; text-decoration: none;
+      padding: .3rem .65rem; border-radius: 6px; transition: all .15s;
+    }
+    .nav-logout:hover { background: var(--border); color: var(--text); }
+
+    /* MAIN */
+    .main {
+      flex: 1; max-width: 1400px; width: 100%;
+      margin: 0 auto; padding: 1.25rem 1.5rem;
+    }
+
+    /* BANNER */
+    .banner {
+      border-radius: 10px; padding: 1rem 1.5rem;
+      display: flex; align-items: center; gap: 1rem;
+      border: 1px solid transparent; height: 100%;
+    }
+    .banner.NORMAL      { background:#052e16; border-color:#166534; }
+    .banner.OUTAGE      { background:#450a0a; border-color:#991b1b; animation: blink 1.5s infinite; }
+    .banner.GENERATOR   { background:#422006; border-color:#92400e; }
+    .banner.DEVICE_DOWN { background:#431407; border-color:#9a3412; }
+    .banner.ATS         { background:#172554; border-color:#1e40af; }
+    .banner.UNKNOWN     { background:var(--surface); border-color:var(--border); }
+    @keyframes blink {
+      0%,100%{ box-shadow:0 0 0 0 rgba(185,28,28,.4); }
+      50%    { box-shadow:0 0 0 8px rgba(185,28,28,0); }
+    }
+    .banner-icon { font-size: 1.8rem; flex-shrink: 0; }
+    .banner-text { flex: 1; }
+    .banner-label {
+      font-size: .65rem; color: var(--faint);
+      text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px;
+    }
+    .banner-text h2 { font-size: 1rem; font-weight: 700; }
+    .banner-text p  { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+    .banner.NORMAL      .banner-text h2 { color:#4ade80; }
+    .banner.OUTAGE      .banner-text h2 { color:#f87171; }
+    .banner.GENERATOR   .banner-text h2 { color:#fbbf24; }
+    .banner.DEVICE_DOWN .banner-text h2 { color:#fb923c; }
+    .banner.ATS         .banner-text h2 { color:#60a5fa; }
+    .banner-time {
+      font-size: .7rem; color: var(--faint);
+      text-align: right; white-space: nowrap; flex-shrink: 0;
+    }
+    .banner-time div:last-child { color: var(--muted); margin-top: 2px; }
+
+    /* BANNER GRID */
+    .banner-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 1rem; margin-bottom: 1.25rem;
+    }
+
+    /* DEVICES */
+    .devices-row {
+      display: flex; gap: .85rem; flex-wrap: wrap; margin-bottom: 1.25rem;
+    }
+    .device-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1rem 1.1rem;
+      flex: 1; min-width: 170px; max-width: 260px;
+    }
+    .device-card.UP   { border-color:#166534; }
+    .device-card.DOWN { border-color:#991b1b; }
+    .device-header {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: .4rem;
+    }
+    .device-name { font-weight: 600; font-size: .9rem; }
+    .device-ip   { font-size: .7rem; color: var(--faint); font-family: monospace; }
+    .status-light { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .status-light.UP      { background:var(--green); animation: glow-g 2s infinite; }
+    .status-light.DOWN    { background:var(--red);   animation: glow-r 1s infinite; }
+    .status-light.UNKNOWN { background:var(--faint); }
+    @keyframes glow-g { 0%,100%{opacity:1} 50%{opacity:.4} }
+    @keyframes glow-r { 0%,100%{opacity:1} 50%{opacity:.2} }
+    .status-text        { font-size: .95rem; font-weight: 700; margin-bottom: .2rem; }
+    .status-text.UP     { color: var(--green); }
+    .status-text.DOWN   { color: var(--red); }
+    .status-text.UNKNOWN{ color: var(--faint); }
+    .device-meta { font-size: .7rem; color: var(--faint); }
+
+    /* STATS */
+    .stats-row {
+      display: flex; gap: .85rem; flex-wrap: wrap; margin-bottom: 1.25rem;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: .75rem 1rem; flex: 1; min-width: 110px;
+    }
+    .stat-label {
+      font-size: .68rem; color: var(--faint); margin-bottom: .2rem;
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    .stat-value { font-size: 1.4rem; font-weight: 700; }
+    .stat-sub   { font-size: .68rem; color: var(--faint); margin-top: .15rem; }
+
+    /* BOTTOM GRID */
+    .bottom-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    }
+    .panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1rem;
+    }
+    .panel-title {
+      font-size: .7rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--faint); margin-bottom: .75rem;
+      padding-bottom: .5rem; border-bottom: 1px solid var(--border);
+    }
+
+    /* EVENTS */
+    .date-label {
+      font-size: .7rem; font-weight: 600; color: var(--blue);
+      text-transform: uppercase; letter-spacing: .04em;
+      padding: .3rem 0; margin-bottom: .25rem;
+    }
+    .event-row {
+      display: flex; align-items: flex-start; gap: .5rem;
+      padding: .35rem 0; border-bottom: 1px solid #1a2744; font-size: .78rem;
+    }
+    .event-row:last-child { border-bottom: none; }
+    .badge {
+      font-size: .65rem; padding: 1px 6px; border-radius: 3px;
+      font-weight: 600; white-space: nowrap; flex-shrink: 0; margin-top: 1px;
+    }
+    .badge.OUTAGE   { background:#450a0a; color:#f87171; }
+    .badge.NOTICE   { background:#1e293b; color:var(--muted); border:1px solid var(--border); }
+    .badge.NORMAL   { background:#052e16; color:#4ade80; }
+    .badge.GEN-UP   { background:#422006; color:#fbbf24; }
+    .badge.ATS      { background:#172554; color:#60a5fa; }
+    .badge.CRITICAL { background:#450a0a; color:#f87171; border:1px solid #7f1d1d; }
+    .badge.INFO     { background:#1e293b; color:var(--muted); border:1px solid var(--border); }
+    .event-time   { color:var(--faint); font-size:.72rem; white-space:nowrap; flex-shrink:0; font-family:monospace; }
+    .event-device { color:var(--blue);  font-size:.72rem; white-space:nowrap; flex-shrink:0; }
+    .event-msg    { color:#cbd5e1; flex:1; line-height:1.4; }
+
+    /* GENERATOR LOG TABLE */
+    .gen-table {
+      width: 100%; border-collapse: collapse; font-size: .8rem;
+      border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    }
+    .gen-table th {
+      background: #0f172a; padding: .4rem .75rem; text-align: left;
+      font-size: .68rem; text-transform: uppercase; letter-spacing: .04em;
+      color: var(--faint); font-weight: 600; border-bottom: 1px solid var(--border);
+    }
+    .gen-table td {
+      padding: .45rem .75rem; border-bottom: 1px solid #1a2744; color: var(--muted);
+    }
+    .gen-table tr:last-child td { border-bottom: none; }
+    .gen-table .dur { color: var(--yellow); font-weight: 600; }
+    .gen-total-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: .5rem .75rem; margin-top: .5rem;
+      background: #0f172a; border-radius: 6px; font-size: .78rem;
+    }
+    .gen-date-header {
+      font-size: .7rem; font-weight: 600; color: var(--blue);
+      text-transform: uppercase; letter-spacing: .04em;
+      padding: .3rem 0; margin-bottom: .4rem;
+    }
+    .date-btn-row {
+      display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: .6rem;
+    }
+    .date-btn {
+      font-size: .68rem; padding: 2px 8px; border-radius: 4px; cursor: pointer;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--muted); transition: all .15s;
+    }
+    .date-btn:hover  { background: var(--border); color: var(--text); }
+    .date-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .no-data {
+      color: var(--faint); font-size: .8rem; text-align: center; padding: 2rem 0;
+    }
+
+    /* CYCLE TYPE COLORS */
+    .type-NORMAL     { color: var(--green);  font-weight: 600; }
+    .type-ATS_ONLY   { color: var(--blue);   font-weight: 600; }
+    .type-INCOMPLETE { color: var(--yellow); font-weight: 600; }
+    .type-ALARM      { color: var(--orange); font-weight: 600; }
+    .type-CRITICAL   { color: var(--red);    font-weight: 600; }
+
+    /* FOOTER */
+    footer {
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: .55rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: .4rem;
+    }
+    .footer-left { font-size: .72rem; color: var(--faint); }
+    .footer-left strong { color: var(--muted); }
+    .footer-right { font-size: .7rem; color: var(--faint); }
+    .footer-right a { color: var(--blue); text-decoration: none; }
+    .footer-right a:hover { text-decoration: underline; }
+
+    /* MOBILE */
+    .hamburger { display:none; flex-direction:column; gap:4px; cursor:pointer; padding:.3rem; border:none; background:none; }
+    .hamburger span { display:block; width:20px; height:2px; background:var(--muted); border-radius:2px; transition:.2s; }
+    .hamburger.open span:nth-child(1) { transform:translateY(6px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity:0; }
+    .hamburger.open span:nth-child(3) { transform:translateY(-6px) rotate(-45deg); }
+
+    @media (max-width: 768px) {
+      nav { padding: .55rem 1rem; flex-wrap: wrap; gap: .4rem; position:relative; }
+      .hamburger { display:flex; }
+      .nav-links {
+        display:none; flex-direction:column; width:100%;
+        background:var(--surface); border-top:1px solid var(--border);
+        padding:.5rem 0; gap:0;
+      }
+      .nav-links.open { display:flex; }
+      .nav-links a { padding:.55rem 1rem; border-radius:0; font-size:.85rem; border-bottom:1px solid var(--border); }
+      .nav-links a:last-child { border-bottom:none; }
+      .nav-meta { gap:.4rem; }
+      .role-badge { display:none; }
+      .main { padding: 1rem .75rem; }
+      .banner-grid { grid-template-columns: 1fr; }
+      .bottom-grid { grid-template-columns: 1fr; }
+      .device-card { max-width: 100%; }
+      footer { flex-direction: column; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="brand">⚡ Sys<span>Monitor</span></div>
+  <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="nav-links">
+    <a href="/">🏠 Dashboard</a>
+    <a href="/report/">📊 Report</a>
+    {% if role != "guest" %}<a href="/events/">📋 Events</a>{% endif %}
+    {% if role == "user" or role == "admin" %}<a href="/generator-log/">🔧 Generator Shifting Entry</a>{% endif %}
+    <a href="/about/">ℹ️ About Me</a>
+    {% if role == "admin" %}
+    <a href="/devices/">🖥️ Devices</a>
+    <a href="/users/">👥 Users</a>
+    <a href="/notifications/">🔔 Notifications</a>
+    <a href="/activity/">🕵️ Activity</a>
+    <a href="/system/">🛠️ System</a>
+    {% endif %}
+  </div>
+  <div class="nav-meta">
+    <span class="role-badge">{{ role|upper }}</span>
+    <a href="/profile/" class="nav-user" style="text-decoration:none;">👤 {{ user.username }}</a>
+    <a href="/logout/" class="nav-logout">Logout</a>
+  </div>
+</nav>
+
+<!-- WHATSAPP TOKEN HEALTH WARNING -->
+<div id="wa-health-banner" style="display:none; padding:.65rem 2rem; font-size:.82rem; display:none; align-items:center; justify-content:space-between; gap:1rem;">
+  <div style="display:flex; align-items:center; gap:.6rem;">
+    <span id="wa-health-icon" style="font-size:1.1rem;">⚠️</span>
+    <span id="wa-health-text">Checking WhatsApp token status...</span>
+    <a href="/notifications/" style="color:inherit; text-decoration:underline; white-space:nowrap;">Fix in Notifications →</a>
+  </div>
+  <button onclick="dismissWaHealthBanner()" style="background:none; border:none; color:inherit; cursor:pointer; font-size:1rem; opacity:.7; padding:0 .3rem;">✕</button>
+</div>
+
+<!-- MAINTENANCE MODE ACTIVE BANNER -->
+<div id="maint-banner" style="display:none; padding:.65rem 2rem; font-size:.82rem; align-items:center; justify-content:space-between; gap:1rem; background:#451a03; color:#fdba74; border-bottom:1px solid #fdba7433;">
+  <div style="display:flex; align-items:center; gap:.6rem;">
+    <span style="font-size:1.1rem;">🔧</span>
+    <span id="maint-text">Maintenance Mode is active — outage detection paused.</span>
+  </div>
+  {% if role == "admin" %}
+  <button onclick="stopMaintenance()" style="background:#fdba74; color:#451a03; border:none; padding:.3rem .8rem; border-radius:6px; cursor:pointer; font-size:.78rem; font-weight:600;">End Now</button>
+  {% endif %}
+</div>
+
+<div class="main">
+
+  {% if role == "admin" %}
+  <div id="maint-start-card" style="background:#1e293b; border:1px solid #334155; border-radius:10px; padding:.85rem 1.1rem; margin-bottom:1rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:.6rem; font-size:.82rem; color:#94a3b8;">
+      🔧 Planning network maintenance (router restart, switch reboot, etc.)?
+    </div>
+    <div style="display:flex; gap:.5rem; align-items:center;">
+      <select id="maint-minutes" style="background:#0f172a; border:1px solid #334155; color:#f1f5f9; padding:.4rem .6rem; border-radius:6px; font-size:.8rem;">
+        <option value="5">5 min</option>
+        <option value="10" selected>10 min</option>
+        <option value="15">15 min</option>
+        <option value="30">30 min</option>
+      </select>
+      <button onclick="startMaintenance()" style="background:#3b82f6; color:white; border:none; padding:.45rem .9rem; border-radius:6px; cursor:pointer; font-size:.8rem; font-weight:500;">Start Maintenance Mode</button>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- BANNER GRID -->
+  <div class="banner-grid">
+
+    <!-- Division 1: Current Status -->
+    <div class="banner UNKNOWN" id="banner">
+      <div class="banner-icon" id="banner-icon">⏳</div>
+      <div class="banner-text">
+        <div class="banner-label">Current Status</div>
+        <h2 id="banner-title">Loading...</h2>
+        <p id="banner-note">Fetching status...</p>
+      </div>
+      <div class="banner-time">
+        <div>Updated</div>
+        <div id="last-updated-time">—</div>
+      </div>
+    </div>
+
+    <!-- Division 2: Last Cycle Result -->
+    <div class="banner UNKNOWN" id="cycle-banner">
+      <div class="banner-icon" id="cycle-icon">⏳</div>
+      <div class="banner-text">
+        <div class="banner-label">Last Power Cycle</div>
+        <h2 id="cycle-title" style="font-size:1rem;font-weight:700">Loading...</h2>
+        <p id="cycle-sub" style="font-size:.78rem;color:var(--muted);margin-top:2px">
+          Fetching cycle data...
+        </p>
+      </div>
+      <div class="banner-time" id="cycle-date" style="display:none">
+        <div>Date</div>
+        <div id="cycle-date-val">—</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- DEVICE STATUS LIGHTS -->
+  <div class="devices-row" id="devices-row">
+    {% for d in devices %}
+    <div class="device-card {{ d.status }}">
+      <div class="device-header">
+        <div>
+          <div class="device-name">{{ d.obj.name }}</div>
+          <div class="device-ip">{{ d.obj.ip_address }}</div>
+        </div>
+        <div class="status-light {{ d.status }}"></div>
+      </div>
+      <div class="status-text {{ d.status }}">{{ d.status }}</div>
+      <div class="device-meta">
+        {% if d.ms %}{{ d.ms }}ms · {% endif %}{{ d.obj.description }}
+      </div>
+    </div>
+    {% empty %}
+    <div class="device-card">
+      <div class="device-name" style="color:var(--faint)">No devices added</div>
+      <div class="device-meta">Go to Devices to add</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- STATS ROW -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Devices</div>
+      <div class="stat-value">{{ devices|length }}</div>
+      <div class="stat-sub">Monitored</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Devices UP</div>
+      <div class="stat-value" style="color:var(--green)" id="stat-up">—</div>
+      <div class="stat-sub">Reachable</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Devices DOWN</div>
+      <div class="stat-value" style="color:var(--red)" id="stat-down">—</div>
+      <div class="stat-sub">Unreachable</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Next Refresh</div>
+      <div class="stat-value" style="color:var(--blue)" id="countdown">30</div>
+      <div class="stat-sub">seconds</div>
+    </div>
+  </div>
+
+  <!-- BOTTOM: EVENTS + GENERATOR LOG -->
+  {% if role != "guest" %}
+  <div class="bottom-grid">
+
+    <!-- LEFT: Recent Events -->
+    <div class="panel">
+      <div class="panel-title">📋 Recent Events</div>
+      <div id="events-list">
+        {% regroup events by created_at|date:"d/m/Y" as events_by_date %}
+        {% for date_group in events_by_date %}
+        <div style="margin-bottom:.6rem">
+          <div class="date-label">📅 {{ date_group.grouper }}</div>
+          {% for e in date_group.list %}
+          <div class="event-row">
+            <span class="event-time">{{ e.created_at|date:"h:i A" }}</span>
+            <span class="badge {{ e.level }}">{{ e.level }}</span>
+            {% if e.device %}
+            <span class="event-device">[{{ e.device.name }}]</span>
+            {% endif %}
+            <span class="event-msg">{{ e.message }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% empty %}
+        <div class="no-data">No events yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- RIGHT: PDB Outage / Generator Runtime -->
+    <div class="panel">
+      <div class="panel-title">⚡ PDB Outage</div>
+      <div id="gen-log">
+        <div class="no-data">Loading outage data...</div>
+      </div>
+    </div>
+
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- FOOTER -->
+{% include "monitor/footer.html" %}
+
+<script>
+const STATUS_LABELS = {
+  NORMAL:      '🟢 ALL POWER SYSTEM NORMAL',
+  OUTAGE:      '🔴 POWER OUTAGE IN PROGRESS',
+  GENERATOR:   '🟡 GENERATOR RUNNING',
+  DEVICE_DOWN: '🟠 DEVICE DOWN / UNREACHABLE',
+  ATS:         '🔵 ATS SWITCHING',
+};
+
+function bdtTime() {
+  return new Date().toLocaleTimeString('en-US', {
+    timeZone: 'Asia/Dhaka',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+  });
+}
+
+// ── Main status refresh ───────────────────────────────────────────────────────
+function refresh() {
+  fetch('/api/status/')
+    .then(r => r.json())
+    .then(data => {
+
+      // Division 1: Current Status Banner
+      const banner  = document.getElementById('banner');
+      const iconEl  = document.getElementById('banner-icon');
+      const titleEl = document.getElementById('banner-title');
+      const noteEl  = document.getElementById('banner-note');
+      const timeEl  = document.getElementById('last-updated-time');
+      if (banner) {
+        const icons = {
+          NORMAL:'🟢', OUTAGE:'🔴', GENERATOR:'🟡',
+          DEVICE_DOWN:'🟠', ATS:'🔵'
+        };
+        banner.className = 'banner ' + (data.overall || 'UNKNOWN');
+        if (iconEl)  iconEl.textContent  = icons[data.overall] || '⚪';
+        if (titleEl) titleEl.textContent = STATUS_LABELS[data.overall] || '⚪ STATUS UNKNOWN';
+        if (noteEl)  noteEl.textContent  = data.note || '';
+        if (timeEl)  timeEl.textContent  = bdtTime();
+      }
+
+      // Division 2: Last Cycle Banner
+      const cycleDiv      = document.getElementById('cycle-banner');
+      const cycleIcon     = document.getElementById('cycle-icon');
+      const cycleTitle    = document.getElementById('cycle-title');
+      const cycleSub      = document.getElementById('cycle-sub');
+      const cycleDateWrap = document.getElementById('cycle-date');
+      const cycleDateVal  = document.getElementById('cycle-date-val');
+      if (cycleDiv && data.cycle) {
+        const c   = data.cycle;
+        let cls   = 'UNKNOWN';
+        let icon  = '—';
+        let title = 'NO CYCLE YET';
+        let sub   = 'No outage recorded yet';
+        let date  = '';
+
+        if (c.state === 'ACTIVE') {
+          cls   = 'GENERATOR';
+          icon  = '⚠️';
+          title = 'CYCLE IN PROGRESS';
+          sub   = 'Generator running since ' + c.gen_since;
+        } else if (c.state === 'COMPLETE') {
+          date = c.date || '';
+          if (c.cycle_type === 'NORMAL') {
+            cls   = 'NORMAL'; icon = '✅';
+            title = 'NORMAL POWER CYCLE ✓';
+            sub   = 'Completed Last at ' + c.completed_at
+                  + ' · PDB outage ' + c.pdb_duration;
+          } else if (c.cycle_type === 'ATS_ONLY') {
+            cls   = 'ATS'; icon = '🔵';
+            title = 'ATS SWITCHOVER ONLY';
+            sub   = 'No generator — ATS only at ' + c.completed_at;
+          } else if (c.cycle_type === 'ALARM') {
+            cls   = 'OUTAGE'; icon = '🟠';
+            title = 'ALARM — ABNORMAL CYCLE';
+            sub   = c.alarm_reason || 'Abnormal cycle detected';
+          } else if (c.cycle_type === 'CRITICAL') {
+            cls   = 'OUTAGE'; icon = '🔴';
+            title = 'CRITICAL FAILURE';
+            sub   = c.alarm_reason || 'Total power failure';
+          } else {
+            cls   = 'DEVICE_DOWN'; icon = '🟠';
+            title = c.cycle_type || 'UNKNOWN';
+            sub   = c.alarm_reason || '—';
+          }
+        }
+
+        cycleDiv.className = 'banner ' + cls;
+        if (cycleIcon)  cycleIcon.textContent  = icon;
+        if (cycleTitle) cycleTitle.textContent = title;
+        if (cycleSub)   cycleSub.textContent   = sub;
+        if (cycleDateWrap && cycleDateVal) {
+          cycleDateWrap.style.display = date ? 'block' : 'none';
+          if (date) cycleDateVal.textContent = date;
+        }
+      }
+
+      // Device Cards
+      const grid = document.getElementById('devices-row');
+      if (grid && data.devices && data.devices.length) {
+        grid.innerHTML = data.devices.map(d => `
+          <div class="device-card ${d.status}">
+            <div class="device-header">
+              <div>
+                <div class="device-name">${d.name}</div>
+                <div class="device-ip">${d.ip}</div>
+              </div>
+              <div class="status-light ${d.status}"></div>
+            </div>
+            <div class="status-text ${d.status}">${d.status}</div>
+            <div class="device-meta">
+              ${d.ms ? d.ms + 'ms · ' : ''}${d.desc || ''}
+            </div>
+          </div>
+        `).join('');
+        let up = 0, down = 0;
+        data.devices.forEach(d => d.status === 'UP' ? up++ : down++);
+        const elUp   = document.getElementById('stat-up');
+        const elDown = document.getElementById('stat-down');
+        if (elUp)   elUp.textContent   = up;
+        if (elDown) elDown.textContent = down;
+      }
+
+      // Recent Events
+      const eventsList = document.getElementById('events-list');
+      if (eventsList && data.events && data.events.length) {
+        const groups = {};
+        const order  = [];
+        data.events.forEach(e => {
+          const ymd = e.created_at.slice(0, 10);
+          const dmy = ymd.split('-').reverse().join('/');
+          if (!groups[dmy]) { groups[dmy] = []; order.push(dmy); }
+          groups[dmy].push(e);
+        });
+        eventsList.innerHTML = order.map(date => `
+          <div style="margin-bottom:.6rem">
+            <div class="date-label">📅 ${date}</div>
+            ${groups[date].map(e => `
+              <div class="event-row">
+                <span class="event-time">${e.created_at.slice(11)}</span>
+                <span class="badge ${e.level}">${e.level}</span>
+                ${e.device_name
+                  ? `<span class="event-device">[${e.device_name}]</span>`
+                  : ''}
+                <span class="event-msg">${e.message}</span>
+              </div>
+            `).join('')}
+          </div>
+        `).join('');
+      }
+
+    })
+    .catch(() => {});
+}
+
+// ── Daily Summary Panel ───────────────────────────────────────────────────────
+let currentSummaryDate = '';
+
+function loadSummary(dateVal) {
+  const genLog = document.getElementById('gen-log');
+  if (!genLog) return;
+  currentSummaryDate = dateVal;
+  genLog.innerHTML = '<div class="no-data">Loading...</div>';
+
+  fetch('/api/daily-summary/' + (dateVal ? '?date=' + dateVal : ''))
+    .then(r => r.json())
+    .then(data => {
+
+      // Date selector buttons
+      const btnHtml = data.available_dates && data.available_dates.length
+        ? `<div class="date-btn-row">
+            ${data.available_dates.map(d => `
+              <button class="date-btn ${d === data.date_val ? 'active' : ''}"
+                onclick="loadSummary('${d}')">
+                ${d.split('-').reverse().join('/')}
+              </button>
+            `).join('')}
+          </div>`
+        : '';
+
+      if (!data.rows || !data.rows.length) {
+        const todayBDT2 = new Date().toLocaleDateString('en-CA', {
+          timeZone: 'Asia/Dhaka'
+        });
+        const isToday2  = (data.date_val === todayBDT2);
+        const dot2      = isToday2 ? '🟡' : '🟢';
+        const txt2      = isToday2 ? 'Partial' : 'Complete';
+        genLog.innerHTML = btnHtml + `
+          <div class="gen-date-header">
+            📅 ${data.date}
+            <span style="font-size:.72rem;color:var(--muted);font-weight:400;margin-left:.4rem">
+              ${dot2} ${txt2}
+            </span>
+          </div>
+          <div class="no-data" style="padding:1rem 0">
+            ✅ No outages recorded — all systems normal.
+          </div>
+          <div class="gen-total-row">
+            <span style="color:var(--faint)">Total Outage Duration</span>
+            <span style="color:var(--green);font-weight:600">0 min</span>
+          </div>`;
+        return;
+      }
+
+      // Day status
+      const hasIncomplete = data.rows.some(r => !r.is_complete);
+      const hasAlarm      = data.rows.some(r => r.cycle_type === 'ALARM');
+      const hasCritical   = data.rows.some(r => r.cycle_type === 'CRITICAL');
+      const todayBDT      = new Date().toLocaleDateString('en-CA', {
+        timeZone: 'Asia/Dhaka'
+      });
+      const isToday       = (data.date_val === todayBDT);
+
+      const statusDot  = hasCritical   ? '🔴'
+                       : hasAlarm      ? '🟠'
+                       : isToday       ? '🟡'
+                       : hasIncomplete ? '🟡'
+                       : '🟢';
+      const statusText = hasCritical   ? 'Critical'
+                       : hasAlarm      ? 'Alarm'
+                       : isToday       ? 'Partial'
+                       : hasIncomplete ? 'Partial'
+                       : 'Complete';
+
+      const typeLabel = {
+        'NORMAL':     '✅ Normal',
+        'ATS_ONLY':   '🔵 ATS Only',
+        'INCOMPLETE': '🟡 In Progress',
+        'ALARM':      '🟠 Alarm',
+        'CRITICAL':   '🔴 Critical',
+      };
+
+      const rowsHtml = data.rows.map(r => `
+        <tr>
+          <td>${r.start}</td>
+          <td>${!r.is_complete && r.end === '—'
+            ? '<span style="color:var(--yellow)">Ongoing...</span>'
+            : r.end}
+          </td>
+          <td class="dur">${!r.is_complete && r.duration === '—'
+            ? '<span style="color:var(--yellow)">Running</span>'
+            : r.duration}
+          </td>
+          <td class="type-${r.cycle_type}">
+            ${typeLabel[r.cycle_type] || r.cycle_type}
+            ${r.alarm_reason
+              ? `<div style="font-size:.65rem;color:var(--faint);font-weight:400">
+                   ${r.alarm_reason}
+                 </div>`
+              : ''}
+          </td>
+        </tr>
+      `).join('');
+
+      const totalDisplay = data.total_mins >= 60
+        ? `${Math.floor(data.total_mins / 60)}h ${data.total_mins % 60}min (${data.total_mins} min)`
+        : `${data.total_mins} min`;
+
+      genLog.innerHTML = `
+        ${btnHtml}
+        <div class="gen-date-header">
+          📅 ${data.date}
+          <span style="font-size:.72rem;color:var(--muted);
+                       font-weight:400;margin-left:.4rem">
+            ${statusDot} ${statusText}
+          </span>
+        </div>
+        <table class="gen-table">
+          <thead>
+            <tr>
+              <th>Start Time</th>
+              <th>End Time</th>
+              <th>Duration</th>
+              <th>Type</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+        <div class="gen-total-row">
+          <span style="color:var(--faint)">
+            Total Outage Duration
+            <span style="font-size:.65rem">(completed cycles only)</span>
+          </span>
+          <span style="color:var(--yellow);font-weight:600">
+            ${totalDisplay}
+          </span>
+        </div>
+      `;
+    })
+    .catch(() => {
+      const genLog = document.getElementById('gen-log');
+      if (genLog) genLog.innerHTML =
+        '<div class="no-data">Failed to load summary.</div>';
+    });
+}
+
+// ── Countdown & auto-refresh ──────────────────────────────────────────────────
+let counter = 30;
+const countEl = document.getElementById('countdown');
+
+function tick() {
+  counter--;
+  if (countEl) countEl.textContent = counter;
+  if (counter <= 0) {
+    counter = 30;
+    refresh();
+    loadSummary(currentSummaryDate);
+  }
+}
+
+refresh();
+loadSummary('');
+setInterval(tick, 1000);
+
+// ── WhatsApp Token Health Banner (checks at most once every 6 hours) ───────────
+function dismissWaHealthBanner() {
+  document.getElementById('wa-health-banner').style.display = 'none';
+  sessionStorage.setItem('wa_health_dismissed', '1');
+}
+
+function renderWaHealth(data) {
+  const banner = document.getElementById('wa-health-banner');
+  const icon   = document.getElementById('wa-health-icon');
+  const text   = document.getElementById('wa-health-text');
+
+  if (sessionStorage.getItem('wa_health_dismissed') === '1') return;
+
+  if (data.status === 'DISABLED' || data.status === 'PERMANENT') {
+    banner.style.display = 'none';
+    return;
+  }
+
+  let bg, color, iconChar;
+  if (data.status === 'EXPIRED' || data.status === 'INVALID' || data.status === 'NOT_CONFIGURED') {
+    bg = '#450a0a'; color = '#fca5a5'; iconChar = '🚨';
+  } else if (data.status === 'EXPIRING_SOON') {
+    bg = '#451a03'; color = '#fdba74'; iconChar = '⚠️';
+  } else if (data.status === 'TEMPORARY') {
+    bg = '#1e293b'; color = '#94a3b8'; iconChar = 'ℹ️';
+  } else {
+    banner.style.display = 'none';
+    return;
+  }
+
+  banner.style.background = bg;
+  banner.style.color = color;
+  banner.style.borderBottom = '1px solid ' + color + '33';
+  icon.textContent = iconChar;
+  text.textContent = 'WhatsApp: ' + data.message;
+  banner.style.display = 'flex';
+}
+
+function checkWaHealth() {
+  const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+  const lastCheck = parseInt(localStorage.getItem('wa_health_last_check') || '0');
+  const cachedData = localStorage.getItem('wa_health_data');
+  const now = Date.now();
+
+  // If checked recently, just re-render the cached result (no network call)
+  if (cachedData && (now - lastCheck) < SIX_HOURS_MS) {
+    try { renderWaHealth(JSON.parse(cachedData)); } catch (e) {}
+    return;
+  }
+
+  // Otherwise fetch fresh and cache it
+  fetch('/notifications/whatsapp-health/')
+    .then(r => r.json())
+    .then(data => {
+      localStorage.setItem('wa_health_data', JSON.stringify(data));
+      localStorage.setItem('wa_health_last_check', String(now));
+      renderWaHealth(data);
+    })
+    .catch(() => {});
+}
+
+checkWaHealth(); // runs once per page load; only hits the network every 6h
+
+// Hamburger menu toggle
+function toggleNav() {
+  const btn = document.getElementById('hamburger');
+  const links = document.getElementById('nav-links');
+  btn.classList.toggle('open');
+  links.classList.toggle('open');
+}
+// Close nav when a link is clicked on mobile
+document.getElementById('nav-links').querySelectorAll('a').forEach(a => {
+  a.addEventListener('click', () => {
+    document.getElementById('hamburger').classList.remove('open');
+    document.getElementById('nav-links').classList.remove('open');
+  });
+});
+
+// ── Maintenance Mode ─────────────────────────────────────────────────────────
+function getCsrfToken() {
+  const match = document.cookie.match(/csrftoken=([^;]+)/);
+  return match ? match[1] : '{{ csrf_token }}';
+}
+
+function startMaintenance() {
+  const minutes = document.getElementById('maint-minutes').value;
+  if (!confirm(`Start Maintenance Mode for ${minutes} minutes? Outage detection and notifications will be paused.`)) return;
+
+  fetch('/maintenance/start/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+    body: JSON.stringify({ minutes: parseInt(minutes), reason: 'Started from dashboard' }),
+  }).then(r => r.json()).then(r => {
+    if (r.ok) {
+      checkMaintenanceStatus();
+    }
+  });
+}
+
+function stopMaintenance() {
+  if (!confirm('End Maintenance Mode now? Normal outage detection will resume immediately.')) return;
+  fetch('/maintenance/stop/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrfToken() },
+  }).then(r => r.json()).then(() => checkMaintenanceStatus());
+}
+
+function checkMaintenanceStatus() {
+  fetch('/maintenance/status/').then(r => r.json()).then(data => {
+    const banner = document.getElementById('maint-banner');
+    const startCard = document.getElementById('maint-start-card');
+
+    if (data.active) {
+      let text = 'Maintenance Mode is active';
+      if (data.started_by) text += ` (started by ${data.started_by}`;
+      if (data.expires_at) text += data.started_by ? `, until ${data.expires_at})` : ` until ${data.expires_at}`;
+      else if (data.started_by) text += ')';
+      text += ' — outage detection paused.';
+      document.getElementById('maint-text').textContent = text;
+      banner.style.display = 'flex';
+      if (startCard) startCard.style.display = 'none';
+    } else {
+      banner.style.display = 'none';
+      if (startCard) startCard.style.display = 'flex';
+    }
+  }).catch(() => {});
+}
+
+checkMaintenanceStatus();
+setInterval(checkMaintenanceStatus, 30 * 1000); // poll every 30s — needs to be responsive since it affects live monitoring state
+</script>
+
+</body>
+</html>
+

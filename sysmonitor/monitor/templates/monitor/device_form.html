@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SysMonitor — {{ action }} Device</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#f1f5f9; min-height:100vh; }
+    nav {
+      background:#1e293b; border-bottom:1px solid #334155;
+      padding:.75rem 2rem; display:flex; align-items:center; justify-content:space-between;
+    }
+    nav .brand { font-size:1.1rem; font-weight:700; }
+    nav .brand span { color:#3b82f6; }
+    nav a { color:#94a3b8; font-size:.85rem; text-decoration:none; }
+    .container { max-width:480px; margin:3rem auto; padding:0 1.5rem; }
+    h1 { font-size:1.3rem; font-weight:700; margin-bottom:1.5rem; }
+    .card { background:#1e293b; border:1px solid #334155; border-radius:12px; padding:2rem; }
+    label { display:block; font-size:.8rem; color:#94a3b8; margin-bottom:6px; margin-top:1rem; }
+    label:first-of-type { margin-top:0; }
+    input[type=text], input[type=number] {
+      width:100%; padding:.65rem .9rem;
+      background:#0f172a; border:1px solid #334155;
+      border-radius:8px; color:#f1f5f9; font-size:.95rem;
+      outline:none; transition:border .2s;
+    }
+    input:focus { border-color:#3b82f6; }
+    .checkbox-row {
+      display:flex; align-items:center; gap:.6rem;
+      margin-top:1rem; padding:.65rem .9rem;
+      background:#0f172a; border:1px solid #334155; border-radius:8px;
+    }
+    .checkbox-row input { width:auto; }
+    .checkbox-row label { margin:0; color:#f1f5f9; font-size:.9rem; }
+    .btn-row { display:flex; gap:.75rem; margin-top:1.5rem; }
+    .btn {
+      flex:1; padding:.65rem; border-radius:8px; font-size:.9rem;
+      font-weight:600; cursor:pointer; text-align:center;
+      text-decoration:none; border:none;
+    }
+    .btn-primary { background:#3b82f6; color:white; }
+    .btn-primary:hover { background:#2563eb; }
+    .btn-secondary { background:#334155; color:#f1f5f9; }
+    .btn-secondary:hover { background:#475569; }
+    .error {
+      background:#450a0a; border:1px solid #b91c1c; color:#fca5a5;
+      border-radius:8px; padding:.6rem .9rem; font-size:.85rem; margin-bottom:1rem;
+    }
+    .hint { font-size:.75rem; color:#475569; margin-top:4px; }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="brand">⚡ Sys<span>Monitor</span></div>
+  <div style="display:flex;gap:1.5rem">
+    <a href="/">Dashboard</a>
+    <a href="/devices/">Devices</a>
+    <a href="/about/">About Me</a>
+    <a href="/logout/">Logout</a>
+  </div>
+</nav>
+<div class="container">
+  <h1>{% if action == "Add" %}📡 Add New Device{% else %}✏️ Edit Device{% endif %}</h1>
+  <div class="card">
+    {% if error %}<div class="error">⚠️ {{ error }}</div>{% endif %}
+    <form method="post">
+      {% csrf_token %}
+
+      <label>Device Name</label>
+      <input type="text" name="name" placeholder="e.g. NVR, Router, Server"
+             value="{{ device.name|default:'' }}" required autofocus>
+
+      <label>IP Address</label>
+      {% if action == "Edit" %}
+      <input type="text" value="{{ device.ip_address }}" disabled
+             style="opacity:.5;cursor:not-allowed">
+      <p class="hint">IP address cannot be changed after creation.</p>
+      {% else %}
+      <input type="text" name="ip_address" placeholder="e.g. 192.168.1.100" required>
+      {% endif %}
+
+      <label>Description <span class="hint">(optional)</span></label>
+      <input type="text" name="description" placeholder="e.g. Camera recorder on PDB"
+             value="{{ device.description|default:'' }}">
+
+      {% if action == "Edit" %}
+      <div class="checkbox-row">
+        <input type="checkbox" name="is_active" id="is_active"
+               {% if device.is_active %}checked{% endif %}>
+        <label for="is_active">Active — include in monitoring</label>
+      </div>
+      {% endif %}
+
+      <div class="btn-row">
+        <a href="/devices/" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+          {% if action == "Add" %}Add Device{% else %}Save Changes{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% include "monitor/footer.html" %}
+</body>
+</html>
+

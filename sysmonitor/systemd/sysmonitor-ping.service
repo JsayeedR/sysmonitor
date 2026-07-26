@@ -1,0 +1,14 @@
+[Unit]
+Description=SysMonitor Ping Monitor
+After=network.target sysmonitor-web.service
+
+[Service]
+Type=simple
+User=nanolab
+WorkingDirectory=/home/nanolab/Desktop/sysmonitor
+ExecStart=/home/nanolab/Desktop/sysmonitor/venv/bin/python3 monitor/ping_monitor.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

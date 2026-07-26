@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SysMonitor — {{ action }} User</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#f1f5f9; min-height:100vh; }
+    nav {
+      background:#1e293b; border-bottom:1px solid #334155;
+      padding:.75rem 2rem; display:flex; align-items:center; justify-content:space-between;
+    }
+    nav .brand { font-size:1.1rem; font-weight:700; }
+    nav .brand span { color:#3b82f6; }
+    nav a { color:#94a3b8; font-size:.85rem; text-decoration:none; }
+    nav a:hover { color:#f1f5f9; }
+    .container { max-width:480px; margin:3rem auto; padding:0 1.5rem; }
+    h1 { font-size:1.3rem; font-weight:700; margin-bottom:1.5rem; }
+    .card { background:#1e293b; border:1px solid #334155; border-radius:12px; padding:2rem; }
+    label { display:block; font-size:.8rem; color:#94a3b8; margin-bottom:6px; margin-top:1rem; }
+    label:first-of-type { margin-top:0; }
+    input, select {
+      width:100%; padding:.65rem .9rem;
+      background:#0f172a; border:1px solid #334155;
+      border-radius:8px; color:#f1f5f9; font-size:.95rem;
+      outline:none; transition:border .2s;
+    }
+    input:focus, select:focus { border-color:#3b82f6; }
+    select option { background:#1e293b; }
+    .btn-row { display:flex; gap:.75rem; margin-top:1.5rem; }
+    .btn {
+      flex:1; padding:.65rem; border-radius:8px; font-size:.9rem;
+      font-weight:600; cursor:pointer; text-align:center;
+      text-decoration:none; border:none;
+    }
+    .btn-primary { background:#3b82f6; color:white; }
+    .btn-primary:hover { background:#2563eb; }
+    .btn-secondary { background:#334155; color:#f1f5f9; }
+    .btn-secondary:hover { background:#475569; }
+    .error {
+      background:#450a0a; border:1px solid #b91c1c; color:#fca5a5;
+      border-radius:8px; padding:.6rem .9rem; font-size:.85rem; margin-bottom:1rem;
+    }
+    .hint { font-size:.75rem; color:#475569; margin-top:4px; }
+    .role-desc { font-size:.78rem; color:#64748b; margin-top:.5rem; padding:.5rem .75rem;
+                 background:#0f172a; border-radius:6px; border:1px solid #1e293b; }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="brand">⚡ Sys<span>Monitor</span></div>
+  <div style="display:flex;gap:1.5rem">
+    <a href="/">Dashboard</a>
+    <a href="/about/">About Me</a>
+    <a href="/users/">Users</a>
+    <a href="/logout/">Logout</a>
+  </div>
+</nav>
+<div class="container">
+  <h1>{{ action }} User</h1>
+  <div class="card">
+    {% if error %}<div class="error">⚠️ {{ error }}</div>{% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+
+      {% if action == "Create" %}
+      <label>Username</label>
+      <input type="text" name="username" required autofocus>
+
+      <label>Password</label>
+      <input type="password" name="password" required>
+      {% else %}
+      <label>Username</label>
+      <input type="text" value="{{ target_user.username }}" disabled
+             style="opacity:.5;cursor:not-allowed">
+
+      <label>New Password <span class="hint">(leave blank to keep current)</span></label>
+      <input type="password" name="password" placeholder="Leave blank to keep unchanged">
+      {% endif %}
+
+      <label>Role</label>
+      <select name="role" id="role-select" onchange="updateDesc()">
+        <option value="admin"  {% if current_role == "admin"  %}selected{% endif %}>Admin</option>
+        <option value="user"   {% if current_role == "user"   %}selected{% endif %}>User</option>
+        <option value="viewer" {% if current_role == "viewer" or not current_role %}selected{% endif %}>Viewer</option>
+        <option value="guest"  {% if current_role == "guest"  %}selected{% endif %}>Guest</option>
+      </select>
+      <div class="role-desc" id="role-desc"></div>
+
+      <div class="btn-row">
+        <a href="/users/" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">{{ action }} User</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+const descs = {
+  admin:  '🔑 Full access — can manage devices, users, and see everything.',
+  user:   '👤 Can view dashboard and event logs. Cannot manage users.',
+  viewer: '👁️ Can see the dashboard and device status only.',
+  guest:  '🔒 Limited view — sees status banner only. No event log.',
+};
+function updateDesc() {
+  const v = document.getElementById('role-select').value;
+  document.getElementById('role-desc').textContent = descs[v] || '';
+}
+updateDesc();
+</script>
+{% include "monitor/footer.html" %}
+</body>
+</html>
+

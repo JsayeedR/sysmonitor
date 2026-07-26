@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Users</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#f1f5f9; min-height:100vh; }
+    nav {
+      background:#1e293b; border-bottom:1px solid #334155;
+      padding:.75rem 2rem; display:flex; align-items:center; justify-content:space-between;
+    }
+    nav .brand { font-size:1.1rem; font-weight:700; }
+    nav .brand span { color:#3b82f6; }
+    nav .links { display:flex; gap:1.5rem; align-items:center; }
+    nav a { color:#94a3b8; font-size:.85rem; text-decoration:none; }
+    nav a:hover { color:#f1f5f9; }
+    .container { max-width:900px; margin:0 auto; padding:2rem 1.5rem; }
+    .page-header {
+      display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;
+    }
+    h1 { font-size:1.3rem; font-weight:700; }
+    .btn {
+      padding:.5rem 1.1rem; border-radius:8px; font-size:.85rem;
+      font-weight:600; cursor:pointer; text-decoration:none; border:none;
+    }
+    .btn-primary { background:#3b82f6; color:white; }
+    .btn-primary:hover { background:#2563eb; }
+    .btn-danger  { background:#dc2626; color:white; }
+    .btn-danger:hover { background:#b91c1c; }
+    .btn-secondary { background:#334155; color:#f1f5f9; }
+    .btn-secondary:hover { background:#475569; }
+    table { width:100%; border-collapse:collapse; background:#1e293b;
+            border-radius:12px; overflow:hidden; }
+    th { background:#0f172a; padding:.75rem 1rem; text-align:left;
+         font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; color:#64748b; }
+    td { padding:.85rem 1rem; border-bottom:1px solid #334155; font-size:.9rem; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:#162032; }
+    .role-badge {
+      font-size:.72rem; padding:2px 10px; border-radius:20px; font-weight:600;
+    }
+    .role-badge.admin  { background:#1d4ed8; color:#bfdbfe; }
+    .role-badge.user   { background:#065f46; color:#6ee7b7; }
+    .role-badge.viewer { background:#374151; color:#d1d5db; }
+    .role-badge.guest  { background:#292524; color:#d6d3d1; }
+    .msg-success {
+      background:#052e16; border:1px solid #166534; color:#4ade80;
+      padding:.65rem 1rem; border-radius:8px; margin-bottom:1rem; font-size:.85rem;
+    }
+    .actions { display:flex; gap:.5rem; }
+
+    .tabs { display:flex; gap:.25rem; margin-bottom:1.5rem; border-bottom:1px solid #334155; }
+    .tab-btn { background:none; border:none; color:#94a3b8; font-size:.85rem; padding:.6rem 1rem; cursor:pointer; border-bottom:2px solid transparent; transition:all .15s; display:flex; align-items:center; gap:.4rem; }
+    .tab-btn:hover { color:#f1f5f9; }
+    .tab-btn.active { color:#3b82f6; border-bottom-color:#3b82f6; font-weight:600; }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+    .badge-count { background:#dc2626; color:white; font-size:.68rem; font-weight:700; border-radius:20px; padding:1px 7px; }
+
+    .empty-pending { text-align:center; color:#64748b; padding:3rem; background:#1e293b; border-radius:12px; }
+    .btn-approve { background:#16a34a; color:white; }
+    .btn-approve:hover { background:#15803d; }
+    .btn-reject { background:#ef4444; color:white; }
+    .btn-reject:hover { background:#dc2626; }
+    .toast { position:fixed; bottom:1.5rem; right:1.5rem; padding:.75rem 1.25rem; border-radius:10px; font-size:.85rem; font-weight:500; z-index:9999; background:#14532d; color:#4ade80; border:1px solid #16a34a; }
+
+    .hamburger { display:none; flex-direction:column; gap:4px; cursor:pointer; padding:.3rem; border:none; background:none; }
+    .hamburger span { display:block; width:20px; height:2px; background:#94a3b8; border-radius:2px; transition:.2s; }
+    .hamburger.open span:nth-child(1) { transform:translateY(6px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity:0; }
+    .hamburger.open span:nth-child(3) { transform:translateY(-6px) rotate(-45deg); }
+
+    @media (max-width: 768px) {
+      nav { padding:.6rem 1rem; flex-wrap:wrap; gap:.4rem; position:relative; }
+      .hamburger { display:flex; }
+      .links {
+        display:none; flex-direction:column; width:100%;
+        background:#1e293b; border-top:1px solid #334155;
+        padding:.5rem 0; gap:0;
+      }
+      .links.open { display:flex; }
+      .links a { padding:.55rem 1rem; border-radius:0; font-size:.85rem; border-bottom:1px solid #334155; }
+      .links a:last-child { border-bottom:none; }
+      .container { padding: 1.25rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="brand">⚡ Sys<span>Monitor</span></div>
+  <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="links" id="nav-links">
+    <a href="/">🏠 Dashboard</a>
+    <a href="/report/">📊 Report</a>
+    <a href="/events/">📋 Events</a>
+    <a href="/devices/">🖥️ Devices</a>
+    <a href="/about/">ℹ️ About Me</a>
+    <a href="/users/">👥 Users</a>
+    <a href="/notifications/">🔔 Notifications</a>
+    <a href="/generator-log/">🔧 Generator Shifting Entry</a>
+    <a href="/activity/">🕵️ Activity</a>
+    <a href="/system/">🛠️ System</a>
+    <a href="/logout/">Logout</a>
+  </div>
+</nav>
+<div class="container">
+  <div class="page-header">
+    <h1>👥 User Management</h1>
+    <a href="/users/create/" class="btn btn-primary">+ Create User</a>
+  </div>
+
+  {% if messages %}
+    {% for m in messages %}
+    <div class="msg-success">✅ {{ m }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('all')">👥 All Users</button>
+    <button class="tab-btn" onclick="switchTab('pending')">
+      ⏳ Pending Approvals
+      {% if pending %}<span class="badge-count">{{ pending|length }}</span>{% endif %}
+    </button>
+  </div>
+
+  <div id="tab-all" class="tab-panel active">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Username</th>
+          <th>Role</th>
+          <th>Joined</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in user_data %}
+        <tr>
+          <td style="color:#475569">{{ forloop.counter }}</td>
+          <td>{{ u.obj.username }}
+            {% if u.obj.is_superuser %}
+            <span style="font-size:.7rem;color:#64748b">(superuser)</span>
+            {% endif %}
+          </td>
+          <td><span class="role-badge {{ u.role }}">{{ u.role|upper }}</span></td>
+          <td style="color:#64748b">{{ u.obj.date_joined|date:"Y-m-d" }}</td>
+          <td>
+            <div class="actions">
+              <a href="/users/{{ u.obj.id }}/edit/" class="btn btn-secondary">Edit</a>
+              {% if not u.obj.is_superuser %}
+              <a href="/users/{{ u.obj.id }}/delete/" class="btn btn-danger">Delete</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div id="tab-pending" class="tab-panel">
+    {% if pending %}
+    <table>
+      <thead>
+        <tr><th>User</th><th>Field</th><th>Old Value</th><th>New Value</th><th>Requested</th><th>Action</th></tr>
+      </thead>
+      <tbody id="pending-tbody">
+        {% for p in pending %}
+        <tr id="row-{{ p.id }}">
+          <td><strong>{{ p.user.username }}</strong></td>
+          <td>{{ p.get_field_display }}</td>
+          <td style="color:#64748b">{{ p.old_value|default:"—" }}</td>
+          <td>{{ p.new_value }}</td>
+          <td style="color:#64748b">{{ p.requested_at|date:"d/m/Y H:i" }}</td>
+          <td>
+            <div class="actions">
+              <button class="btn btn-approve" onclick="reviewRequest({{ p.id }}, 'approve')">✅ Approve</button>
+              <button class="btn btn-reject" onclick="reviewRequest({{ p.id }}, 'reject')">❌ Reject</button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-pending">No pending profile change requests.</div>
+    {% endif %}
+  </div>
+</div>
+{% include "monitor/footer.html" %}
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.closest('.tab-btn').classList.add('active');
+}
+
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+function reviewRequest(id, action) {
+  fetch(`/profile/pending-changes/${id}/${action}/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+  }).then(r => r.json()).then(r => {
+    if (r.ok) {
+      const row = document.getElementById('row-' + id);
+      if (row) row.remove();
+      toast(action === 'approve' ? '✅ Approved' : '❌ Rejected');
+      const badge = document.querySelector('.badge-count');
+      if (badge) {
+        const n = parseInt(badge.textContent, 10) - 1;
+        if (n > 0) { badge.textContent = n; } else { badge.remove(); }
+      }
+      const tbody = document.getElementById('pending-tbody');
+      if (tbody && !tbody.querySelector('tr')) {
+        document.getElementById('tab-pending').innerHTML = '<div class="empty-pending">No pending profile change requests.</div>';
+      }
+    } else {
+      toast('⚠️ ' + (r.error || 'Something went wrong'));
+    }
+  });
+}
+
+function toggleNav() {
+  const btn = document.getElementById('hamburger');
+  const links = document.getElementById('nav-links');
+  if (!btn || !links) return;
+  btn.classList.toggle('open');
+  links.classList.toggle('open');
+}
+document.addEventListener('DOMContentLoaded', function() {
+  const links = document.getElementById('nav-links');
+  if (!links) return;
+  links.querySelectorAll('a').forEach(function(a) {
+    a.addEventListener('click', function() {
+      var btn = document.getElementById('hamburger');
+      if (btn) btn.classList.remove('open');
+      links.classList.remove('open');
+    });
+  });
+});
+</script>
+</body>
+</html>
+
+

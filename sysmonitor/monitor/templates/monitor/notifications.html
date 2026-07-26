@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Notifications</title>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:      #0f172a; --surface: #1e293b; --border:  #334155;
+      --text:    #f1f5f9; --muted:   #94a3b8; --faint:   #475569;
+      --blue:    #3b82f6; --green:   #22c55e; --red:     #ef4444;
+      --yellow:  #fbbf24; --orange:  #fb923c;
+    }
+    body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; }
+
+    /* NAV */
+    nav { background:var(--surface); border-bottom:1px solid var(--border); padding:.6rem 2rem; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
+    .brand { font-size:1rem; font-weight:700; }
+    .brand span { color:var(--blue); }
+    .nav-links { display:flex; align-items:center; gap:.25rem; }
+    .nav-links a { color:var(--muted); font-size:.8rem; text-decoration:none; padding:.3rem .65rem; border-radius:6px; transition:all .15s; white-space:nowrap; }
+    .nav-links a:hover, .nav-links a.active { background:var(--border); color:var(--text); }
+    .nav-meta { display:flex; align-items:center; gap:.6rem; }
+    .nav-logout { color:var(--muted); font-size:.78rem; text-decoration:none; padding:.3rem .65rem; border-radius:6px; }
+    .nav-logout:hover { background:var(--border); color:var(--text); }
+
+    /* LAYOUT */
+    .main { max-width:1100px; margin:0 auto; padding:1.5rem; }
+    .page-title { font-size:1.3rem; font-weight:700; margin-bottom:1.5rem; display:flex; align-items:center; gap:.5rem; }
+
+    /* TABS */
+    .tabs { display:flex; gap:.25rem; margin-bottom:1.5rem; border-bottom:1px solid var(--border); }
+    .tab-btn { background:none; border:none; color:var(--muted); font-size:.85rem; padding:.6rem 1rem; cursor:pointer; border-bottom:2px solid transparent; transition:all .15s; }
+    .tab-btn:hover { color:var(--text); }
+    .tab-btn.active { color:var(--blue); border-bottom-color:var(--blue); font-weight:600; }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+
+    /* CARDS */
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.5rem; margin-bottom:1rem; }
+    .card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; }
+    .card-title { font-size:1rem; font-weight:600; display:flex; align-items:center; gap:.5rem; }
+
+    /* FORM */
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .form-group { display:flex; flex-direction:column; gap:.4rem; }
+    .form-group.full { grid-column:1/-1; }
+    label { font-size:.8rem; color:var(--muted); font-weight:500; }
+    input[type=text], input[type=number], input[type=password], input[type=email] {
+      background:#0f172a; border:1px solid var(--border); border-radius:8px;
+      color:var(--text); padding:.55rem .8rem; font-size:.88rem; width:100%;
+      transition:border-color .15s;
+    }
+    input:focus { outline:none; border-color:var(--blue); }
+    input::placeholder { color:var(--faint); }
+
+    /* TOGGLE */
+    .toggle-row { display:flex; align-items:center; justify-content:space-between; padding:.75rem 0; border-bottom:1px solid var(--border); }
+    .toggle-row:last-child { border-bottom:none; }
+    .toggle-label { font-size:.88rem; }
+    .toggle-sub { font-size:.75rem; color:var(--muted); margin-top:2px; }
+    .switch { position:relative; display:inline-block; width:40px; height:22px; }
+    .switch input { opacity:0; width:0; height:0; }
+    .slider { position:absolute; cursor:pointer; inset:0; background:var(--faint); border-radius:22px; transition:.3s; }
+    .slider:before { position:absolute; content:""; height:16px; width:16px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.3s; }
+    input:checked + .slider { background:var(--blue); }
+    input:checked + .slider:before { transform:translateX(18px); }
+
+    /* BUTTONS */
+    .btn { padding:.5rem 1rem; border-radius:8px; border:none; cursor:pointer; font-size:.82rem; font-weight:500; transition:all .15s; }
+    .btn-primary  { background:var(--blue);  color:white; }
+    .btn-primary:hover  { background:#2563eb; }
+    .btn-success  { background:#16a34a; color:white; }
+    .btn-success:hover  { background:#15803d; }
+    .btn-danger   { background:var(--red);   color:white; }
+    .btn-danger:hover   { background:#dc2626; }
+    .btn-ghost    { background:var(--border); color:var(--text); }
+    .btn-ghost:hover    { background:var(--faint); }
+    .btn-orange   { background:#d97706; color:white; }
+    .btn-orange:hover   { background:#b45309; }
+    .btn-sm { padding:.35rem .7rem; font-size:.75rem; }
+    .btn-row { display:flex; gap:.5rem; margin-top:1rem; align-items:center; flex-wrap:wrap; }
+
+    /* RECIPIENTS TABLE */
+    .recipients-table { width:100%; border-collapse:collapse; }
+    .recipients-table th { text-align:left; padding:.6rem .75rem; font-size:.75rem; color:var(--muted); font-weight:500; border-bottom:1px solid var(--border); }
+    .recipients-table td { padding:.65rem .75rem; font-size:.82rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+    .recipients-table tr:last-child td { border-bottom:none; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:.7rem; font-weight:600; }
+    .badge-wa    { background:#16532d; color:#4ade80; }
+    .badge-tg    { background:#1e3a5f; color:#60a5fa; }
+    .badge-email { background:#3b1f5e; color:#c084fc; }
+    .badge-on  { background:#14532d; color:#4ade80; }
+    .badge-off { background:#3f1515; color:#f87171; }
+    .alert-pills { display:flex; gap:.25rem; flex-wrap:wrap; }
+    .pill { font-size:.65rem; padding:1px 6px; border-radius:8px; border:1px solid; }
+    .pill-on  { border-color:#334155; color:var(--muted); }
+    .pill-off { border-color:#1e293b; color:#334155; }
+
+    /* ADD RECIPIENT FORM */
+    .add-form { background:#0f172a; border:1px solid var(--border); border-radius:10px; padding:1.25rem; margin-bottom:1.25rem; }
+    .add-form-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:.75rem; margin-bottom:.75rem; }
+    .checkboxes { display:flex; gap:1rem; flex-wrap:wrap; }
+    .checkbox-item { display:flex; align-items:center; gap:.35rem; font-size:.8rem; cursor:pointer; }
+    .checkbox-item input { width:14px; height:14px; cursor:pointer; accent-color:var(--blue); }
+
+    /* LOG TABLE */
+    .log-table { width:100%; border-collapse:collapse; }
+    .log-table th { text-align:left; padding:.5rem .75rem; font-size:.72rem; color:var(--muted); font-weight:500; border-bottom:1px solid var(--border); }
+    .log-table td { padding:.5rem .75rem; font-size:.78rem; border-bottom:1px solid var(--border); }
+    .log-table tr:last-child td { border-bottom:none; }
+
+    /* STATUS MESSAGES */
+    .toast { position:fixed; bottom:1.5rem; right:1.5rem; padding:.75rem 1.25rem; border-radius:10px; font-size:.85rem; font-weight:500; z-index:9999; animation:slideUp .3s ease; }
+    .toast-ok  { background:#14532d; color:#4ade80; border:1px solid #16a34a; }
+    .toast-err { background:#450a0a; color:#fca5a5; border:1px solid #dc2626; }
+    @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+    /* GUIDE BOX */
+    .guide { background:#0f172a; border:1px solid var(--border); border-radius:10px; padding:1.25rem; font-size:.82rem; line-height:1.8; }
+    .guide h4 { color:var(--blue); margin-bottom:.5rem; }
+    .guide ol, .guide ul { padding-left:1.2rem; }
+    .guide li { margin-bottom:.25rem; }
+    .guide code { background:var(--border); padding:1px 5px; border-radius:4px; font-size:.78rem; color:var(--yellow); }
+    .step-num { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:var(--blue); color:white; font-size:.7rem; font-weight:700; margin-right:.35rem; }
+
+    /* MODAL */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:1000; align-items:center; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.5rem; width:100%; max-width:480px; }
+    .modal-title { font-size:1rem; font-weight:600; margin-bottom:1rem; }
+    .modal-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; margin-bottom:1rem; }
+    .modal-form-grid .full { grid-column:1/-1; }
+  
+    .hamburger { display:none; flex-direction:column; gap:4px; cursor:pointer; padding:.3rem; border:none; background:none; }
+    .hamburger span { display:block; width:20px; height:2px; background:var(--muted); border-radius:2px; transition:.2s; }
+    .hamburger.open span:nth-child(1) { transform:translateY(6px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity:0; }
+    .hamburger.open span:nth-child(3) { transform:translateY(-6px) rotate(-45deg); }
+
+    @media (max-width: 768px) {
+      nav { padding:.55rem 1rem; flex-wrap:wrap; gap:.4rem; position:relative; }
+      .hamburger { display:flex; }
+      .nav-links {
+        display:none; flex-direction:column; width:100%;
+        background:var(--surface); border-top:1px solid var(--border);
+        padding:.5rem 0; gap:0;
+      }
+      .nav-links.open { display:flex; }
+      .nav-links a { padding:.55rem 1rem; border-radius:0; font-size:.85rem; border-bottom:1px solid var(--border); }
+      .nav-links a:last-child { border-bottom:none; }
+      .nav-meta { gap:.4rem; }
+      .main { padding: 1rem .75rem; }
+      .container { padding: 1.25rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">Sys<span>Monitor</span></div>
+  <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="nav-links">
+    <a href="{% url 'dashboard' %}">🏠 Dashboard</a>
+    <a href="{% url 'report' %}">📊 Report</a>
+    <a href="{% url 'event_log' %}">📋 Events</a>
+    <a href="{% url 'device_list' %}">🖥️ Devices</a>
+    <a href="/about/">ℹ️ About Me</a>
+    <a href="{% url 'user_list' %}">👥 Users</a>
+    <a href="{% url 'notifications' %}" class="active">🔔 Notifications</a>
+    <a href="{% url 'generator_log_page' %}">🔧 Generator Shifting Entry</a>
+    <a href="{% url 'activity_log' %}">🕵️ Activity</a>
+    <a href="/system/">🛠️ System</a>
+  </div>
+  <div class="nav-meta">
+    <a href="{% url 'logout' %}" class="nav-logout">Logout</a>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-title">🔔 Notification Settings</div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('gateways')">⚙️ Gateways</button>
+    <button class="tab-btn" onclick="switchTab('recipients')">👥 Recipients</button>
+    <button class="tab-btn" onclick="switchTab('log')">📋 Log</button>
+    <button class="tab-btn" onclick="switchTab('guide')">📖 Setup Guide</button>
+  </div>
+
+  <!-- ── TAB: GATEWAYS ─────────────────────────────────────────────────────── -->
+  <div id="tab-gateways" class="tab-panel active">
+
+    <!-- WhatsApp -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">💬 WhatsApp <span style="font-size:.75rem;color:var(--muted)">(Meta Cloud API — Free)</span></div>
+        <label class="switch">
+          <input type="checkbox" id="wa-enabled" {% if gateways.whatsapp.is_enabled %}checked{% endif %}>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Phone Number ID</label>
+          <input type="text" id="wa-phone-id" placeholder="e.g. 123456789012345"
+                 value="{{ gateways.whatsapp.wa_phone_number_id }}">
+        </div>
+        <div class="form-group">
+          <label>From Number (with country code)</label>
+          <input type="text" id="wa-from" placeholder="e.g. +1 555 000 1234"
+                 value="{{ gateways.whatsapp.wa_from_number }}">
+        </div>
+        <div class="form-group full">
+          <label>Access Token (Permanent)</label>
+          <input type="password" id="wa-token" placeholder="EAAxxxx..."
+                 value="{{ gateways.whatsapp.wa_access_token }}">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveGateway('whatsapp')">💾 Save</button>
+        <button class="btn btn-ghost" onclick="testGateway('whatsapp')">🧪 Send Test Message</button>
+        <input type="text" id="wa-test-number" placeholder="+880171..." style="width:180px">
+      </div>
+    </div>
+
+    <!-- Telegram -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">✈️ Telegram Bot <span style="font-size:.75rem;color:var(--muted)">(Free, Instant)</span></div>
+        <label class="switch">
+          <input type="checkbox" id="tg-enabled" {% if gateways.telegram.is_enabled %}checked{% endif %}>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Bot Token</label>
+          <input type="password" id="tg-token" placeholder="1234567890:ABCdef..."
+                 value="{{ gateways.telegram.tg_bot_token }}">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveGateway('telegram')">💾 Save</button>
+        <button class="btn btn-ghost" onclick="fetchTelegramChats()">🔍 Find Chat IDs</button>
+        <button class="btn btn-ghost" onclick="testGateway('telegram')">🧪 Send Test</button>
+        <input type="text" id="tg-test-chatid" placeholder="Chat ID e.g. -1001234" style="width:180px">
+      </div>
+      <div id="tg-chats-result" style="margin-top:.75rem;display:none"></div>
+    </div>
+
+    <!-- Email -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📧 Email <span style="font-size:.75rem;color:var(--muted)">(Gmail SMTP)</span></div>
+        <label class="switch">
+          <input type="checkbox" id="em-enabled" {% if gateways.email.is_enabled %}checked{% endif %}>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>SMTP Host</label>
+          <input type="text" id="em-host" value="{{ gateways.email.email_host|default:'smtp.gmail.com' }}">
+        </div>
+        <div class="form-group">
+          <label>SMTP Port</label>
+          <input type="number" id="em-port" value="{{ gateways.email.email_port|default:587 }}">
+        </div>
+        <div class="form-group">
+          <label>Gmail Address</label>
+          <input type="email" id="em-user" placeholder="yourapp@gmail.com"
+                 value="{{ gateways.email.email_username }}">
+        </div>
+        <div class="form-group">
+          <label>App Password (not Gmail password)</label>
+          <input type="password" id="em-pass" placeholder="xxxx xxxx xxxx xxxx"
+                 value="{{ gateways.email.email_password }}">
+        </div>
+        <div class="form-group full">
+          <label>From Name/Address</label>
+          <input type="text" id="em-from" placeholder="SysMonitor &lt;yourapp@gmail.com&gt;"
+                 value="{{ gateways.email.email_from }}">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveGateway('email')">💾 Save</button>
+        <button class="btn btn-ghost" onclick="testGateway('email')">🧪 Send Test</button>
+        <input type="email" id="em-test-addr" placeholder="test@example.com" style="width:200px">
+      </div>
+    </div>
+
+  </div><!-- /tab-gateways -->
+
+  <!-- ── TAB: RECIPIENTS ───────────────────────────────────────────────────── -->
+  <div id="tab-recipients" class="tab-panel">
+
+    <!-- Add recipient form -->
+    <div class="add-form">
+      <div style="font-size:.9rem;font-weight:600;margin-bottom:.75rem;">➕ Add Recipient</div>
+      <div class="add-form-grid">
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" id="new-name" placeholder="e.g. Engineer Rahim">
+        </div>
+        <div class="form-group">
+          <label>Channel</label>
+          <select id="new-channel" style="background:#0f172a;border:1px solid var(--border);color:var(--text);padding:.55rem .8rem;border-radius:8px;font-size:.88rem;width:100%;" onchange="updateContactHint()">
+            <option value="whatsapp">💬 WhatsApp</option>
+            <option value="telegram">✈️ Telegram</option>
+            <option value="email">📧 Email</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label id="contact-label">WhatsApp Number</label>
+          <input type="text" id="new-contact" placeholder="+8801711...">
+        </div>
+      </div>
+      <div style="margin-bottom:.75rem;">
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem;">Alert Types:</div>
+        <div class="checkboxes">
+          <label class="checkbox-item"><input type="checkbox" id="new-outage"    checked> ⚡ Outage Start</label>
+          <label class="checkbox-item"><input type="checkbox" id="new-critical"  checked> 🚨 Critical</label>
+          <label class="checkbox-item"><input type="checkbox" id="new-alarm"     checked> 🟠 Alarm</label>
+          <label class="checkbox-item"><input type="checkbox" id="new-complete"  checked> ✅ Cycle Complete</label>
+          <label class="checkbox-item"><input type="checkbox" id="new-daily"> 📋 Daily Summary (00:01)</label>
+        </div>
+      </div>
+      <button class="btn btn-success" onclick="addRecipient()">✅ Add Recipient</button>
+    </div>
+
+    <!-- Recipients table -->
+    <div class="card" style="padding:0;overflow:hidden;">
+      <table class="recipients-table" id="recipients-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Channel</th>
+            <th>Contact</th>
+            <th>Alerts</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in recipients %}
+          <tr id="row-{{ r.id }}">
+            <td><strong>{{ r.name }}</strong></td>
+            <td>
+              {% if r.channel == 'whatsapp' %}<span class="badge badge-wa">💬 WhatsApp</span>
+              {% elif r.channel == 'telegram' %}<span class="badge badge-tg">✈️ Telegram</span>
+              {% else %}<span class="badge badge-email">📧 Email</span>{% endif %}
+            </td>
+            <td style="font-family:monospace;font-size:.8rem;">{{ r.contact }}</td>
+            <td>
+              <div class="alert-pills">
+                <span class="pill {% if r.alert_outage %}pill-on{% else %}pill-off{% endif %}">⚡ Outage</span>
+                <span class="pill {% if r.alert_critical %}pill-on{% else %}pill-off{% endif %}">🚨 Critical</span>
+                <span class="pill {% if r.alert_alarm %}pill-on{% else %}pill-off{% endif %}">🟠 Alarm</span>
+                <span class="pill {% if r.alert_complete %}pill-on{% else %}pill-off{% endif %}">✅ Complete</span>
+                <span class="pill {% if r.daily_summary %}pill-on{% else %}pill-off{% endif %}">📋 Daily</span>
+              </div>
+            </td>
+            <td>
+              <span class="badge {% if r.is_active %}badge-on{% else %}badge-off{% endif %}" id="status-{{ r.id }}">
+                {% if r.is_active %}Active{% else %}Paused{% endif %}
+              </span>
+            </td>
+            <td>
+              <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
+                <button class="btn btn-ghost btn-sm" onclick="openEdit({{ r.id }},'{{ r.name }}','{{ r.channel }}','{{ r.contact }}',{{ r.alert_outage|lower }},{{ r.alert_critical|lower }},{{ r.alert_alarm|lower }},{{ r.alert_complete|lower }},{{ r.daily_summary|lower }})">✏️</button>
+                <button class="btn btn-orange btn-sm" onclick="testRecipient({{ r.id }})">🧪 Test</button>
+                <button class="btn btn-ghost btn-sm" onclick="toggleRecipient({{ r.id }})">⏸️</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteRecipient({{ r.id }})">🗑️</button>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr id="empty-row"><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem;">No recipients yet. Add one above.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  </div><!-- /tab-recipients -->
+
+  <!-- ── TAB: LOG ───────────────────────────────────────────────────────────── -->
+  <div id="tab-log" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📋 Recent Notification Log</div>
+        <button class="btn btn-ghost btn-sm" onclick="loadLog()">🔄 Refresh</button>
+      </div>
+      <table class="log-table" id="log-table">
+        <thead>
+          <tr><th>Time</th><th>Event</th><th>Channel</th><th>Recipient</th><th>Status</th><th>Error</th></tr>
+        </thead>
+        <tbody id="log-tbody">
+          <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div><!-- /tab-log -->
+
+  <!-- ── TAB: GUIDE ─────────────────────────────────────────────────────────── -->
+  <div id="tab-guide" class="tab-panel">
+
+    <!-- WhatsApp Guide -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom:1rem;">💬 WhatsApp Setup (Meta Cloud API)</div>
+      <div class="guide">
+        <h4>Step 1 — Create Meta Developer Account</h4>
+        <ol>
+          <li>Go to <code>developers.facebook.com</code> and log in with Facebook</li>
+          <li>Click <strong>My Apps → Create App</strong></li>
+          <li>Choose <strong>Business</strong> type → give it a name → Create</li>
+        </ol>
+        <br>
+        <h4>Step 2 — Add WhatsApp Product</h4>
+        <ol>
+          <li>In your app dashboard, click <strong>Add Product</strong></li>
+          <li>Find <strong>WhatsApp</strong> → click <strong>Set Up</strong></li>
+          <li>You'll get a free test phone number instantly</li>
+        </ol>
+        <br>
+        <h4>Step 3 — Get Your Credentials</h4>
+        <ol>
+          <li>Go to <strong>WhatsApp → API Setup</strong></li>
+          <li>Copy <strong>Phone Number ID</strong> → paste in the form above</li>
+          <li>Copy <strong>Temporary Access Token</strong> (or generate a permanent one)</li>
+          <li>For permanent token: Go to <strong>System Users</strong> in Business Settings → generate token with <code>whatsapp_business_messaging</code> permission</li>
+        </ol>
+        <br>
+        <h4>Step 4 — Add Test Recipients</h4>
+        <ol>
+          <li>Under <strong>API Setup</strong>, add recipient phone numbers to the allowed list</li>
+          <li>Each number must send "hello" to your test number first to opt in</li>
+          <li>Format: <code>+8801711234567</code> (with country code, no spaces)</li>
+        </ol>
+        <br>
+        <h4>⚠️ Free Tier Limits</h4>
+        <ul>
+          <li>1,000 free conversations per month (more than enough for outage alerts)</li>
+          <li>Test mode: only pre-approved numbers can receive messages</li>
+          <li>Production: verify your business to send to anyone</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Telegram Guide -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom:1rem;">✈️ Telegram Bot Setup (Easiest & Free)</div>
+      <div class="guide">
+        <h4>Step 1 — Create a Bot (takes 2 minutes)</h4>
+        <ol>
+          <li>Open Telegram and search for <code>@BotFather</code></li>
+          <li>Send <code>/newbot</code></li>
+          <li>Give your bot a name: e.g. <strong>NanoLab Monitor</strong></li>
+          <li>Give it a username: e.g. <strong>nanolab_monitor_bot</strong></li>
+          <li>BotFather gives you a token like <code>1234567890:ABCdef...</code> — copy it</li>
+        </ol>
+        <br>
+        <h4>Step 2 — Get Your Chat ID</h4>
+        <ol>
+          <li>Search for your bot in Telegram and send it any message (e.g. "hello")</li>
+          <li>Paste the Bot Token in the Telegram section above and save</li>
+          <li>Click <strong>Find Chat IDs</strong> — it will show all chats that messaged your bot</li>
+          <li>Copy your Chat ID and use it when adding a recipient</li>
+        </ol>
+        <br>
+        <h4>Step 3 — Group Notifications (Optional)</h4>
+        <ol>
+          <li>Create a Telegram group, add your bot to it</li>
+          <li>Make the bot an admin</li>
+          <li>Send a message in the group, then click <strong>Find Chat IDs</strong> — group ID starts with <code>-100...</code></li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- Email Guide -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom:1rem;">📧 Gmail SMTP Setup</div>
+      <div class="guide">
+        <h4>Step 1 — Enable 2-Factor Authentication on Gmail</h4>
+        <ol>
+          <li>Go to <code>myaccount.google.com → Security</code></li>
+          <li>Enable <strong>2-Step Verification</strong> if not already on</li>
+        </ol>
+        <br>
+        <h4>Step 2 — Create an App Password</h4>
+        <ol>
+          <li>Go to <code>myaccount.google.com → Security → App Passwords</code></li>
+          <li>Select App: <strong>Mail</strong>, Device: <strong>Other</strong> → type "SysMonitor"</li>
+          <li>Click <strong>Generate</strong> — you get a 16-character password like <code>abcd efgh ijkl mnop</code></li>
+          <li>Paste this in the <strong>App Password</strong> field above (not your Gmail password)</li>
+        </ol>
+        <br>
+        <h4>Step 3 — Fill the Form</h4>
+        <ul>
+          <li><strong>SMTP Host:</strong> <code>smtp.gmail.com</code></li>
+          <li><strong>SMTP Port:</strong> <code>587</code></li>
+          <li><strong>Gmail Address:</strong> your Gmail (e.g. <code>nanolab.alerts@gmail.com</code>)</li>
+          <li><strong>App Password:</strong> the 16-char password from Step 2</li>
+          <li><strong>From:</strong> <code>NanoLab Monitor &lt;nanolab.alerts@gmail.com&gt;</code></li>
+        </ul>
+      </div>
+    </div>
+
+  </div><!-- /tab-guide -->
+
+</div><!-- /main -->
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <div class="modal-title">✏️ Edit Recipient</div>
+    <input type="hidden" id="edit-id">
+    <div class="modal-form-grid">
+      <div class="form-group full">
+        <label>Name</label>
+        <input type="text" id="edit-name">
+      </div>
+      <div class="form-group">
+        <label>Channel</label>
+        <select id="edit-channel" style="background:#0f172a;border:1px solid var(--border);color:var(--text);padding:.55rem .8rem;border-radius:8px;font-size:.88rem;width:100%;">
+          <option value="whatsapp">💬 WhatsApp</option>
+          <option value="telegram">✈️ Telegram</option>
+          <option value="email">📧 Email</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Contact</label>
+        <input type="text" id="edit-contact">
+      </div>
+      <div class="form-group full">
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem;">Alert Types:</div>
+        <div class="checkboxes">
+          <label class="checkbox-item"><input type="checkbox" id="edit-outage">   ⚡ Outage Start</label>
+          <label class="checkbox-item"><input type="checkbox" id="edit-critical"> 🚨 Critical</label>
+          <label class="checkbox-item"><input type="checkbox" id="edit-alarm">    🟠 Alarm</label>
+          <label class="checkbox-item"><input type="checkbox" id="edit-complete"> ✅ Cycle Complete</label>
+          <label class="checkbox-item"><input type="checkbox" id="edit-daily"> 📋 Daily Summary (00:01)</label>
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="saveEdit()">💾 Save Changes</button>
+      <button class="btn btn-ghost" onclick="closeEdit()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CSRF = '{{ csrf_token }}';
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'log') loadLog();
+}
+
+function toast(msg, ok=true) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function post(url, data) {
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify(data),
+  }).then(r => r.json());
+}
+
+// ── Gateways ──
+function saveGateway(ch) {
+  const data = { channel: ch };
+  if (ch === 'whatsapp') {
+    data.is_enabled         = document.getElementById('wa-enabled').checked;
+    data.wa_phone_number_id = document.getElementById('wa-phone-id').value;
+    data.wa_access_token    = document.getElementById('wa-token').value;
+    data.wa_from_number     = document.getElementById('wa-from').value;
+  } else if (ch === 'telegram') {
+    data.is_enabled    = document.getElementById('tg-enabled').checked;
+    data.tg_bot_token  = document.getElementById('tg-token').value;
+  } else {
+    data.is_enabled    = document.getElementById('em-enabled').checked;
+    data.email_host    = document.getElementById('em-host').value;
+    data.email_port    = parseInt(document.getElementById('em-port').value);
+    data.email_username= document.getElementById('em-user').value;
+    data.email_password= document.getElementById('em-pass').value;
+    data.email_from    = document.getElementById('em-from').value;
+  }
+  post('/notifications/gateway/save/', data).then(r => {
+    toast(r.ok ? '✅ Gateway saved successfully!' : '❌ ' + r.error, r.ok);
+  });
+}
+
+function testGateway(ch) {
+  let contact = '';
+  if (ch === 'whatsapp') contact = document.getElementById('wa-test-number').value;
+  else if (ch === 'telegram') contact = document.getElementById('tg-test-chatid').value;
+  else contact = document.getElementById('em-test-addr').value;
+  if (!contact) { toast('Enter a test contact first', false); return; }
+  toast('⏳ Sending test message…');
+  post('/notifications/gateway/test/', { channel: ch, contact }).then(r => {
+    toast(r.ok ? '✅ Test message sent!' : '❌ Failed: ' + r.error, r.ok);
+  });
+}
+
+function fetchTelegramChats() {
+  const box = document.getElementById('tg-chats-result');
+  box.style.display = 'block';
+  box.innerHTML = '<span style="color:var(--muted)">Fetching…</span>';
+  fetch('/notifications/gateway/telegram-chats/').then(r=>r.json()).then(r => {
+    if (!r.ok) { box.innerHTML = `<span style="color:var(--red)">❌ ${r.error}</span>`; return; }
+    if (!r.chats.length) {
+      box.innerHTML = '<span style="color:var(--muted)">No chats found yet. Send a message to your bot first, then try again.</span>';
+      return;
+    }
+    box.innerHTML = r.chats.map(c =>
+      `<div style="background:#0f172a;border:1px solid var(--border);border-radius:8px;padding:.6rem .9rem;margin:.3rem 0;display:flex;justify-content:space-between;align-items:center;">
+        <span>${c.name || 'Unknown'} (${c.type}) — <code style="color:var(--yellow)">${c.chat_id}</code></span>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('tg-test-chatid').value='${c.chat_id}'">Use</button>
+       </div>`
+    ).join('');
+  });
+}
+
+// ── Recipients ──
+function updateContactHint() {
+  const ch = document.getElementById('new-channel').value;
+  const label = document.getElementById('contact-label');
+  const inp = document.getElementById('new-contact');
+  if (ch==='whatsapp') { label.textContent='WhatsApp Number'; inp.placeholder='+8801711...'; }
+  else if (ch==='telegram') { label.textContent='Telegram Chat ID'; inp.placeholder='-100123456789'; }
+  else { label.textContent='Email Address'; inp.placeholder='user@example.com'; }
+}
+
+function addRecipient() {
+  const btn = event.target;
+  if (btn.disabled) return;  // already submitting, ignore extra clicks
+
+  const name = document.getElementById('new-name').value.trim();
+  const contact = document.getElementById('new-contact').value.trim();
+  if (!name || !contact) { toast('Name and contact are required', false); return; }
+
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = '⏳ Adding...';
+
+  post('/notifications/recipient/add/', {
+    name, contact,
+    channel:        document.getElementById('new-channel').value,
+    alert_outage:   document.getElementById('new-outage').checked,
+    alert_critical: document.getElementById('new-critical').checked,
+    alert_alarm:    document.getElementById('new-alarm').checked,
+    alert_complete: document.getElementById('new-complete').checked,
+    daily_summary:  document.getElementById('new-daily').checked,
+  }).then(r => {
+    if (r.ok) { toast('✅ Recipient added!'); location.reload(); }
+    else {
+      toast('❌ ' + r.error, false);
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  }).catch(() => {
+    toast('❌ Network error, please try again', false);
+    btn.disabled = false;
+    btn.textContent = originalText;
+  });
+}
+
+function deleteRecipient(id) {
+  if (!confirm('Delete this recipient?')) return;
+  post(`/notifications/recipient/${id}/delete/`, {}).then(r => {
+    if (r.ok) { document.getElementById('row-'+id).remove(); toast('Deleted'); }
+  });
+}
+
+function testRecipient(id) {
+  toast('⏳ Sending test…');
+  post(`/notifications/recipient/${id}/test/`, {}).then(r => {
+    toast(r.ok ? '✅ Test sent!' : '❌ ' + r.error, r.ok);
+  });
+}
+
+function toggleRecipient(id) {
+  post(`/notifications/recipient/${id}/toggle/`, {}).then(r => {
+    if (r.ok) {
+      const el = document.getElementById('status-'+id);
+      el.textContent = r.is_active ? 'Active' : 'Paused';
+      el.className = 'badge ' + (r.is_active ? 'badge-on' : 'badge-off');
+      toast(r.is_active ? '▶️ Activated' : '⏸️ Paused');
+    }
+  });
+}
+
+// Edit modal
+function openEdit(id, name, channel, contact, outage, critical, alarm, complete, daily) {
+  document.getElementById('edit-id').value      = id;
+  document.getElementById('edit-name').value    = name;
+  document.getElementById('edit-channel').value = channel;
+  document.getElementById('edit-contact').value = contact;
+  document.getElementById('edit-outage').checked   = outage;
+  document.getElementById('edit-critical').checked = critical;
+  document.getElementById('edit-alarm').checked    = alarm;
+  document.getElementById('edit-complete').checked = complete;
+  document.getElementById('edit-daily').checked    = daily;
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEdit() { document.getElementById('edit-modal').classList.remove('open'); }
+
+function saveEdit() {
+  const id = document.getElementById('edit-id').value;
+  post(`/notifications/recipient/${id}/edit/`, {
+    name:           document.getElementById('edit-name').value,
+    channel:        document.getElementById('edit-channel').value,
+    contact:        document.getElementById('edit-contact').value,
+    alert_outage:   document.getElementById('edit-outage').checked,
+    alert_critical: document.getElementById('edit-critical').checked,
+    alert_alarm:    document.getElementById('edit-alarm').checked,
+    alert_complete: document.getElementById('edit-complete').checked,
+    daily_summary:  document.getElementById('edit-daily').checked,
+  }).then(r => {
+    if (r.ok) { toast('✅ Saved'); closeEdit(); location.reload(); }
+    else toast('❌ ' + r.error, false);
+  });
+}
+
+// Log
+function loadLog() {
+  fetch('/notifications/log/').then(r=>r.json()).then(r => {
+    const tbody = document.getElementById('log-tbody');
+    if (!r.logs.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem;">No notifications sent yet.</td></tr>';
+      return;
+    }
+    const icons = { OUTAGE_START:'⚡', CRITICAL:'🚨', ALARM:'🟠', COMPLETE:'✅', TEST:'🧪' };
+    tbody.innerHTML = r.logs.map(l => `
+      <tr>
+        <td style="color:var(--muted);white-space:nowrap">${l.sent_at}</td>
+        <td>${icons[l.event_type]||''} ${l.event_type}</td>
+        <td>${l.channel}</td>
+        <td style="font-family:monospace;font-size:.75rem">${l.recipient}</td>
+        <td><span class="badge ${l.status==='SENT'?'badge-on':'badge-off'}">${l.status}</span></td>
+        <td style="color:var(--red);font-size:.72rem;max-width:320px;white-space:normal;line-height:1.4;">${l.error||'—'}</td>
+      </tr>`).join('');
+  });
+}
+</script>
+
+
+<!-- FOOTER -->
+{% include "monitor/footer.html" %}
+
+
+<script>
+function toggleNav() {
+  const btn = document.getElementById('hamburger');
+  const links = document.getElementById('nav-links');
+  if (!btn || !links) return;
+  btn.classList.toggle('open');
+  links.classList.toggle('open');
+}
+document.addEventListener('DOMContentLoaded', function() {
+  const links = document.getElementById('nav-links');
+  if (!links) return;
+  links.querySelectorAll('a').forEach(function(a) {
+    a.addEventListener('click', function() {
+      var btn = document.getElementById('hamburger');
+      if (btn) btn.classList.remove('open');
+      links.classList.remove('open');
+    });
+  });
+});
+</script>
+</body>
+</html>
+

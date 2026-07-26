@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Pending Profile Changes</title>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:#0f172a; --surface:#1e293b; --border:#334155; --text:#f1f5f9;
+      --muted:#94a3b8; --blue:#3b82f6; --green:#22c55e; --red:#ef4444;
+    }
+    body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; }
+    nav { background:var(--surface); border-bottom:1px solid var(--border); padding:.6rem 2rem; display:flex; align-items:center; justify-content:space-between; }
+    .brand { font-size:1rem; font-weight:700; }
+    .brand span { color:var(--blue); }
+    .nav-meta a { color:var(--muted); font-size:.78rem; text-decoration:none; padding:.3rem .65rem; border-radius:6px; }
+    .nav-meta a:hover { background:var(--border); color:var(--text); }
+
+    .main { max-width:760px; margin:0 auto; padding:1.5rem; }
+    .page-title { font-size:1.3rem; font-weight:700; margin-bottom:1.5rem; }
+
+    table { width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    th { text-align:left; padding:.7rem .9rem; font-size:.75rem; color:var(--muted); font-weight:500; border-bottom:1px solid var(--border); }
+    td { padding:.7rem .9rem; font-size:.85rem; border-bottom:1px solid var(--border); }
+    tr:last-child td { border-bottom:none; }
+
+    .btn { padding:.35rem .75rem; border-radius:6px; border:none; cursor:pointer; font-size:.75rem; font-weight:500; margin-right:.4rem; }
+    .btn-approve { background:#16a34a; color:white; }
+    .btn-reject { background:var(--red); color:white; }
+
+    .empty { text-align:center; color:var(--muted); padding:3rem; }
+    .toast { position:fixed; bottom:1.5rem; right:1.5rem; padding:.75rem 1.25rem; border-radius:10px; font-size:.85rem; font-weight:500; z-index:9999; }
+    .toast-ok { background:#14532d; color:#4ade80; border:1px solid #16a34a; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">Sys<span>Monitor</span></div>
+  <div class="nav-meta">
+    <a href="{% url 'user_list' %}">← Back to Users</a>
+    <a href="{% url 'logout' %}">Logout</a>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-title">⏳ Pending Profile Changes</div>
+
+  {% if pending %}
+  <table>
+    <thead>
+      <tr><th>User</th><th>Field</th><th>Old Value</th><th>New Value</th><th>Requested</th><th>Action</th></tr>
+    </thead>
+    <tbody id="pending-tbody">
+      {% for p in pending %}
+      <tr id="row-{{ p.id }}">
+        <td><strong>{{ p.user.username }}</strong></td>
+        <td>{{ p.get_field_display }}</td>
+        <td style="color:var(--muted);">{{ p.old_value|default:"—" }}</td>
+        <td>{{ p.new_value }}</td>
+        <td style="color:var(--muted);">{{ p.requested_at|date:"d/m/Y H:i" }}</td>
+        <td>
+          <button class="btn btn-approve" onclick="review({{ p.id }}, 'approve')">✅ Approve</button>
+          <button class="btn btn-reject" onclick="review({{ p.id }}, 'reject')">❌ Reject</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No pending profile change requests.</div>
+  {% endif %}
+</div>
+
+<script>
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast toast-ok';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+function review(id, action) {
+  fetch(`/profile/pending-changes/${id}/${action}/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+  }).then(r => r.json()).then(r => {
+    if (r.ok) {
+      document.getElementById('row-' + id).remove();
+      toast(action === 'approve' ? '✅ Approved' : '❌ Rejected');
+    }
+  });
+}
+</script>
+
+
+<!-- FOOTER -->
+{% include "monitor/footer.html" %}
+
+</body>
+</html>

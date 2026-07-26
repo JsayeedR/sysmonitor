@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Edit Profile</title>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:#0f172a; --surface:#1e293b; --border:#334155; --text:#f1f5f9;
+      --muted:#94a3b8; --blue:#3b82f6; --green:#22c55e; --red:#ef4444; --yellow:#fbbf24;
+    }
+    body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; }
+    nav { background:var(--surface); border-bottom:1px solid var(--border); padding:.6rem 2rem; display:flex; align-items:center; justify-content:space-between; }
+    .brand { font-size:1rem; font-weight:700; }
+    .brand span { color:var(--blue); }
+    .nav-meta { display:flex; align-items:center; gap:.7rem; }
+    .nav-meta a { color:var(--muted); font-size:.78rem; text-decoration:none; padding:.3rem .65rem; border-radius:6px; }
+    .nav-meta a:hover { background:var(--border); color:var(--text); }
+
+    .main { max-width:560px; margin:0 auto; padding:1.5rem; }
+    .page-title { font-size:1.3rem; font-weight:700; margin-bottom:1.5rem; }
+
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.5rem; margin-bottom:1rem; }
+    .form-group { display:flex; flex-direction:column; gap:.4rem; margin-bottom:1rem; }
+    label { font-size:.78rem; color:var(--muted); font-weight:500; }
+    .hint { font-size:.7rem; color:var(--yellow); }
+    input { background:#0f172a; border:1px solid var(--border); border-radius:8px; color:var(--text); padding:.6rem .85rem; font-size:.88rem; width:100%; }
+    input:focus { outline:none; border-color:var(--blue); }
+    input[type=file] { padding:.4rem; }
+
+    .row2 { display:grid; grid-template-columns:1fr 1fr; gap:.85rem; }
+
+    .btn { padding:.65rem 1.2rem; border-radius:8px; border:none; cursor:pointer; font-size:.85rem; font-weight:500; }
+    .btn-primary { background:var(--blue); color:white; width:100%; }
+    .btn-primary:hover { background:#2563eb; }
+
+    .toast { position:fixed; bottom:1.5rem; right:1.5rem; padding:.75rem 1.25rem; border-radius:10px; font-size:.85rem; font-weight:500; z-index:9999; max-width:320px; }
+    .toast-ok { background:#14532d; color:#4ade80; border:1px solid #16a34a; }
+    .toast-err { background:#450a0a; color:#fca5a5; border:1px solid #dc2626; }
+
+    .current-pic { width:60px; height:60px; border-radius:50%; object-fit:cover; margin-bottom:.5rem; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">Sys<span>Monitor</span></div>
+  <div class="nav-meta">
+    <a href="{% url 'profile_view' %}">← Back to Profile</a>
+    <a href="{% url 'logout' %}">Logout</a>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-title">✏️ Edit Profile</div>
+
+  <form id="profile-form" enctype="multipart/form-data">
+    <div class="card">
+      {% if profile.profile_picture %}
+        <img src="{{ profile.profile_picture.url }}" class="current-pic" alt="">
+      {% endif %}
+      <div class="form-group">
+        <label>Profile Picture</label>
+        <input type="file" name="profile_picture" accept="image/*">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row2">
+        <div class="form-group">
+          <label>First Name</label>
+          <input type="text" name="first_name" value="{{ user.first_name }}">
+        </div>
+        <div class="form-group">
+          <label>Last Name</label>
+          <input type="text" name="last_name" value="{{ user.last_name }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Designation</label>
+        <input type="text" name="designation" value="{{ profile.designation }}" placeholder="e.g. NOC Engineer">
+      </div>
+      <div class="form-group">
+        <label>Email <span class="hint">(requires admin approval)</span></label>
+        <input type="email" name="email" value="{{ user.email }}">
+      </div>
+      <div class="form-group">
+        <label>Mobile Number <span class="hint">(requires admin approval)</span></label>
+        <input type="text" name="mobile_number" value="{{ profile.mobile_number }}" placeholder="+8801XXXXXXXXX">
+      </div>
+      <div class="form-group">
+        <label>WhatsApp Number</label>
+        <input type="text" name="whatsapp_number" value="{{ profile.whatsapp_number }}" placeholder="+8801XXXXXXXXX">
+      </div>
+      <div class="form-group">
+        <label>Telegram (username or chat ID)</label>
+        <input type="text" name="telegram_handle" value="{{ profile.telegram_handle }}" placeholder="@username or chat ID">
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">💾 Save Changes</button>
+  </form>
+</div>
+
+<script>
+function toast(msg, ok=true) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4500);
+}
+
+document.getElementById('profile-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const formData = new FormData(this);
+
+  fetch('{% url "profile_edit_save" %}', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+    body: formData,
+  }).then(r => r.json()).then(r => {
+    if (r.ok) {
+      let msg = '✅ Profile updated!';
+      if (r.messages && r.messages.length) msg += ' ' + r.messages.join(' ');
+      toast(msg);
+      setTimeout(() => window.location.href = '{% url "profile_view" %}', 1500);
+    } else {
+      toast('❌ ' + (r.error || 'Failed to save'), false);
+    }
+  }).catch(() => toast('❌ Network error', false));
+});
+</script>
+
+
+<!-- FOOTER -->
+{% include "monitor/footer.html" %}
+
+</body>
+</html>

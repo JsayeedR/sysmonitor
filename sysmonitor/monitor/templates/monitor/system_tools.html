@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — System Tools</title>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:#0f172a; --surface:#1e293b; --border:#334155; --text:#f1f5f9;
+      --muted:#94a3b8; --faint:#475569; --blue:#3b82f6; --green:#22c55e;
+      --red:#ef4444; --yellow:#fbbf24; --orange:#fb923c;
+    }
+    body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; }
+
+    nav { background:var(--surface); border-bottom:1px solid var(--border); padding:.6rem 2rem; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
+    .brand { font-size:1rem; font-weight:700; }
+    .brand span { color:var(--blue); }
+    .nav-links { display:flex; gap:.25rem; }
+    .nav-links a { color:var(--muted); font-size:.8rem; text-decoration:none; padding:.3rem .65rem; border-radius:6px; }
+    .nav-links a:hover, .nav-links a.active { background:var(--border); color:var(--text); }
+    .nav-meta a { color:var(--muted); font-size:.78rem; text-decoration:none; padding:.3rem .65rem; border-radius:6px; }
+    .nav-meta a:hover { background:var(--border); color:var(--text); }
+
+    .main { max-width:1000px; margin:0 auto; padding:1.5rem; }
+    .page-title { font-size:1.3rem; font-weight:700; margin-bottom:.4rem; }
+    .page-sub { color:var(--muted); font-size:.82rem; margin-bottom:1.5rem; }
+
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem; }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.25rem; }
+    .card-title { font-size:.9rem; font-weight:600; margin-bottom:1rem; display:flex; align-items:center; justify-content:space-between; }
+
+    .state-row { display:flex; justify-content:space-between; padding:.5rem 0; border-bottom:1px solid var(--border); font-size:.82rem; }
+    .state-row:last-child { border-bottom:none; }
+    .state-label { color:var(--muted); }
+    .state-val { font-weight:500; font-family:monospace; }
+
+    .status-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:.4rem; }
+    .dot-green  { background:var(--green); }
+    .dot-red    { background:var(--red); }
+    .dot-yellow { background:var(--yellow); }
+    .dot-blue   { background:var(--blue); }
+
+    .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:.72rem; font-weight:600; }
+    .badge-up   { background:#14532d; color:#4ade80; }
+    .badge-down { background:#450a0a; color:#fca5a5; }
+
+    /* Ongoing cycles */
+    .cycle-card { background:#0f172a; border:1px solid var(--orange); border-radius:10px; padding:1rem; margin-bottom:.75rem; }
+    .cycle-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:.6rem; }
+    .cycle-id { font-weight:700; color:var(--orange); }
+    .cycle-elapsed { font-size:.8rem; color:var(--muted); }
+    .cycle-info { font-size:.8rem; color:var(--muted); margin-bottom:.75rem; line-height:1.6; }
+    .cycle-actions { display:flex; gap:.5rem; }
+
+    .btn { padding:.45rem .9rem; border-radius:8px; border:none; cursor:pointer; font-size:.8rem; font-weight:500; transition:all .15s; }
+    .btn-danger  { background:var(--red);    color:white; }
+    .btn-warning { background:#d97706;        color:white; }
+    .btn-primary { background:var(--blue);   color:white; }
+    .btn-ghost   { background:var(--border); color:var(--text); }
+    .btn-sm { padding:.3rem .65rem; font-size:.73rem; }
+
+    /* Journal log */
+    .journal-box { background:#000; border:1px solid var(--border); border-radius:10px; padding:1rem; font-family:monospace; font-size:.72rem; line-height:1.5; max-height:360px; overflow-y:auto; color:#a8ff78; white-space:pre-wrap; word-break:break-all; }
+    .journal-box .err { color:#fca5a5; }
+    .journal-box .warn { color:#fdba74; }
+
+    /* Danger zone */
+    .danger-zone { border:1px solid #7f1d1d; border-radius:12px; padding:1.25rem; margin-bottom:1rem; background:#0f0a0a; }
+    .danger-title { color:var(--red); font-weight:600; font-size:.9rem; margin-bottom:.75rem; }
+
+    .confirm-row { display:flex; align-items:center; gap:.75rem; margin-top:.5rem; font-size:.8rem; color:var(--muted); }
+    .confirm-row input { accent-color:var(--red); width:14px; height:14px; cursor:pointer; }
+
+    .toast { position:fixed; bottom:1.5rem; right:1.5rem; padding:.75rem 1.25rem; border-radius:10px; font-size:.85rem; font-weight:500; z-index:9999; animation:slideUp .3s ease; }
+    .toast-ok  { background:#14532d; color:#4ade80; border:1px solid #16a34a; }
+    .toast-err { background:#450a0a; color:#fca5a5; border:1px solid #dc2626; }
+    @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+    .loading { color:var(--muted); font-size:.8rem; }
+  
+    .hamburger { display:none; flex-direction:column; gap:4px; cursor:pointer; padding:.3rem; border:none; background:none; }
+    .hamburger span { display:block; width:20px; height:2px; background:var(--muted); border-radius:2px; transition:.2s; }
+    .hamburger.open span:nth-child(1) { transform:translateY(6px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity:0; }
+    .hamburger.open span:nth-child(3) { transform:translateY(-6px) rotate(-45deg); }
+
+    @media (max-width: 768px) {
+      nav { padding:.55rem 1rem; flex-wrap:wrap; gap:.4rem; position:relative; }
+      .hamburger { display:flex; }
+      .nav-links {
+        display:none; flex-direction:column; width:100%;
+        background:var(--surface); border-top:1px solid var(--border);
+        padding:.5rem 0; gap:0;
+      }
+      .nav-links.open { display:flex; }
+      .nav-links a { padding:.55rem 1rem; border-radius:0; font-size:.85rem; border-bottom:1px solid var(--border); }
+      .nav-links a:last-child { border-bottom:none; }
+      .nav-meta { gap:.4rem; }
+      .main { padding: 1rem .75rem; }
+      .container { padding: 1.25rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">Sys<span>Monitor</span></div>
+  <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="nav-links">
+    <a href="{% url 'dashboard' %}">🏠 Dashboard</a>
+    <a href="{% url 'report' %}">📊 Report</a>
+    <a href="{% url 'event_log' %}">📋 Events</a>
+    <a href="{% url 'device_list' %}">🖥️ Devices</a>
+    <a href="/about/">ℹ️ About Me</a>
+    <a href="{% url 'user_list' %}">👥 Users</a>
+    <a href="{% url 'notifications' %}">🔔 Notifications</a>
+    <a href="{% url 'activity_log' %}">🕵️ Activity</a>
+    <a href="{% url 'system_tools' %}" class="active">🛠️ System</a>
+  </div>
+  <div class="nav-meta">
+    <a href="{% url 'logout' %}">Logout</a>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-title">🛠️ System Admin Tools</div>
+  <div class="page-sub">Admin-only diagnostic and recovery tools. Always check the journal log before taking action on a cycle.</div>
+
+  <div class="grid2">
+
+    <!-- Live State -->
+    <div class="card">
+      <div class="card-title">
+        ⚡ Live System State
+        <button class="btn btn-ghost btn-sm" onclick="loadState()">🔄 Refresh</button>
+      </div>
+      <div id="state-panel"><div class="loading">Loading…</div></div>
+    </div>
+
+    <!-- Device States -->
+    <div class="card">
+      <div class="card-title">📡 Device Status</div>
+      <div id="devices-panel"><div class="loading">Loading…</div></div>
+    </div>
+
+  </div>
+
+  <!-- Ongoing / Fake Cycles -->
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-title">
+      ⏳ Ongoing / Incomplete Cycles
+      <button class="btn btn-ghost btn-sm" onclick="loadState()">🔄 Refresh</button>
+    </div>
+    <div id="cycles-panel"><div class="loading">Loading…</div></div>
+  </div>
+
+  <!-- Manual / Audited Cycle Entry -->
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-title">➕ Add Manual / Audited Cycle</div>
+    <div style="font-size:.78rem;color:var(--muted);margin-bottom:.9rem;">
+      Use this for an outage the automatic monitor missed, or to log a corrected/audited record.
+      This creates a completed cycle directly — it will appear in Recent Cycles, the Report page,
+      and the daily Generator Log summary immediately.
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem;">
+      <div>
+        <label style="display:block;font-size:.72rem;color:var(--muted);margin-bottom:.3rem;">Start Date</label>
+        <input type="date" id="manual-start-date"
+               style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .65rem;border-radius:8px;font-size:.85rem;">
+      </div>
+      <div>
+        <label style="display:block;font-size:.72rem;color:var(--muted);margin-bottom:.3rem;">Start Time</label>
+        <input type="time" id="manual-start-time"
+               style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .65rem;border-radius:8px;font-size:.85rem;">
+      </div>
+      <div>
+        <label style="display:block;font-size:.72rem;color:var(--muted);margin-bottom:.3rem;">End Date</label>
+        <input type="date" id="manual-end-date"
+               style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .65rem;border-radius:8px;font-size:.85rem;">
+      </div>
+      <div>
+        <label style="display:block;font-size:.72rem;color:var(--muted);margin-bottom:.3rem;">End Time</label>
+        <input type="time" id="manual-end-time"
+               style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .65rem;border-radius:8px;font-size:.85rem;">
+      </div>
+    </div>
+    <div style="margin-bottom:.75rem;">
+      <label style="display:block;font-size:.72rem;color:var(--muted);margin-bottom:.3rem;">Generator</label>
+      <select id="manual-generator"
+              style="width:100%;max-width:240px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .65rem;border-radius:8px;font-size:.85rem;">
+        <option value="">— Unassigned —</option>
+        <option value="Gen-01">Gen-01</option>
+        <option value="Gen-02">Gen-02</option>
+      </select>
+    </div>
+    <div style="margin-bottom:.9rem;">
+      <label style="display:block;font-size:.72rem;color:var(--muted);margin-bottom:.3rem;">Note (optional)</label>
+      <input type="text" id="manual-note" placeholder="e.g. Confirmed via field report, monitor was offline"
+             style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .65rem;border-radius:8px;font-size:.85rem;">
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="addManualCycle()">➕ Add Cycle</button>
+    <div id="manual-cycle-msg" style="font-size:.75rem;margin-top:.5rem;"></div>
+  </div>
+
+  <!-- Recent Cycles -->
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-title">
+      📊 Recent Cycles
+      <div style="display:flex;gap:.5rem;align-items:center;">
+        <select id="cycles-limit" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.25rem .5rem;border-radius:6px;font-size:.75rem;" onchange="loadRecentCycles()">
+          <option value="5">Last 5</option>
+          <option value="10" selected>Last 10</option>
+          <option value="50">Last 50</option>
+          <option value="100">Last 100</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="loadRecentCycles()">🔄 Refresh</button>
+      </div>
+    </div>
+    <div id="recent-cycles-panel"><div class="loading">Loading…</div></div>
+
+    <!-- Delete by ID -->
+    <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:.5rem;">🗑️ Delete a cycle by ID (use only for confirmed fake cycles):</div>
+      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+        <input type="number" id="delete-cycle-id" placeholder="Cycle ID e.g. 177"
+               style="background:var(--bg);border:1px solid var(--border);color:var(--text);
+                      padding:.45rem .75rem;border-radius:8px;font-size:.85rem;width:180px;">
+        <button class="btn btn-danger btn-sm" onclick="deleteCycleById()">🗑️ Delete Cycle</button>
+      </div>
+      <div id="delete-cycle-msg" style="font-size:.75rem;margin-top:.4rem;"></div>
+    </div>
+  </div>
+
+  <!-- Journal Log -->
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-title">
+      📋 sysmonitor-ping Journal Log
+      <div style="display:flex;gap:.5rem;align-items:center;">
+        <select id="journal-lines" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.25rem .5rem;border-radius:6px;font-size:.75rem;">
+          <option value="30">Last 30 lines</option>
+          <option value="50" selected>Last 50 lines</option>
+          <option value="100">Last 100 lines</option>
+          <option value="200">Last 200 lines</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="loadJournal()">🔄 Load</button>
+      </div>
+    </div>
+    <div class="journal-box" id="journal-box">Click "Load" to fetch the latest journal logs…</div>
+  </div>
+
+  <!-- Danger Zone -->
+  <div class="danger-zone">
+    <div class="danger-title">⚠️ Danger Zone — Service Control</div>
+    <p style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem;">
+      Restarting the ping service will re-initialize all state from the database. If a fake "Ongoing" cycle exists, close or delete it first, THEN restart — otherwise the service will resume it.
+    </p>
+    <div class="confirm-row" style="margin-bottom:.75rem;">
+      <input type="checkbox" id="restart-confirm" onchange="toggleRestartForm()">
+      I understand this will briefly interrupt outage monitoring
+    </div>
+    <div id="restart-form" style="display:none;">
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem;">
+        🔒 Enter your admin password to confirm:
+      </div>
+      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+        <input type="password" id="restart-password"
+               placeholder="Your admin password"
+               style="background:#0f172a;border:1px solid #7f1d1d;color:var(--text);
+                      padding:.5rem .8rem;border-radius:8px;font-size:.85rem;width:220px;">
+        <button id="restart-btn" class="btn btn-danger" onclick="restartPing()">
+          🔄 Restart sysmonitor-ping
+        </button>
+      </div>
+      <div id="restart-error" style="color:var(--red);font-size:.75rem;margin-top:.4rem;display:none;"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const CSRF = '{{ csrf_token }}';
+
+function toast(msg, ok=true) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+function post(url, data={}) {
+  return fetch(url, {
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify(data),
+  }).then(r=>r.json());
+}
+
+const STATUS_ICONS = {
+  NORMAL:'🟢', OUTAGE:'🔴', GENERATOR:'🟡', ATS:'🔵', DEVICE_DOWN:'🟠', UNKNOWN:'⚪'
+};
+
+function loadState() {
+  fetch('/system/state/').then(r=>r.json()).then(d => {
+
+    // System state
+    const icon = STATUS_ICONS[d.system_status] || '⚪';
+    document.getElementById('state-panel').innerHTML = `
+      <div class="state-row"><span class="state-label">Status</span><span class="state-val">${icon} ${d.system_status}</span></div>
+      <div class="state-row" style="border:none"><span class="state-label">Note</span><span class="state-val" style="color:var(--muted);font-family:sans-serif;font-size:.78rem;max-width:200px;text-align:right;">${d.system_note || '—'}</span></div>
+    `;
+
+    // Devices
+    document.getElementById('devices-panel').innerHTML = d.devices.map(dv => `
+      <div class="state-row">
+        <span class="state-label">${dv.name} (${dv.ip})</span>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+          <span class="badge ${dv.status==='UP'?'badge-up':'badge-down'}">${dv.status}</span>
+          <span style="font-size:.68rem;color:var(--faint);">${dv.checked}</span>
+        </div>
+      </div>
+    `).join('') || '<div class="loading">No devices</div>';
+
+    // Ongoing cycles
+    const panel = document.getElementById('cycles-panel');
+    if (!d.ongoing_cycles.length) {
+      panel.innerHTML = '<div style="color:var(--green);font-size:.85rem;padding:.5rem 0;">✅ No incomplete cycles — database is clean.</div>';
+      return;
+    }
+    panel.innerHTML = d.ongoing_cycles.map(c => `
+      <div class="cycle-card">
+        <div class="cycle-header">
+          <span class="cycle-id">Cycle ID: ${c.id}</span>
+          <span class="cycle-elapsed">⏱️ Running ${c.elapsed_min}m ${c.elapsed_sec}s</span>
+        </div>
+        <div class="cycle-info">
+          Started: ${c.start}<br>
+          Type: ${c.type}${c.gen_start ? ' · Generator started: '+c.gen_start : ''}${c.pdb_restored ? ' · PDB restored: '+c.pdb_restored : ''}
+        </div>
+        <div style="font-size:.75rem;color:var(--yellow);margin-bottom:.6rem;">
+          ⚠️ Always check the journal log below BEFORE closing/deleting to confirm this is fake and not a real ongoing outage.
+        </div>
+        <div class="cycle-actions">
+          <button class="btn btn-warning btn-sm" onclick="cycleAction(${c.id},'close')">✅ Close as Normal</button>
+          <button class="btn btn-danger btn-sm"  onclick="cycleAction(${c.id},'delete')">🗑️ Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }).catch(() => {
+    document.getElementById('state-panel').innerHTML = '<div class="loading">Failed to load state</div>';
+  });
+}
+
+function cycleAction(id, action) {
+  const verb = action === 'close' ? 'mark complete as NORMAL' : 'permanently DELETE';
+  if (!confirm(`Cycle ID:${id} — ${verb}?\n\nMake sure you checked the journal log first to confirm this is not a real ongoing outage.`)) return;
+
+  post(`/system/cycle/${id}/action/`, {action}).then(r => {
+    if (r.ok) {
+      toast(action === 'close' ? '✅ Cycle closed' : '🗑️ Cycle deleted');
+      loadState();
+    } else {
+      toast('❌ ' + r.error, false);
+    }
+  });
+}
+
+function loadJournal() {
+  const lines = document.getElementById('journal-lines').value;
+  const box = document.getElementById('journal-box');
+  box.textContent = 'Loading…';
+
+  fetch(`/system/journal/?lines=${lines}`).then(r=>r.json()).then(r => {
+    if (!r.ok) { box.textContent = '❌ Failed: ' + r.error; return; }
+    // Colorize key lines
+    box.innerHTML = r.log.split('\n').map(line => {
+      if (line.includes('ERROR') || line.includes('CRITICAL') || line.includes('Traceback') || line.includes('NameError')) {
+        return `<span class="err">${escHtml(line)}</span>`;
+      }
+      if (line.includes('WARN') || line.includes('NOTICE') || line.includes('CONFIRM') || line.includes('ALARM')) {
+        return `<span class="warn">${escHtml(line)}</span>`;
+      }
+      return escHtml(line);
+    }).join('\n');
+    // Scroll to bottom
+    box.scrollTop = box.scrollHeight;
+  });
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function toggleRestartForm() {
+  const checked = document.getElementById('restart-confirm').checked;
+  document.getElementById('restart-form').style.display = checked ? 'block' : 'none';
+  if (!checked) {
+    document.getElementById('restart-password').value = '';
+    document.getElementById('restart-error').style.display = 'none';
+  }
+}
+
+function restartPing() {
+  const password = document.getElementById('restart-password').value;
+  const errEl = document.getElementById('restart-error');
+  if (!password) {
+    errEl.textContent = 'Please enter your password.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('restart-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Restarting…';
+  errEl.style.display = 'none';
+
+  post('/system/restart-ping/', {password}).then(r => {
+    if (r.ok) {
+      toast('✅ Service restarted successfully');
+      btn.textContent = '✅ Restarted';
+      document.getElementById('restart-password').value = '';
+      document.getElementById('restart-confirm').checked = false;
+      document.getElementById('restart-form').style.display = 'none';
+      setTimeout(() => { loadState(); loadJournal(); }, 3000);
+    } else {
+      errEl.textContent = r.error;
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = '🔄 Restart sysmonitor-ping';
+    }
+  });
+}
+
+// Load state on page open, auto-refresh every 15 seconds
+loadState();
+setInterval(loadState, 15000);
+
+// ── Recent Cycles ─────────────────────────────────────────────────────────────
+function loadRecentCycles() {
+  const limit = document.getElementById('cycles-limit').value;
+  fetch(`/system/recent-cycles/?limit=${limit}`)
+    .then(r => r.json())
+    .then(data => {
+      const panel = document.getElementById('recent-cycles-panel');
+      if (!data.cycles || !data.cycles.length) {
+        panel.innerHTML = '<div class="loading">No cycles found.</div>';
+        return;
+      }
+      panel.innerHTML = `
+        <table style="width:100%;border-collapse:collapse;font-size:.78rem;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);">
+              <th style="padding:.4rem .6rem;color:var(--muted);font-weight:500;text-align:left;">ID</th>
+              <th style="padding:.4rem .6rem;color:var(--muted);font-weight:500;text-align:left;">Start</th>
+              <th style="padding:.4rem .6rem;color:var(--muted);font-weight:500;text-align:left;">End</th>
+              <th style="padding:.4rem .6rem;color:var(--muted);font-weight:500;text-align:left;">Duration</th>
+              <th style="padding:.4rem .6rem;color:var(--muted);font-weight:500;text-align:left;">Type</th>
+              <th style="padding:.4rem .6rem;color:var(--muted);font-weight:500;text-align:left;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.cycles.map(c => `
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:.4rem .6rem;color:var(--orange);font-weight:600;">${c.id}</td>
+                <td style="padding:.4rem .6rem;font-family:monospace;">${c.start}</td>
+                <td style="padding:.4rem .6rem;font-family:monospace;">${c.end}</td>
+                <td style="padding:.4rem .6rem;">${c.duration}</td>
+                <td style="padding:.4rem .6rem;">${c.type}</td>
+                <td style="padding:.4rem .6rem;">
+                  <span style="color:${c.complete ? 'var(--green)' : 'var(--orange)'}">
+                    ${c.complete ? '✅ Complete' : '⏳ Ongoing'}
+                  </span>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`;
+    }).catch(() => {
+      document.getElementById('recent-cycles-panel').innerHTML = '<div class="loading">Failed to load</div>';
+    });
+}
+
+function deleteCycleById() {
+  const id = document.getElementById('delete-cycle-id').value;
+  const msg = document.getElementById('delete-cycle-msg');
+  if (!id) { msg.style.color='var(--red)'; msg.textContent='Enter a cycle ID first.'; return; }
+  if (!confirm(`Delete cycle ID:${id}?
+
+This is permanent. Only do this for confirmed fake cycles.`)) return;
+
+  post(`/system/cycle/${id}/action/`, {action: 'delete'}).then(r => {
+    if (r.ok) {
+      msg.style.color = 'var(--green)';
+      msg.textContent = `✅ Cycle ID:${id} deleted.`;
+      document.getElementById('delete-cycle-id').value = '';
+      loadRecentCycles();
+      loadState();
+    } else {
+      msg.style.color = 'var(--red)';
+      msg.textContent = '❌ ' + r.error;
+    }
+  });
+}
+
+function addManualCycle() {
+  const startDate = document.getElementById('manual-start-date').value;
+  const startTime = document.getElementById('manual-start-time').value;
+  const endDate   = document.getElementById('manual-end-date').value;
+  const endTime   = document.getElementById('manual-end-time').value;
+  const generator = document.getElementById('manual-generator').value;
+  const note      = document.getElementById('manual-note').value;
+  const msg       = document.getElementById('manual-cycle-msg');
+
+  if (!startDate || !startTime || !endDate || !endTime) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Please fill in both start and end date/time.';
+    return;
+  }
+
+  post('/system/manual-cycle/add/', {
+    start_date: startDate, start_time: startTime,
+    end_date: endDate, end_time: endTime,
+    generator: generator, note: note,
+  }).then(r => {
+    if (r.ok) {
+      msg.style.color = 'var(--green)';
+      msg.textContent = `✅ Cycle ID:${r.cycle_id} added — ${r.duration_min} min.`;
+      document.getElementById('manual-start-date').value = '';
+      document.getElementById('manual-start-time').value = '';
+      document.getElementById('manual-end-date').value = '';
+      document.getElementById('manual-end-time').value = '';
+      document.getElementById('manual-generator').value = '';
+      document.getElementById('manual-note').value = '';
+      loadRecentCycles();
+    } else {
+      msg.style.color = 'var(--red)';
+      msg.textContent = '❌ ' + r.error;
+    }
+  });
+}
+
+loadRecentCycles();
+</script>
+
+
+<!-- FOOTER -->
+{% include "monitor/footer.html" %}
+
+
+<script>
+function toggleNav() {
+  const btn = document.getElementById('hamburger');
+  const links = document.getElementById('nav-links');
+  if (!btn || !links) return;
+  btn.classList.toggle('open');
+  links.classList.toggle('open');
+}
+document.addEventListener('DOMContentLoaded', function() {
+  const links = document.getElementById('nav-links');
+  if (!links) return;
+  links.querySelectorAll('a').forEach(function(a) {
+    a.addEventListener('click', function() {
+      var btn = document.getElementById('hamburger');
+      if (btn) btn.classList.remove('open');
+      links.classList.remove('open');
+    });
+  });
+});
+</script>
+</body>
+</html>
+

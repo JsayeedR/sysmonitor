@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Outage Report</title>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:      #0f172a;
+      --surface: #1e293b;
+      --border:  #334155;
+      --text:    #f1f5f9;
+      --muted:   #94a3b8;
+      --faint:   #475569;
+      --blue:    #3b82f6;
+      --green:   #22c55e;
+      --red:     #ef4444;
+      --yellow:  #fbbf24;
+      --orange:  #fb923c;
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex; flex-direction: column;
+      font-size: 14px;
+    }
+
+    /* NAV */
+    nav {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: .6rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .brand { font-size: 1rem; font-weight: 700; white-space: nowrap; }
+    .brand span { color: var(--blue); }
+    .nav-links { display: flex; align-items: center; gap: .25rem; }
+    .nav-links a {
+      color: var(--muted); font-size: .8rem; text-decoration: none;
+      padding: .3rem .65rem; border-radius: 6px; transition: all .15s; white-space: nowrap;
+    }
+    .nav-links a:hover { background: var(--border); color: var(--text); }
+    .nav-links a.active { background: var(--blue); color: #fff; }
+    .nav-meta { display: flex; align-items: center; gap: .6rem; }
+    .role-badge {
+      font-size: .68rem; padding: 2px 8px; border-radius: 20px;
+      font-weight: 600; background: #1d4ed8; color: #bfdbfe;
+    }
+    .nav-user { color: var(--faint); font-size: .78rem; }
+    .nav-logout {
+      color: var(--muted); font-size: .78rem; text-decoration: none;
+      padding: .3rem .65rem; border-radius: 6px; transition: all .15s;
+    }
+    .nav-logout:hover { background: var(--border); color: var(--text); }
+
+    /* MAIN */
+    .main { flex: 1; max-width: 1400px; width: 100%; margin: 0 auto; padding: 1.25rem 1.5rem; }
+
+    /* PAGE HEADER */
+    .page-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.25rem; flex-wrap: wrap; gap: .5rem;
+    }
+    .page-header h1 { font-size: 1.2rem; font-weight: 700; }
+    .page-header p  { font-size: .78rem; color: var(--faint); margin-top: 2px; }
+
+    /* FILTER BAR */
+    .filter-bar {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1rem 1.25rem;
+      display: flex; gap: .75rem; align-items: flex-end;
+      flex-wrap: wrap; margin-bottom: 1.25rem;
+    }
+    .filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .filter-group label { font-size: .7rem; color: var(--faint); text-transform: uppercase; letter-spacing: .04em; }
+    .filter-group input,
+    .filter-group select {
+      padding: .4rem .7rem; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: .82rem; outline: none; transition: border .2s;
+    }
+    .filter-group input:focus,
+    .filter-group select:focus { border-color: var(--blue); }
+    .quick-btns { display: flex; gap: .4rem; flex-wrap: wrap; align-items: flex-end; }
+    .qbtn {
+      padding: .4rem .75rem; border-radius: 6px; font-size: .75rem;
+      font-weight: 600; cursor: pointer; border: 1px solid var(--border);
+      background: var(--bg); color: var(--muted); transition: all .15s;
+    }
+    .qbtn:hover  { background: var(--border); color: var(--text); }
+    .qbtn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .btn {
+      padding: .45rem 1rem; border-radius: 6px; font-size: .8rem;
+      font-weight: 600; cursor: pointer; border: none; transition: all .15s;
+    }
+    .btn-primary   { background: var(--blue); color: #fff; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-secondary { background: var(--border); color: var(--text); text-decoration: none; display: inline-block; }
+    .btn-secondary:hover { background: var(--faint); }
+
+    /* SUMMARY CARDS */
+    .summary-row {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: .85rem; margin-bottom: 1.25rem;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: .85rem 1rem;
+    }
+    .stat-label { font-size: .68rem; color: var(--faint); margin-bottom: .25rem; text-transform: uppercase; letter-spacing: .04em; }
+    .stat-value { font-size: 1.5rem; font-weight: 700; }
+    .stat-sub   { font-size: .68rem; color: var(--faint); margin-top: .2rem; }
+
+    /* BAR CHART */
+    .chart-panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.25rem;
+    }
+    .chart-title {
+      font-size: .7rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--faint); margin-bottom: 1rem;
+      padding-bottom: .5rem; border-bottom: 1px solid var(--border);
+    }
+    .chart-wrap { overflow-x: auto; }
+    .bar-chart {
+      display: flex; align-items: flex-end; gap: 6px;
+      height: 140px; min-width: 100%; padding-bottom: 2rem; position: relative;
+    }
+    .bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 28px; }
+    .bar {
+      width: 100%; border-radius: 4px 4px 0 0;
+      background: var(--blue); transition: height .4s ease;
+      cursor: pointer; position: relative; min-height: 2px;
+    }
+    .bar:hover { background: #60a5fa; }
+    .bar-tooltip {
+      position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+      background: #0f172a; border: 1px solid var(--border); border-radius: 4px;
+      padding: 3px 7px; font-size: .68rem; white-space: nowrap;
+      color: var(--text); pointer-events: none; display: none; z-index: 10;
+    }
+    .bar:hover .bar-tooltip { display: block; }
+    .bar-label { font-size: .6rem; color: var(--faint); margin-top: 4px; text-align: center; }
+    .bar-val   { font-size: .62rem; color: var(--muted); margin-bottom: 2px; }
+
+    /* TABLE */
+    .table-panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden; margin-bottom: 1.25rem;
+    }
+    .table-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .75rem 1rem; border-bottom: 1px solid var(--border);
+    }
+    .table-title {
+      font-size: .7rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--faint);
+    }
+    .table-count { font-size: .72rem; color: var(--faint); }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      background: #0f172a; padding: .5rem .85rem; text-align: left;
+      font-size: .68rem; text-transform: uppercase; letter-spacing: .04em;
+      color: var(--faint); font-weight: 600; white-space: nowrap;
+    }
+    td { padding: .55rem .85rem; border-bottom: 1px solid #1a2744; font-size: .82rem; color: var(--muted); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #162032; }
+    .dur  { color: var(--yellow); font-weight: 600; }
+    .empty { color: var(--faint); text-align: center; padding: 3rem; font-size: .85rem; }
+
+    /* TYPE BADGES */
+    .type-badge {
+      font-size: .68rem; padding: 1px 7px; border-radius: 3px; font-weight: 600;
+    }
+    .type-NORMAL   { background:#052e16; color:#4ade80; }
+    .type-ALARM    { background:#431407; color:var(--orange); }
+    .type-CRITICAL { background:#450a0a; color:#f87171; }
+    .type-INCOMPLETE { background:#422006; color:var(--yellow); }
+
+    /* MONTHLY TABLE */
+    .monthly-panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden; margin-bottom: 1.25rem;
+    }
+
+    /* LOADING */
+    .loading { color: var(--faint); text-align: center; padding: 2rem; font-size: .85rem; }
+
+    /* FOOTER */
+    footer {
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: .55rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: .4rem;
+    }
+    .footer-left { font-size: .72rem; color: var(--faint); }
+    .footer-left strong { color: var(--muted); }
+    .footer-right { font-size: .7rem; color: var(--faint); }
+    .footer-right a { color: var(--blue); text-decoration: none; }
+    .footer-right a:hover { text-decoration: underline; }
+
+    @media (max-width: 768px) {
+      nav { padding: .55rem 1rem; flex-wrap: wrap; gap: .4rem; }
+      .main { padding: 1rem .75rem; }
+      .filter-bar { flex-direction: column; align-items: stretch; }
+      footer { flex-direction: column; text-align: center; }
+    }
+  
+    .hamburger { display:none; flex-direction:column; gap:4px; cursor:pointer; padding:.3rem; border:none; background:none; }
+    .hamburger span { display:block; width:20px; height:2px; background:var(--muted); border-radius:2px; transition:.2s; }
+    .hamburger.open span:nth-child(1) { transform:translateY(6px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity:0; }
+    .hamburger.open span:nth-child(3) { transform:translateY(-6px) rotate(-45deg); }
+
+    @media (max-width: 768px) {
+      nav { padding:.55rem 1rem; flex-wrap:wrap; gap:.4rem; position:relative; }
+      .hamburger { display:flex; }
+      .nav-links {
+        display:none; flex-direction:column; width:100%;
+        background:var(--surface); border-top:1px solid var(--border);
+        padding:.5rem 0; gap:0;
+      }
+      .nav-links.open { display:flex; }
+      .nav-links a { padding:.55rem 1rem; border-radius:0; font-size:.85rem; border-bottom:1px solid var(--border); }
+      .nav-links a:last-child { border-bottom:none; }
+      .nav-meta { gap:.4rem; }
+      .main { padding: 1rem .75rem; }
+      .container { padding: 1.25rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="brand">⚡ Sys<span>Monitor</span></div>
+  <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="nav-links">
+    <a href="/">🏠 Dashboard</a>
+    <a href="/report/" class="active">📊 Report</a>
+    {% if role != "guest" %}<a href="/events/">📋 Events</a>{% endif %}
+    {% if role == "user" or role == "admin" %}<a href="/generator-log/">🔧 Generator Shifting Entry</a>{% endif %}
+    <a href="/about/">ℹ️ About Me</a>
+    {% if role == "admin" %}
+    <a href="/devices/">🖥️ Devices</a>
+    <a href="/users/">👥 Users</a>
+    <a href="/notifications/">🔔 Notifications</a>
+    <a href="/activity/">🕵️ Activity</a>
+    <a href="/system/">🛠️ System</a>
+    {% endif %}
+  </div>
+  <div class="nav-meta">
+    <span class="role-badge">{{ role|upper }}</span>
+    <span class="nav-user">{{ user.username }}</span>
+    <a href="/logout/" class="nav-logout">Logout</a>
+  </div>
+</nav>
+
+<div class="main">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div>
+      <h1>📊 PDB Outage Report</h1>
+      <p id="report-subtitle">Loading report...</p>
+    </div>
+    <div style="display:flex;gap:.5rem;align-items:center">
+      <span id="report-status" style="font-size:.75rem;color:var(--faint)"></span>
+    </div>
+  </div>
+
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>From Date</label>
+      <input type="date" id="date-from">
+    </div>
+    <div class="filter-group">
+      <label>To Date</label>
+      <input type="date" id="date-to">
+    </div>
+    <div class="quick-btns">
+      <button class="qbtn" onclick="setRange('today')">Today</button>
+      <button class="qbtn" onclick="setRange('yesterday')">Yesterday</button>
+      <button class="qbtn" onclick="setRange('week')">This Week</button>
+      <button class="qbtn" onclick="setRange('lastweek')">Last Week</button>
+      <button class="qbtn" onclick="setRange('month')">This Month</button>
+      <button class="qbtn" onclick="setRange('lastmonth')">Last Month</button>
+      <button class="qbtn" onclick="setRange('all')">All Time</button>
+    </div>
+    <button class="btn btn-primary" onclick="loadReport()">Generate</button>
+  </div>
+
+  <!-- SUMMARY CARDS -->
+  <div class="summary-row" id="summary-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Outages</div>
+      <div class="stat-value" id="s-count" style="color:var(--red)">—</div>
+      <div class="stat-sub">cycles</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Duration</div>
+      <div class="stat-value" id="s-total" style="color:var(--yellow)">—</div>
+      <div class="stat-sub" id="s-total-min"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Daily Average</div>
+      <div class="stat-value" id="s-avg" style="color:var(--blue)">—</div>
+      <div class="stat-sub">min/day</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Longest Outage</div>
+      <div class="stat-value" id="s-max" style="color:var(--orange)">—</div>
+      <div class="stat-sub" id="s-max-date"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Shortest Outage</div>
+      <div class="stat-value" id="s-min" style="color:var(--green)">—</div>
+      <div class="stat-sub" id="s-min-date"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Days Monitored</div>
+      <div class="stat-value" id="s-days" style="color:var(--muted)">—</div>
+      <div class="stat-sub">with outages</div>
+    </div>
+  </div>
+
+  <!-- BAR CHART -->
+  <div class="chart-panel" id="chart-panel">
+    <div class="chart-title">📈 Daily Outage Duration (minutes)</div>
+    <div class="chart-wrap">
+      <div class="bar-chart" id="bar-chart">
+        <div class="loading">Loading chart...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OUTAGE TABLE -->
+  <div class="table-panel">
+    <div class="table-header">
+      <div class="table-title">⚡ Outage Cycles</div>
+      <div class="table-count" id="table-count"></div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Start Time</th>
+          <th>PDB Restored</th>
+          <th>PDB Outage Duration</th>
+          <th>Type</th>
+        </tr>
+      </thead>
+      <tbody id="report-tbody">
+        <tr><td colspan="5" class="loading">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- MONTHLY SUMMARY -->
+  <div class="monthly-panel" id="monthly-panel" style="display:none">
+    <div class="table-header">
+      <div class="table-title">📅 Monthly Summary</div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th>Outage Count</th>
+          <th>Total Duration</th>
+          <th>Daily Average</th>
+          <th>Longest Single</th>
+        </tr>
+      </thead>
+      <tbody id="monthly-tbody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+{% include "monitor/footer.html" %}
+
+<script>
+// ── Date helpers ──────────────────────────────────────────────────────────────
+function bdtToday() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+}
+
+function bdtDate(offsetDays) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+}
+
+function startOfWeek() {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const d = new Date(now.setDate(diff));
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+}
+
+function fmtDuration(mins) {
+  if (!mins) return '0 min';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h) return `${h}h ${m}m`;
+  return `${m} min`;
+}
+
+function fmtDate(ymd) {
+  if (!ymd) return '—';
+  const [y, mo, d] = ymd.split('-');
+  return `${d}/${mo}/${y}`;
+}
+
+// ── Quick range buttons ───────────────────────────────────────────────────────
+function setRange(range) {
+  document.querySelectorAll('.qbtn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+
+  const from = document.getElementById('date-from');
+  const to   = document.getElementById('date-to');
+  const today = bdtToday();
+
+  if (range === 'today') {
+    from.value = today; to.value = today;
+  } else if (range === 'yesterday') {
+    const y = bdtDate(-1);
+    from.value = y; to.value = y;
+  } else if (range === 'week') {
+    from.value = startOfWeek(); to.value = today;
+  } else if (range === 'lastweek') {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const mon = new Date(now); mon.setDate(diff - 7);
+    const sun = new Date(now); sun.setDate(diff - 1);
+    from.value = mon.toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+    to.value   = sun.toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+  } else if (range === 'month') {
+    const now = new Date();
+    from.value = new Date(now.getFullYear(), now.getMonth(), 1)
+      .toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+    to.value = today;
+  } else if (range === 'lastmonth') {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const last  = new Date(now.getFullYear(), now.getMonth(), 0);
+    from.value = first.toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+    to.value   = last.toLocaleDateString('en-CA',  { timeZone: 'Asia/Dhaka' });
+  } else if (range === 'all') {
+    from.value = ''; to.value = '';
+  }
+
+  loadReport();
+}
+
+// ── Load report ───────────────────────────────────────────────────────────────
+function loadReport() {
+  const from = document.getElementById('date-from').value;
+  const to   = document.getElementById('date-to').value;
+
+  let url = '/api/report/';
+  const params = [];
+  if (from) params.push('from=' + from);
+  if (to)   params.push('to='   + to);
+  if (params.length) url += '?' + params.join('&');
+
+  document.getElementById('report-status').textContent = 'Loading...';
+  document.getElementById('report-tbody').innerHTML =
+    '<tr><td colspan="5" class="loading">Loading...</td></tr>';
+  document.getElementById('bar-chart').innerHTML =
+    '<div class="loading">Loading chart...</div>';
+
+  fetch(url)
+    .then(r => r.json())
+    .then(data => renderReport(data))
+    .catch(() => {
+      document.getElementById('report-tbody').innerHTML =
+        '<tr><td colspan="7" class="empty">Failed to load report.</td></tr>';
+      document.getElementById('report-status').textContent = 'Error loading data';
+    });
+}
+
+// ── Render report ─────────────────────────────────────────────────────────────
+function renderReport(data) {
+  // Subtitle
+  document.getElementById('report-subtitle').textContent =
+    data.date_range || 'All time';
+  document.getElementById('report-status').textContent =
+    `${data.cycles.length} cycle(s) found`;
+
+  // Summary cards
+  document.getElementById('s-count').textContent = data.summary.count || 0;
+  document.getElementById('s-total').textContent = fmtDuration(data.summary.total_mins);
+  document.getElementById('s-total-min').textContent =
+    data.summary.total_mins ? `${data.summary.total_mins} min total` : '';
+  document.getElementById('s-avg').textContent =
+    data.summary.avg_per_day ? Math.round(data.summary.avg_per_day) : '—';
+  document.getElementById('s-max').textContent =
+    data.summary.max_mins ? fmtDuration(data.summary.max_mins) : '—';
+  document.getElementById('s-max-date').textContent =
+    data.summary.max_date ? fmtDate(data.summary.max_date) : '';
+  document.getElementById('s-min').textContent =
+    data.summary.min_mins ? fmtDuration(data.summary.min_mins) : '—';
+  document.getElementById('s-min-date').textContent =
+    data.summary.min_date ? fmtDate(data.summary.min_date) : '';
+  document.getElementById('s-days').textContent = data.summary.days_with_outages || 0;
+
+  // Bar chart
+  renderChart(data.daily);
+
+  // Table
+  const tbody = document.getElementById('report-tbody');
+  document.getElementById('table-count').textContent =
+    `${data.cycles.length} record(s)`;
+
+  if (!data.cycles.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">No outage data for this period.</td></tr>';
+  } else {
+    tbody.innerHTML = data.cycles.map(c => `
+      <tr>
+        <td style="color:var(--muted);white-space:nowrap">${fmtDate(c.date)}</td>
+        <td style="font-family:monospace;color:var(--text)">${c.start}</td>
+        <td style="font-family:monospace;color:var(--text)">${c.end}</td>
+        <td class="dur">${c.duration}</td>
+        <td><span class="type-badge type-${c.cycle_type}">
+          ${c.cycle_type === 'NORMAL' ? '✅ Normal'
+          : c.cycle_type === 'ALARM'  ? '🟠 Alarm'
+          : c.cycle_type === 'CRITICAL' ? '🔴 Critical'
+          : c.cycle_type === 'INCOMPLETE' ? '🟡 Active'
+          : c.cycle_type}
+        </span></td>
+      </tr>
+    `).join('');
+  }
+
+  // Monthly summary — show only if range spans multiple months
+  const monthlyPanel = document.getElementById('monthly-panel');
+  const monthlyTbody = document.getElementById('monthly-tbody');
+  if (data.monthly && data.monthly.length > 1) {
+    monthlyPanel.style.display = 'block';
+    monthlyTbody.innerHTML = data.monthly.map(m => `
+      <tr>
+        <td style="color:var(--text);font-weight:600">${m.month}</td>
+        <td style="color:var(--red)">${m.count}</td>
+        <td class="dur">${fmtDuration(m.total_mins)} <span style="color:var(--faint);font-weight:400">(${m.total_mins} min)</span></td>
+        <td style="color:var(--blue)">${Math.round(m.avg_per_day)} min/day</td>
+        <td style="color:var(--orange)">${fmtDuration(m.max_mins)}</td>
+      </tr>
+    `).join('');
+  } else {
+    monthlyPanel.style.display = 'none';
+  }
+}
+
+// ── Bar chart ─────────────────────────────────────────────────────────────────
+function renderChart(daily) {
+  const chart = document.getElementById('bar-chart');
+  if (!daily || !daily.length) {
+    chart.innerHTML = '<div class="loading">No data for chart.</div>';
+    return;
+  }
+
+  const maxVal = Math.max(...daily.map(d => d.total_mins), 1);
+  const maxH   = 110; // px
+
+  chart.innerHTML = daily.map(d => {
+    const h   = Math.max(Math.round((d.total_mins / maxVal) * maxH), d.total_mins > 0 ? 4 : 0);
+    const lbl = d.date.slice(5).replace('-', '/'); // MM/DD
+    const color = d.total_mins > 300 ? 'var(--red)'
+                : d.total_mins > 120 ? 'var(--orange)'
+                : d.total_mins > 60  ? 'var(--yellow)'
+                : 'var(--blue)';
+    return `
+      <div class="bar-col">
+        <div class="bar-val">${d.total_mins > 0 ? d.total_mins : ''}</div>
+        <div class="bar" style="height:${h}px;background:${color}">
+          <div class="bar-tooltip">${fmtDate(d.date)}: ${fmtDuration(d.total_mins)}</div>
+        </div>
+        <div class="bar-label">${lbl}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Init — default to this month ──────────────────────────────────────────────
+(function init() {
+  const now   = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  document.getElementById('date-from').value =
+    first.toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+  document.getElementById('date-to').value =
+    new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+
+  // Mark this month button active
+  document.querySelectorAll('.qbtn').forEach(b => {
+    if (b.textContent.trim() === 'This Month') b.classList.add('active');
+  });
+
+  loadReport();
+})();
+</script>
+
+
+<script>
+function toggleNav() {
+  const btn = document.getElementById('hamburger');
+  const links = document.getElementById('nav-links');
+  if (!btn || !links) return;
+  btn.classList.toggle('open');
+  links.classList.toggle('open');
+}
+document.addEventListener('DOMContentLoaded', function() {
+  const links = document.getElementById('nav-links');
+  if (!links) return;
+  links.querySelectorAll('a').forEach(function(a) {
+    a.addEventListener('click', function() {
+      var btn = document.getElementById('hamburger');
+      if (btn) btn.classList.remove('open');
+      links.classList.remove('open');
+    });
+  });
+});
+</script>
+</body>
+</html>
+

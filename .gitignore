@@ -1,0 +1,40 @@
+# Secrets
+.env
+*.env
+
+# Database
+db.sqlite3
+*.sqlite3
+**/backups/database/
+
+# Project backups
+**/backups/project/
+pingmonitor_backup_*.tar.gz
+sysmonitor/x
+
+# Media / uploads
+media/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+env/
+*.egg-info/
+
+# Django
+staticfiles/
+*.log
+
+# Android
+sysmonitor-apk/app/build/
+sysmonitor-apk/.gradle/
+sysmonitor-apk/local.properties
+*.apk
+*.keystore
+*.jks
+
+# IDE
+.vscode/
+.idea/
+sysmonitor-apk/

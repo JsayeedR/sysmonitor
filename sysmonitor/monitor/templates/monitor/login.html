@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Login</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f172a;
+      display: flex; flex-direction: column;
+      min-height: 100vh;
+    }
+    .login-wrapper {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 380px;
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .logo h1 {
+      font-size: 1.6rem;
+      color: #f1f5f9;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .logo p { color: #64748b; font-size: 0.85rem; margin-top: 4px; }
+    label { display:block; font-size:0.8rem; color:#94a3b8; margin-bottom:6px; }
+    input {
+      width: 100%;
+      padding: 0.65rem 0.9rem;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #f1f5f9;
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+      outline: none;
+      transition: border .2s;
+    }
+    input:focus { border-color: #3b82f6; }
+    button {
+      width: 100%;
+      padding: 0.7rem;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    button:hover { background: #2563eb; }
+    .error {
+      background: #450a0a;
+      border: 1px solid #b91c1c;
+      color: #fca5a5;
+      border-radius: 8px;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-wrapper">
+    <div class="card">
+      <div class="logo">
+        <h1>⚡ SysMonitor</h1>
+        <p>Network & Power Monitoring</p>
+      </div>
+      {% if error %}
+      <div class="error">⚠️ {{ error }}</div>
+      {% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <label>Username</label>
+        <input type="text" name="username" autofocus required>
+        <label>Password</label>
+        <input type="password" name="password" required>
+        <button type="submit">Sign In</button>
+      </form>
+    </div>
+  </div>
+<!-- FOOTER -->
+{% include "monitor/footer.html" %}
+</body>
+</html>

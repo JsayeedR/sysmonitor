@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Access Denied</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#f1f5f9;
+           display:flex; align-items:center; justify-content:center; min-height:100vh; }
+    .card { text-align:center; }
+    .icon { font-size:3rem; margin-bottom:1rem; }
+    h1 { font-size:1.5rem; color:#f87171; margin-bottom:.5rem; }
+    p  { color:#64748b; margin-bottom:1.5rem; }
+    a  { color:#3b82f6; text-decoration:none; font-size:.9rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🚫</div>
+    <h1>Access Denied</h1>
+    <p>You don't have permission to view this page.</p>
+    <a href="/">← Back to Dashboard</a>
+  </div>
+
+<!-- FOOTER -->
+{% include "monitor/footer.html" %}
+
+</body>
+</html>

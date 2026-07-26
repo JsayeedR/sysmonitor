@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Event Log</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#f1f5f9; min-height:100vh; }
+    nav {
+      background:#1e293b; border-bottom:1px solid #334155;
+      padding:.75rem 2rem; display:flex; align-items:center; justify-content:space-between;
+    }
+    nav .brand { font-size:1.1rem; font-weight:700; }
+    nav .brand span { color:#3b82f6; }
+    nav .links { display:flex; gap:1.5rem; align-items:center; }
+    nav a { color:#94a3b8; font-size:.85rem; text-decoration:none; }
+    nav a:hover { color:#f1f5f9; }
+    .container { max-width:1100px; margin:0 auto; padding:2rem 1.5rem; }
+    .page-header {
+      display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;
+    }
+    h1 { font-size:1.3rem; font-weight:700; }
+    .count { font-size:.85rem; color:#64748b; margin-top:.25rem; }
+
+    /* FILTER BAR */
+    .filter-bar {
+      background:#1e293b; border:1px solid #334155;
+      border-radius:12px; padding:1rem 1.25rem;
+      display:flex; gap:1rem; align-items:flex-end;
+      flex-wrap:wrap; margin-bottom:1.5rem;
+    }
+    .filter-group { display:flex; flex-direction:column; gap:5px; min-width:160px; }
+    .filter-group label { font-size:.75rem; color:#64748b; }
+    .filter-group select,
+    .filter-group input {
+      padding:.5rem .75rem;
+      background:#0f172a; border:1px solid #334155;
+      border-radius:8px; color:#f1f5f9; font-size:.85rem;
+      outline:none; transition:border .2s;
+    }
+    .filter-group select:focus,
+    .filter-group input:focus { border-color:#3b82f6; }
+    .btn {
+      padding:.5rem 1.1rem; border-radius:8px; font-size:.85rem;
+      font-weight:600; cursor:pointer; text-decoration:none;
+      border:none; display:inline-block;
+    }
+    .btn-primary   { background:#3b82f6; color:white; }
+    .btn-primary:hover { background:#2563eb; }
+    .btn-secondary { background:#334155; color:#f1f5f9; }
+    .btn-secondary:hover { background:#475569; }
+
+    /* TABLE */
+    .table-wrap { background:#1e293b; border:1px solid #334155; border-radius:12px; overflow:hidden; }
+    table { width:100%; border-collapse:collapse; }
+    th {
+      background:#0f172a; padding:.75rem 1rem; text-align:left;
+      font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:#64748b;
+      white-space:nowrap;
+    }
+    td { padding:.8rem 1rem; border-bottom:1px solid #1e293b; font-size:.85rem; vertical-align:top; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:#162032; }
+
+    /* BADGES */
+    .badge {
+      font-size:.7rem; padding:2px 8px; border-radius:4px;
+      font-weight:600; white-space:nowrap; display:inline-block;
+    }
+    .badge.OUTAGE   { background:#450a0a; color:#f87171; }
+    .badge.NOTICE   { background:#1e293b; color:#94a3b8; border:1px solid #334155; }
+    .badge.NORMAL   { background:#052e16; color:#4ade80; }
+    .badge.GEN-UP   { background:#422006; color:#fbbf24; }
+    .badge.ATS      { background:#172554; color:#60a5fa; }
+    .badge.CRITICAL { background:#450a0a; color:#f87171; border:1px solid #7f1d1d; }
+    .badge.INFO     { background:#1e293b; color:#94a3b8; border:1px solid #334155; }
+
+    .device-chip {
+      font-size:.75rem; color:#64748b; background:#0f172a;
+      padding:2px 8px; border-radius:4px; white-space:nowrap;
+    }
+    .empty { color:#64748b; text-align:center; padding:4rem; }
+
+    /* STATS ROW */
+    .stats-row {
+      display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+      gap:.75rem; margin-bottom:1.5rem;
+    }
+    .stat-card {
+      background:#1e293b; border:1px solid #334155;
+      border-radius:10px; padding:.85rem 1rem;
+    }
+    .stat-label { font-size:.72rem; color:#64748b; margin-bottom:.25rem; }
+    .stat-value { font-size:1.4rem; font-weight:700; }
+  
+    .hamburger { display:none; flex-direction:column; gap:4px; cursor:pointer; padding:.3rem; border:none; background:none; }
+    .hamburger span { display:block; width:20px; height:2px; background:#94a3b8; border-radius:2px; transition:.2s; }
+    .hamburger.open span:nth-child(1) { transform:translateY(6px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity:0; }
+    .hamburger.open span:nth-child(3) { transform:translateY(-6px) rotate(-45deg); }
+
+    @media (max-width: 768px) {
+      nav { padding:.6rem 1rem; flex-wrap:wrap; gap:.4rem; position:relative; }
+      .hamburger { display:flex; }
+      .links {
+        display:none; flex-direction:column; width:100%;
+        background:#1e293b; border-top:1px solid #334155;
+        padding:.5rem 0; gap:0;
+      }
+      .links.open { display:flex; }
+      .links a { padding:.55rem 1rem; border-radius:0; font-size:.85rem; border-bottom:1px solid #334155; }
+      .links a:last-child { border-bottom:none; }
+      .container { padding: 1.25rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="brand">⚡ Sys<span>Monitor</span></div>
+  <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="links" id="nav-links">
+    <a href="/">🏠 Dashboard</a>
+    <a href="/report/">📊 Report</a>
+    <a href="/events/">📋 Events</a>
+    {% if role == "user" or role == "admin" %}<a href="/generator-log/">🔧 Generator Shifting Entry</a>{% endif %}
+    <a href="/about/">ℹ️ About Me</a>
+    {% if role == "admin" %}
+    <a href="/devices/">🖥️ Devices</a>
+    <a href="/users/">👥 Users</a>
+    <a href="/notifications/">🔔 Notifications</a>
+    <a href="/activity/">🕵️ Activity</a>
+    <a href="/system/">🛠️ System</a>
+    {% endif %}
+    <a href="/logout/">Logout</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <div>
+      <h1>📋 Event Log</h1>
+      <div class="count">Showing {{ events|length }} event(s)
+        {% if filter_device or filter_level or filter_date %}
+        — filtered
+        {% endif %}
+      </div>
+    </div>
+    {% if filter_device or filter_level or filter_date %}
+    <a href="/events/" class="btn btn-secondary">✕ Clear Filters</a>
+    {% endif %}
+  </div>
+
+  <!-- QUICK STATS -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Shown</div>
+      <div class="stat-value">{{ events|length }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Outages</div>
+      <div class="stat-value" style="color:#f87171">
+        {{ outage_count }}
+      </div>
+    </div>    
+
+    <div class="stat-card">
+      <div class="stat-label">Max Records</div>
+      <div class="stat-value" style="color:#94a3b8">200</div>
+    </div>
+  </div>
+
+  <!-- FILTER BAR -->
+  <form method="get" action="/events/">
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Device</label>
+        <select name="device">
+          <option value="">All Devices</option>
+          {% for d in devices %}
+          <option value="{{ d.id }}" {% if filter_device == d.id|stringformat:"s" %}selected{% endif %}>
+            {{ d.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>Event Type</label>
+        <select name="level">
+          <option value="">All Types</option>
+          {% for l in level_choices %}
+          <option value="{{ l }}" {% if filter_level == l %}selected{% endif %}>{{ l }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>Date</label>
+        <input type="date" name="date" value="{{ filter_date }}">
+      </div>
+
+      <button type="submit" class="btn btn-primary">Filter</button>
+    </div>
+  </form>
+
+  <!-- EVENTS TABLE -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Type</th>
+          <th>Device</th>
+          <th>Message</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in events %}
+        <tr>
+          <td style="white-space:nowrap;color:#64748b;font-size:.8rem">
+            {{ e.created_at|date:"Y-m-d" }}<br>
+            <span style="color:#475569">{{ e.created_at|date:"H:i:s" }}</span>
+          </td>
+          <td><span class="badge {{ e.level }}">{{ e.level }}</span></td>
+          <td>
+            {% if e.device %}
+            <span class="device-chip">{{ e.device.name }}</span>
+            {% else %}
+            <span style="color:#334155">—</span>
+            {% endif %}
+          </td>
+          <td style="color:#cbd5e1">{{ e.message }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="4" class="empty">
+            No events found{% if filter_device or filter_level or filter_date %} for selected filters{% endif %}.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "monitor/footer.html" %}
+
+<script>
+function toggleNav() {
+  const btn = document.getElementById('hamburger');
+  const links = document.getElementById('nav-links');
+  if (!btn || !links) return;
+  btn.classList.toggle('open');
+  links.classList.toggle('open');
+}
+document.addEventListener('DOMContentLoaded', function() {
+  const links = document.getElementById('nav-links');
+  if (!links) return;
+  links.querySelectorAll('a').forEach(function(a) {
+    a.addEventListener('click', function() {
+      var btn = document.getElementById('hamburger');
+      if (btn) btn.classList.remove('open');
+      links.classList.remove('open');
+    });
+  });
+});
+</script>
+</body>
+</html>
+

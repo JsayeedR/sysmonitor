@@ -1,0 +1,11 @@
+[Unit]
+Description=SysMonitor Database Backup
+After=network.target
+
+[Service]
+Type=oneshot
+User=nanolab
+WorkingDirectory=/home/nanolab/Desktop/sysmonitor
+ExecStart=/home/nanolab/Desktop/sysmonitor/venv/bin/python monitor/backup.py
+StandardOutput=journal
+StandardError=journal

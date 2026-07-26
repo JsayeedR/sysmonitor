@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Devices</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#f1f5f9; min-height:100vh; }
+    nav {
+      background:#1e293b; border-bottom:1px solid #334155;
+      padding:.75rem 2rem; display:flex; align-items:center; justify-content:space-between;
+    }
+    nav .brand { font-size:1.1rem; font-weight:700; }
+    nav .brand span { color:#3b82f6; }
+    nav .links { display:flex; gap:1.5rem; align-items:center; }
+    nav a { color:#94a3b8; font-size:.85rem; text-decoration:none; }
+    nav a:hover { color:#f1f5f9; }
+    .container { max-width:960px; margin:0 auto; padding:2rem 1.5rem; }
+    .page-header {
+      display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;
+    }
+    h1 { font-size:1.3rem; font-weight:700; }
+    .btn {
+      padding:.5rem 1.1rem; border-radius:8px; font-size:.85rem;
+      font-weight:600; cursor:pointer; text-decoration:none; border:none; display:inline-block;
+    }
+    .btn-primary   { background:#3b82f6; color:white; }
+    .btn-primary:hover { background:#2563eb; }
+    .btn-danger    { background:#dc2626; color:white; }
+    .btn-danger:hover  { background:#b91c1c; }
+    .btn-secondary { background:#334155; color:#f1f5f9; }
+    .btn-secondary:hover { background:#475569; }
+    table { width:100%; border-collapse:collapse; background:#1e293b;
+            border-radius:12px; overflow:hidden; }
+    th { background:#0f172a; padding:.75rem 1rem; text-align:left;
+         font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; color:#64748b; }
+    td { padding:.85rem 1rem; border-bottom:1px solid #334155; font-size:.88rem; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:#162032; }
+    .status-dot {
+      display:inline-block; width:10px; height:10px;
+      border-radius:50%; margin-right:6px;
+    }
+    .status-dot.UP      { background:#22c55e; box-shadow:0 0 6px #22c55e; }
+    .status-dot.DOWN    { background:#ef4444; box-shadow:0 0 6px #ef4444; }
+    .status-dot.UNKNOWN { background:#64748b; }
+    .active-badge {
+      font-size:.72rem; padding:2px 8px; border-radius:20px; font-weight:600;
+    }
+    .active-badge.yes { background:#052e16; color:#4ade80; }
+    .active-badge.no  { background:#1e293b; color:#64748b; border:1px solid #334155; }
+    .actions { display:flex; gap:.5rem; }
+    .msg-success {
+      background:#052e16; border:1px solid #166534; color:#4ade80;
+      padding:.65rem 1rem; border-radius:8px; margin-bottom:1rem; font-size:.85rem;
+    }
+    .empty { color:#64748b; text-align:center; padding:3rem; }
+  
+    .hamburger { display:none; flex-direction:column; gap:4px; cursor:pointer; padding:.3rem; border:none; background:none; }
+    .hamburger span { display:block; width:20px; height:2px; background:#94a3b8; border-radius:2px; transition:.2s; }
+    .hamburger.open span:nth-child(1) { transform:translateY(6px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity:0; }
+    .hamburger.open span:nth-child(3) { transform:translateY(-6px) rotate(-45deg); }
+
+    @media (max-width: 768px) {
+      nav { padding:.6rem 1rem; flex-wrap:wrap; gap:.4rem; position:relative; }
+      .hamburger { display:flex; }
+      .links {
+        display:none; flex-direction:column; width:100%;
+        background:#1e293b; border-top:1px solid #334155;
+        padding:.5rem 0; gap:0;
+      }
+      .links.open { display:flex; }
+      .links a { padding:.55rem 1rem; border-radius:0; font-size:.85rem; border-bottom:1px solid #334155; }
+      .links a:last-child { border-bottom:none; }
+      .container { padding: 1.25rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="brand">⚡ Sys<span>Monitor</span></div>
+  <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="links" id="nav-links">
+    <a href="/">🏠 Dashboard</a>
+    <a href="/report/">📊 Report</a>
+    <a href="/events/">📋 Events</a>
+    <a href="/devices/">🖥️ Devices</a>
+    <a href="/about/">ℹ️ About Me</a>
+    <a href="/users/">👥 Users</a>
+    <a href="/notifications/">🔔 Notifications</a>
+    <a href="/generator-log/">🔧 Generator Shifting Entry</a>
+    <a href="/activity/">🕵️ Activity</a>
+    <a href="/system/">🛠️ System</a>
+    <a href="/logout/">Logout</a>
+  </div>
+</nav>
+<div class="container">
+  <div class="page-header">
+    <h1>📡 Device Management</h1>
+    <a href="/devices/add/" class="btn btn-primary">+ Add Device</a>
+  </div>
+
+  {% if messages %}
+    {% for m in messages %}
+    <div class="msg-success">✅ {{ m }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Name</th>
+        <th>IP Address</th>
+        <th>Description</th>
+        <th>Status</th>
+        <th>Response</th>
+        <th>Active</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in devices %}
+      <tr>
+        <td style="color:#475569">{{ forloop.counter }}</td>
+        <td style="font-weight:600">{{ d.obj.name }}</td>
+        <td style="font-family:monospace;color:#94a3b8">{{ d.obj.ip_address }}</td>
+        <td style="color:#64748b">{{ d.obj.description|default:"—" }}</td>
+        <td>
+          <span class="status-dot {{ d.status }}"></span>
+          <span style="{% if d.status == 'UP' %}color:#22c55e{% elif d.status == 'DOWN' %}color:#ef4444{% else %}color:#64748b{% endif %}">
+            {{ d.status }}
+          </span>
+        </td>
+        <td style="color:#64748b">{% if d.ms %}{{ d.ms }}ms{% else %}—{% endif %}</td>
+        <td>
+          <span class="active-badge {% if d.obj.is_active %}yes{% else %}no{% endif %}">
+            {% if d.obj.is_active %}Active{% else %}Inactive{% endif %}
+          </span>
+        </td>
+        <td>
+          <div class="actions">
+            <a href="/devices/{{ d.obj.id }}/edit/"   class="btn btn-secondary">Edit</a>
+            <a href="/devices/{{ d.obj.id }}/delete/" class="btn btn-danger">Delete</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="empty">No devices added yet. Click "+ Add Device" to start.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "monitor/footer.html" %}
+
+<script>
+function toggleNav() {
+  const btn = document.getElementById('hamburger');
+  const links = document.getElementById('nav-links');
+  if (!btn || !links) return;
+  btn.classList.toggle('open');
+  links.classList.toggle('open');
+}
+document.addEventListener('DOMContentLoaded', function() {
+  const links = document.getElementById('nav-links');
+  if (!links) return;
+  links.querySelectorAll('a').forEach(function(a) {
+    a.addEventListener('click', function() {
+      var btn = document.getElementById('hamburger');
+      if (btn) btn.classList.remove('open');
+      links.classList.remove('open');
+    });
+  });
+});
+</script>
+</body>
+</html>
+
