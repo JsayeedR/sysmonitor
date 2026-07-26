@@ -526,7 +526,7 @@ function addManualCycle() {
   }).then(r => {
     if (r.ok) {
       msg.style.color = 'var(--green)';
-      msg.textContent = `✅ Cycle ID:${r.cycle_id} added — ${r.duration_min} min.`;
+      msg.textContent = `✅ Cycle ID:${r.cycle_id} added — ${r.duration_str}.`;
       document.getElementById('manual-start-date').value = '';
       document.getElementById('manual-start-time').value = '';
       document.getElementById('manual-end-date').value = '';

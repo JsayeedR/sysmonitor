@@ -20,7 +20,19 @@ BDT = pytz.timezone('Asia/Dhaka')
 def fmt_time(dt):
     if not dt:
         return '—'
-    return dt.astimezone(BDT).strftime('%I:%M %p')
+    return dt.astimezone(BDT).strftime('%I:%M:%S %p')
+
+
+def fmt_duration(total_secs):
+    """Exact duration string, e.g. '1h 02m 03s', '8m 15s', '45s'. No rounding."""
+    total_secs = int(total_secs)
+    h, r = divmod(total_secs, 3600)
+    m, s = divmod(r, 60)
+    if h:
+        return f'{h}h {m:02d}m {s:02d}s'
+    if m:
+        return f'{m}m {s:02d}s'
+    return f'{s}s'
 
 
 def get_generator_for_cycle(cycle, mode_logs_sorted):
@@ -101,19 +113,19 @@ def build_daily_summary(target_date):
         for seg in split_cycle_by_day(c, BDT, now=now):
             if seg['date'] != target_date:
                 continue
-            mins = seg['duration_sec'] // 60
-            if mins <= 0:
+            secs = seg['duration_sec']
+            if secs <= 0:
                 continue
 
             gen = get_generator_for_cycle(c, mode_logs)
             rows.append({
-                'start': seg['start'].strftime('%I:%M %p'),
-                'end': 'ongoing…' if seg['is_ongoing'] else seg['end'].strftime('%I:%M %p'),
-                'duration_min': mins,
+                'start': seg['start'].strftime('%I:%M:%S %p'),
+                'end': 'ongoing…' if seg['is_ongoing'] else seg['end'].strftime('%I:%M:%S %p'),
+                'duration_sec': secs,
                 'generator': gen,
                 'is_ongoing': seg['is_ongoing'],
             })
-            totals[gen] = totals.get(gen, 0) + mins
+            totals[gen] = totals.get(gen, 0) + secs
 
     grand_total = sum(totals.values())
 
@@ -129,35 +141,37 @@ def build_daily_summary(target_date):
 def format_summary_text(summary):
     """Formats the summary dict into the exact text-report style requested."""
     lines = []
-    lines.append('-' * 41)
+    width = 55
+    lines.append('-' * width)
     lines.append(f"Generator Log: {summary['date']}")
-    lines.append('-' * 41)
+    lines.append('-' * width)
 
     if not summary['has_data']:
         lines.append('No outages recorded — all systems normal.')
-        lines.append('-' * 41)
+        lines.append('-' * width)
         return '\n'.join(lines)
 
-    lines.append(f"{'Start Time':<11} | {'End Time':<9} | {'Duration':<8} | GEN")
-    lines.append('-' * 41)
+    lines.append(f"{'Start Time':<11} | {'End Time':<11} | {'Duration':<10} | GEN")
+    lines.append('-' * width)
     has_ongoing = False
     for r in summary['rows']:
         marker = ' *' if r.get('is_ongoing') else ''
-        lines.append(f"{r['start']:<11} | {r['end']:<9} | {r['duration_min']:>3} min  | {r['generator']}{marker}")
+        dur_str = fmt_duration(r['duration_sec'])
+        lines.append(f"{r['start']:<11} | {r['end']:<11} | {dur_str:<10} | {r['generator']}{marker}")
         if r.get('is_ongoing'):
             has_ongoing = True
-    lines.append('-' * 41)
+    lines.append('-' * width)
     lines.append('Total Duration:')
     for gen in ('Gen-01', 'Gen-02'):
-        lines.append(f"{gen}: {summary['totals'].get(gen, 0)} minutes")
+        lines.append(f"{gen}: {fmt_duration(summary['totals'].get(gen, 0))}")
     if summary['totals'].get('UNASSIGNED', 0) > 0:
-        lines.append(f"Unassigned: {summary['totals']['UNASSIGNED']} minutes "
+        lines.append(f"Unassigned: {fmt_duration(summary['totals']['UNASSIGNED'])} "
                       f"(no generator mode log found for this period)")
-    lines.append(f"Grand Total: {summary['grand_total']} minutes")
+    lines.append(f"Grand Total: {fmt_duration(summary['grand_total'])}")
     if has_ongoing:
-        lines.append('-' * 41)
+        lines.append('-' * width)
         lines.append('* Outage was still ongoing at report time — duration is')
         lines.append("  partial (up to midnight). Remainder appears in tomorrow's report.")
-    lines.append('-' * 41)
+    lines.append('-' * width)
 
     return '\n'.join(lines)

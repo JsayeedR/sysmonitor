@@ -491,7 +491,7 @@ def handle_changes(holder_dev, nvr_dev, holder_up, nvr_up):
                 STATE.critical_warned = False
                 print(f'[{fmt(now)}] NVR blip during GEN_RUNNING — '
                       f'staying in cycle ID:{STATE.cycle.id if STATE.cycle else "?"}')
-            elif phase != 'OUTAGE':
+            elif STATE.phase != 'OUTAGE':
                 if holder_just_went_down and STATE.cycle is None:
                     # Holder went down moments ago, NVR now also down — same outage.
                     # Start cycle from when Holder actually went down (both_down_at)

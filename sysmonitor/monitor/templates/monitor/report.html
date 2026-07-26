@@ -352,11 +352,12 @@
           <th>Start Time</th>
           <th>PDB Restored</th>
           <th>PDB Outage Duration</th>
+          <th>GEN</th>
           <th>Type</th>
         </tr>
       </thead>
       <tbody id="report-tbody">
-        <tr><td colspan="5" class="loading">Loading...</td></tr>
+        <tr><td colspan="6" class="loading">Loading...</td></tr>
       </tbody>
     </table>
   </div>
@@ -474,7 +475,7 @@ function loadReport() {
 
   document.getElementById('report-status').textContent = 'Loading...';
   document.getElementById('report-tbody').innerHTML =
-    '<tr><td colspan="5" class="loading">Loading...</td></tr>';
+    '<tr><td colspan="6" class="loading">Loading...</td></tr>';
   document.getElementById('bar-chart').innerHTML =
     '<div class="loading">Loading chart...</div>';
 
@@ -483,7 +484,7 @@ function loadReport() {
     .then(data => renderReport(data))
     .catch(() => {
       document.getElementById('report-tbody').innerHTML =
-        '<tr><td colspan="7" class="empty">Failed to load report.</td></tr>';
+        '<tr><td colspan="6" class="empty">Failed to load report.</td></tr>';
       document.getElementById('report-status').textContent = 'Error loading data';
     });
 }
@@ -522,7 +523,7 @@ function renderReport(data) {
     `${data.cycles.length} record(s)`;
 
   if (!data.cycles.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">No outage data for this period.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">No outage data for this period.</td></tr>';
   } else {
     tbody.innerHTML = data.cycles.map(c => `
       <tr>
@@ -530,6 +531,7 @@ function renderReport(data) {
         <td style="font-family:monospace;color:var(--text)">${c.start}</td>
         <td style="font-family:monospace;color:var(--text)">${c.end}</td>
         <td class="dur">${c.duration}</td>
+        <td>${c.generator && c.generator !== 'UNASSIGNED' ? c.generator : ''}</td>
         <td><span class="type-badge type-${c.cycle_type}">
           ${c.cycle_type === 'NORMAL' ? '✅ Normal'
           : c.cycle_type === 'ALARM'  ? '🟠 Alarm'

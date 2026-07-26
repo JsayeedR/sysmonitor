@@ -197,7 +197,7 @@ def api_status(request):
     if active_cycle:
         gen_since = '—'
         if active_cycle.gen_start:
-            gen_since = active_cycle.gen_start.astimezone(bdt).strftime('%I:%M %p')
+            gen_since = active_cycle.gen_start.astimezone(bdt).strftime('%I:%M:%S %p')
         cycle_data = {
             'state':     'ACTIVE',
             'gen_since': gen_since,
@@ -206,7 +206,7 @@ def api_status(request):
         completed_at = '—'
         date_str     = '—'
         if last_cycle.cycle_end:
-            completed_at = last_cycle.cycle_end.astimezone(bdt).strftime('%I:%M %p')
+            completed_at = last_cycle.cycle_end.astimezone(bdt).strftime('%I:%M:%S %p')
         if last_cycle.outage_start:
             date_str = last_cycle.outage_start.astimezone(bdt).strftime('%d/%m/%Y')
         cycle_data = {
@@ -535,13 +535,17 @@ def api_daily_summary(request):
     # Candidates: anything that could overlap this day. Look back a few days
     # so a cycle that started earlier and either is still ongoing, or ended
     # late, isn't missed — same approach as the cron's build_daily_summary().
+    from monitor.models import GeneratorModeLog
+    from monitor.daily_summary import get_generator_for_cycle, fmt_duration
+    mode_logs = list(GeneratorModeLog.objects.filter(switched_at__lt=day_end_bdt).order_by('switched_at'))
+
     candidates = OutageCycle.objects.filter(
         outage_start__lt=day_end_bdt,
         outage_start__gte=day_start_bdt - timedelta(days=3),
     ).order_by('outage_start')
 
+    total_secs_sum = 0
     rows = []
-    total_mins = 0
     for c in candidates:
         seg = None
         for s in split_cycle_by_day(c, bdt, now=now):
@@ -552,19 +556,13 @@ def api_daily_summary(request):
             continue
 
         total_secs = seg['duration_sec']
-        h, r = divmod(total_secs, 3600)
-        m, s_ = divmod(r, 60)
-        if h:
-            duration_str = f'{h}h {m:02d}m'
-        elif m:
-            duration_str = f'{m}min'
-        else:
-            duration_str = f'{s_}s'
-
+        duration_str = fmt_duration(total_secs)
+        gen = get_generator_for_cycle(c, mode_logs)
         rows.append({
-            'start':       seg['start'].strftime('%I:%M %p'),
-            'end':         'ongoing…' if seg['is_ongoing'] else seg['end'].strftime('%I:%M %p'),
+            'start':       seg['start'].strftime('%I:%M:%S %p'),
+            'end':         'ongoing…' if seg['is_ongoing'] else seg['end'].strftime('%I:%M:%S %p'),
             'duration':    duration_str,
+            'generator':   gen,
             'is_complete': c.is_complete and not seg['is_ongoing'],
             'is_ongoing':  seg['is_ongoing'],
             'cycle_type':  c.cycle_type,
@@ -574,7 +572,7 @@ def api_daily_summary(request):
         # matching the previous "completed, pdb_duration_sec > 0" intent —
         # but now measured per calendar day instead of per whole cycle.
         if c.pdb_duration_sec > 0 or seg['is_ongoing']:
-            total_mins += total_secs // 60
+            total_secs_sum += total_secs
 
     dates_with_cycles = set()
     today_bdt = dt_class.now(bdt).date()
@@ -603,7 +601,7 @@ def api_daily_summary(request):
         'date':            filter_date.strftime('%d/%m/%Y'),
         'date_val':        filter_date.strftime('%Y-%m-%d'),
         'rows':            rows,
-        'total_mins':      total_mins,
+        'total_secs':      total_secs_sum,
         'day_complete':    day_complete,
         'available_dates': sorted(dates_with_cycles, reverse=True),
     })
@@ -678,6 +676,9 @@ def api_report(request):
 
     # Build cycles list
     cycle_rows = []
+    from monitor.models import GeneratorModeLog
+    from monitor.daily_summary import get_generator_for_cycle, fmt_duration
+    mode_logs_all = list(GeneratorModeLog.objects.order_by('switched_at'))
     for c in cycles:
         local_start = c.outage_start.astimezone(bdt)
         # End time = pdb_restored (when Holder came back = grid restored)
@@ -687,20 +688,15 @@ def api_report(request):
         total_secs  = c.pdb_duration_sec if c.pdb_duration_sec else (
             int((end_dt - c.outage_start).total_seconds()) if end_dt else 0
         )
-        h, r = divmod(total_secs, 3600)
-        m, s = divmod(r, 60)
-        if h:
-            dur_str = f'{h}h {m:02d}m'
-        elif m:
-            dur_str = f'{m}min'
-        else:
-            dur_str = f'{s}s'
+        dur_str = fmt_duration(total_secs)
 
+        gen = get_generator_for_cycle(c, mode_logs_all)
         cycle_rows.append({
             'date':         local_start.strftime('%Y-%m-%d'),
-            'start':        local_start.strftime('%I:%M %p'),
-            'end':          local_end.strftime('%I:%M %p') if local_end else '—',
+            'start':        local_start.strftime('%I:%M:%S %p'),
+            'end':          local_end.strftime('%I:%M:%S %p') if local_end else '—',
             'duration':     dur_str,
+            'generator':    gen,
             'pdb_duration': c.pdb_duration_fmt(),
             'gen_runtime':  c.gen_runtime_fmt(),
             'cycle_type':   c.cycle_type,
@@ -714,7 +710,7 @@ def api_report(request):
     for c in cycles:
         for seg in split_cycle_by_day(c, bdt):
             d_key = seg['date'].strftime('%Y-%m-%d')
-            mins = seg['duration_sec'] // 60
+            mins = round(seg['duration_sec'] / 60)
             if mins <= 0:
                 continue
             daily_map[d_key] = daily_map.get(d_key, 0) + mins
@@ -737,7 +733,7 @@ def api_report(request):
     avg_per_day = round(total_mins / days_with, 1) if days_with else 0
 
     all_cycle_mins = [
-        int(c.pdb_duration_sec // 60)
+        round(c.pdb_duration_sec / 60)
         for c in cycles if c.pdb_duration_sec
     ]
     max_mins  = max(all_cycle_mins) if all_cycle_mins else 0
@@ -748,7 +744,7 @@ def api_report(request):
     for c in cycles:
         if not c.pdb_duration_sec:
             continue
-        mins = int(c.pdb_duration_sec // 60)
+        mins = round(c.pdb_duration_sec / 60)
         if mins == max_mins:
             max_date = c.outage_start.astimezone(bdt).strftime('%Y-%m-%d')
         if mins == min_mins and min_date is None:
@@ -763,7 +759,7 @@ def api_report(request):
         local_start = c.outage_start.astimezone(bdt)
         m_key  = local_start.strftime('%Y-%m')
         m_label = local_start.strftime('%B %Y')
-        mins   = int(c.pdb_duration_sec // 60) if c.pdb_duration_sec else 0
+        mins   = round(c.pdb_duration_sec / 60) if c.pdb_duration_sec else 0
         if m_key not in monthly_map:
             monthly_map[m_key] = {
                 'month': m_label, 'count': 0, 'total_mins': 0,
@@ -995,7 +991,7 @@ def notif_log(request):
     import pytz
     bdt = pytz.timezone('Asia/Dhaka')
     logs = NotificationLog.objects.all()[:100]
-    data = [{'sent_at': l.sent_at.astimezone(bdt).strftime('%d/%m %I:%M %p'),
+    data = [{'sent_at': l.sent_at.astimezone(bdt).strftime('%d/%m %I:%M:%S %p'),
              'event_type': l.event_type, 'channel': l.channel,
              'recipient': l.recipient, 'status': l.status, 'error': l.error}
             for l in logs]
@@ -1026,7 +1022,7 @@ def notif_whatsapp_health(request):
 
     # expires_at is a datetime, not JSON serializable — convert to string
     if result.get('expires_at'):
-        result['expires_at'] = result['expires_at'].strftime('%d %b %Y %I:%M %p')
+        result['expires_at'] = result['expires_at'].strftime('%d %b %Y %I:%M:%S %p')
 
     cache.set('wa_token_health', result, 60 * 60 * 6)  # cache 6 hours
     return JsonResponse(result)
@@ -1048,7 +1044,7 @@ def generator_log_page(request):
     entries_display = [{
         'id': e.id,
         'generator': e.generator,
-        'switched_at': e.switched_at.astimezone(bdt).strftime('%d/%m/%Y %I:%M %p'),
+        'switched_at': e.switched_at.astimezone(bdt).strftime('%d/%m/%Y %I:%M:%S %p'),
         'switched_date_raw': e.switched_at.astimezone(bdt).strftime('%Y-%m-%d'),
         'switched_time_raw': e.switched_at.astimezone(bdt).strftime('%H:%M'),
         'note': e.note,
@@ -1181,8 +1177,8 @@ def maintenance_status(request):
 
     return JsonResponse({
         'active': True,
-        'started_at': m.started_at.astimezone(bdt).strftime('%I:%M %p') if m.started_at else None,
-        'expires_at': m.expires_at.astimezone(bdt).strftime('%I:%M %p') if m.expires_at else None,
+        'started_at': m.started_at.astimezone(bdt).strftime('%I:%M:%S %p') if m.started_at else None,
+        'expires_at': m.expires_at.astimezone(bdt).strftime('%I:%M:%S %p') if m.expires_at else None,
         'started_by': m.started_by,
         'reason': m.reason,
     })
@@ -1450,8 +1446,8 @@ def system_live_state(request):
             'elapsed_min': elapsed // 60,
             'elapsed_sec': elapsed % 60,
             'type': c.cycle_type,
-            'gen_start': c.gen_start.astimezone(bdt).strftime('%I:%M %p') if c.gen_start else None,
-            'pdb_restored': c.pdb_restored.astimezone(bdt).strftime('%I:%M %p') if c.pdb_restored else None,
+            'gen_start': c.gen_start.astimezone(bdt).strftime('%I:%M:%S %p') if c.gen_start else None,
+            'pdb_restored': c.pdb_restored.astimezone(bdt).strftime('%I:%M:%S %p') if c.pdb_restored else None,
         })
 
     # Device states
@@ -1608,7 +1604,7 @@ def system_manual_cycle_add(request):
     log_activity(
         request.user, 'CYCLE_MANUAL_ADD',
         f'Manually added audited cycle ID:{cycle.id} '
-        f'({start_dt.strftime("%d/%m/%Y %I:%M %p")} → {end_dt.strftime("%d/%m/%Y %I:%M %p")}, '
+        f'({start_dt.strftime("%d/%m/%Y %I:%M:%S %p")} → {end_dt.strftime("%d/%m/%Y %I:%M:%S %p")}, '
         f'{generator or "unassigned"})',
         get_ip(request)
     )
@@ -1618,10 +1614,11 @@ def system_manual_cycle_add(request):
     except Exception as e:
         logger.error(f"Manual cycle notify failed for cycle ID:{cycle.id}: {e}")
 
+    from monitor.daily_summary import fmt_duration
     return JsonResponse({
         'ok': True,
         'cycle_id': cycle.id,
-        'duration_min': duration_sec // 60,
+        'duration_str': fmt_duration(duration_sec),
     })
 
 
@@ -1643,8 +1640,8 @@ def system_recent_cycles(request):
         else:    dur = f"{s}s"
         data.append({
             'id':       c.id,
-            'start':    c.outage_start.astimezone(bdt).strftime('%d/%m %I:%M %p') if c.outage_start else '—',
-            'end':      end_dt.astimezone(bdt).strftime('%d/%m %I:%M %p') if end_dt else '—',
+            'start':    c.outage_start.astimezone(bdt).strftime('%d/%m %I:%M:%S %p') if c.outage_start else '—',
+            'end':      end_dt.astimezone(bdt).strftime('%d/%m %I:%M:%S %p') if end_dt else '—',
             'duration': dur,
             'type':     c.cycle_type,
             'complete': c.is_complete,

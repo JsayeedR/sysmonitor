@@ -710,6 +710,7 @@ function loadSummary(dateVal) {
             ? '<span style="color:var(--yellow)">Running</span>'
             : r.duration}
           </td>
+          <td>${r.generator && r.generator !== 'UNASSIGNED' ? r.generator : ''}</td>
           <td class="type-${r.cycle_type}">
             ${typeLabel[r.cycle_type] || r.cycle_type}
             ${r.alarm_reason
@@ -721,9 +722,9 @@ function loadSummary(dateVal) {
         </tr>
       `).join('');
 
-      const totalDisplay = data.total_mins >= 60
-        ? `${Math.floor(data.total_mins / 60)}h ${data.total_mins % 60}min (${data.total_mins} min)`
-        : `${data.total_mins} min`;
+      const ts = data.total_secs || 0;
+      const tH = Math.floor(ts / 3600), tM = Math.floor((ts % 3600) / 60), tS = ts % 60;
+      const totalDisplay = tH > 0 ? `${tH}h ${tM}m ${tS}s` : (tM > 0 ? `${tM}m ${tS}s` : `${tS}s`);
 
       genLog.innerHTML = `
         ${btnHtml}
@@ -740,6 +741,7 @@ function loadSummary(dateVal) {
               <th>Start Time</th>
               <th>End Time</th>
               <th>Duration</th>
+              <th>GEN</th>
               <th>Type</th>
             </tr>
           </thead>

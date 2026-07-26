@@ -35,7 +35,7 @@ _dispatched = set()
 def fmt_bdt(dt):
     if not dt:
         return '—'
-    return dt.astimezone(BDT).strftime('%I:%M %p')
+    return dt.astimezone(BDT).strftime('%I:%M:%S %p')
 
 
 def already_sent(cycle_id, event_type, channel, recipient):
@@ -78,7 +78,7 @@ def log_notification(cycle_id, event_type, channel, recipient, status, error='')
 
 def build_message(event_type, cycle=None, extra=None):
     """Build a human-friendly message for each event type."""
-    now_str = datetime.now(BDT).strftime('%d/%m/%Y %I:%M %p')
+    now_str = datetime.now(BDT).strftime('%d/%m/%Y %I:%M:%S %p')
 
     if event_type == 'OUTAGE_START':
         return (
@@ -335,19 +335,19 @@ def check_whatsapp_token_health(gateway):
         now = datetime.now()
         if expires_dt <= now:
             return {'ok': False, 'status': 'EXPIRED',
-                    'message': f'Token expired on {expires_dt.strftime("%d %b %Y %I:%M %p")}.',
+                    'message': f'Token expired on {expires_dt.strftime("%d %b %Y %I:%M:%S %p")}.',
                     'expires_at': expires_dt}
 
         hours_left = (expires_dt - now).total_seconds() / 3600
         if hours_left <= 6:
             return {'ok': True, 'status': 'EXPIRING_SOON',
                     'message': f'Token expires in {hours_left:.1f} hours '
-                               f'({expires_dt.strftime("%d %b %Y %I:%M %p")}). '
+                               f'({expires_dt.strftime("%d %b %Y %I:%M:%S %p")}). '
                                f'Generate a permanent System User token to avoid alert failures.',
                     'expires_at': expires_dt}
 
         return {'ok': True, 'status': 'TEMPORARY',
-                'message': f'Token valid until {expires_dt.strftime("%d %b %Y %I:%M %p")} '
+                'message': f'Token valid until {expires_dt.strftime("%d %b %Y %I:%M:%S %p")} '
                            f'({hours_left:.0f}h left). Consider switching to a permanent token.',
                 'expires_at': expires_dt}
 
