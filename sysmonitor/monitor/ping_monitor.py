@@ -371,7 +371,7 @@ def handle_changes(holder_dev, nvr_dev, holder_up, nvr_up):
             STATE.phase = 'OUTAGE'
             start_cycle(outage_start=now)
             log_event(holder_dev, 'OUTAGE',
-                'Holder (192.168.30.56) is DOWN — PDB power lost')
+                f'{holder_dev} is DOWN — PDB power lost')
             set_system_status('OUTAGE',
                 'Both Holder and NVR are DOWN — power outage detected')
             # notify_dispatch() already prevents duplicate sends for THIS
@@ -427,7 +427,7 @@ def handle_changes(holder_dev, nvr_dev, holder_up, nvr_up):
                         c = complete_cycle('NORMAL')
                         if c:
                             log_event(holder_dev, 'NORMAL',
-                                f'NVR (192.168.1.155) is back UP')
+                                f'{nvr_dev} is back UP')
                             log_event(holder_dev, 'NORMAL',
                                 f'✅ Full power cycle complete — '
                                 f'PDB out: {c.pdb_duration_fmt()} | '
@@ -446,11 +446,11 @@ def handle_changes(holder_dev, nvr_dev, holder_up, nvr_up):
 
         elif phase == 'OUTAGE':
             log_event(holder_dev, 'NORMAL',
-                'Holder (192.168.30.56) is back UP')
+                f'{holder_dev} is back UP')
 
         else:
             log_event(holder_dev, 'NORMAL',
-                'Holder (192.168.30.56) is back UP')
+                f'{holder_dev} is back UP')
             if nvr_up:
                 STATE.phase = 'NORMAL'
                 set_system_status('NORMAL',
@@ -509,7 +509,7 @@ def handle_changes(holder_dev, nvr_dev, holder_up, nvr_up):
                     start_cycle(outage_start=now)
                     notify_dispatch('OUTAGE_START', cycle=STATE.cycle)
             log_event(nvr_dev, 'OUTAGE',
-                'NVR (192.168.1.155) is DOWN — '
+                f'{nvr_dev} is DOWN — '
                 'Power outage in progress')
             set_system_status('OUTAGE',
                 'Both Holder and NVR are DOWN — power outage detected')
@@ -556,14 +556,14 @@ def handle_changes(holder_dev, nvr_dev, holder_up, nvr_up):
                 c = complete_cycle('NORMAL')
                 if c:
                     log_event(nvr_dev, 'NORMAL',
-                        f'NVR (192.168.1.155) is back UP')
+                        f'{nvr_dev} is back UP')
                     log_event(nvr_dev, 'NORMAL',
                         f'✅ Full power cycle complete — '
                         f'PDB out: {c.pdb_duration_fmt()} | '
                         f'Generator runtime: {c.gen_runtime_fmt()}')
             else:
                 log_event(nvr_dev, 'NORMAL',
-                    'NVR (192.168.1.155) is back UP')
+                    f'{nvr_dev} is back UP')
 
             STATE.phase           = 'NORMAL'
             STATE.avr_warned      = False
@@ -576,14 +576,14 @@ def handle_changes(holder_dev, nvr_dev, holder_up, nvr_up):
                 c = complete_cycle('NORMAL')
                 if c:
                     log_event(nvr_dev, 'NORMAL',
-                        f'NVR (192.168.1.155) is back UP')
+                        f'{nvr_dev} is back UP')
                     log_event(nvr_dev, 'NORMAL',
                         f'✅ Full power cycle complete — '
                         f'PDB out: {c.pdb_duration_fmt()} | '
                         f'Generator runtime: {c.gen_runtime_fmt()}')
             else:
                 log_event(nvr_dev, 'NORMAL',
-                    'NVR (192.168.1.155) is back UP')
+                    f'{nvr_dev} is back UP')
 
             STATE.phase           = 'NORMAL'
             STATE.avr_warned      = False
@@ -593,7 +593,7 @@ def handle_changes(holder_dev, nvr_dev, holder_up, nvr_up):
 
         else:
             log_event(nvr_dev, 'NORMAL',
-                'NVR (192.168.1.155) is back UP')
+                f'{nvr_dev} is back UP')
             if holder_up:
                 STATE.phase = 'NORMAL'
                 set_system_status('NORMAL',
