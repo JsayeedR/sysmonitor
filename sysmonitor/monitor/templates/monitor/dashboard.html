@@ -26,33 +26,6 @@
       font-size: 14px;
     }
 
-    /* NAV */
-    nav {
-      background: var(--surface); border-bottom: 1px solid var(--border);
-      padding: .6rem 2rem;
-      display: flex; align-items: center; justify-content: space-between;
-      position: sticky; top: 0; z-index: 100;
-    }
-    .brand { font-size: 1rem; font-weight: 700; white-space: nowrap; }
-    .brand span { color: var(--blue); }
-    .nav-links { display: flex; align-items: center; gap: .25rem; }
-    .nav-links a {
-      color: var(--muted); font-size: .8rem; text-decoration: none;
-      padding: .3rem .65rem; border-radius: 6px; transition: all .15s; white-space: nowrap;
-    }
-    .nav-links a:hover { background: var(--border); color: var(--text); }
-    .nav-meta { display: flex; align-items: center; gap: .6rem; }
-    .role-badge {
-      font-size: .68rem; padding: 2px 8px; border-radius: 20px;
-      font-weight: 600; background: #1d4ed8; color: #bfdbfe;
-    }
-    .nav-user { color: var(--faint); font-size: .78rem; }
-    .nav-logout {
-      color: var(--muted); font-size: .78rem; text-decoration: none;
-      padding: .3rem .65rem; border-radius: 6px; transition: all .15s;
-    }
-    .nav-logout:hover { background: var(--border); color: var(--text); }
-
     /* MAIN */
     .main {
       flex: 1; max-width: 1400px; width: 100%;
@@ -61,7 +34,7 @@
 
     /* BANNER */
     .banner {
-      border-radius: 10px; padding: 1rem 1.5rem;
+      border-radius: 10px; padding: .6rem .9rem;
       display: flex; align-items: center; gap: 1rem;
       border: 1px solid transparent; height: 100%;
     }
@@ -75,14 +48,14 @@
       0%,100%{ box-shadow:0 0 0 0 rgba(185,28,28,.4); }
       50%    { box-shadow:0 0 0 8px rgba(185,28,28,0); }
     }
-    .banner-icon { font-size: 1.8rem; flex-shrink: 0; }
+    .banner-icon { font-size: 1.3rem; flex-shrink: 0; }
     .banner-text { flex: 1; }
     .banner-label {
       font-size: .65rem; color: var(--faint);
       text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px;
     }
-    .banner-text h2 { font-size: 1rem; font-weight: 700; }
-    .banner-text p  { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+    .banner-text h2 { font-size: .82rem; font-weight: 700; }
+    .banner-text p  { font-size: .68rem; color: var(--muted); margin-top: 2px; }
     .banner.NORMAL      .banner-text h2 { color:#4ade80; }
     .banner.OUTAGE      .banner-text h2 { color:#f87171; }
     .banner.GENERATOR   .banner-text h2 { color:#fbbf24; }
@@ -96,9 +69,36 @@
 
     /* BANNER GRID */
     .banner-grid {
-      display: grid; grid-template-columns: 1fr 1fr;
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
       gap: 1rem; margin-bottom: 1.25rem;
     }
+    /* GEN/ATS AUTO MODE — neon accents inside the 3rd banner */
+    .gen-neon-label {
+      color: #c4b5fd; text-shadow: 0 0 6px rgba(167,139,250,.55);
+    }
+    .gen-mode-pills { display: flex; gap: .5rem; margin-top: 4px; }
+    .gen-pill {
+      display: flex; align-items: center; gap: .4rem;
+      padding: .22rem .6rem; border-radius: 999px;
+      font-size: .72rem; font-weight: 600;
+      background: var(--bg); border: 1px solid var(--border); color: var(--faint);
+      opacity: .4; transition: opacity .2s, border-color .2s, box-shadow .2s;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .gen-pill.active {
+      opacity: 1; border-color: currentColor;
+      box-shadow: 0 0 10px currentColor;
+      text-shadow: 0 0 6px currentColor;
+    }
+    .gen-dot {
+      width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+      box-shadow: 0 0 4px currentColor;
+    }
+    .gen-dot-1 { background: #f97316; }
+    .gen-dot-2 { background: #3b82f6; }
+    .gen-pill#gen-pill-1.active { color: #f97316; }
+    .gen-pill#gen-pill-2.active { color: #3b82f6; }
+    .gen-mode-time { font-size: .68rem; white-space: nowrap; }
 
     /* DEVICES */
     .devices-row {
@@ -243,26 +243,7 @@
     .footer-right a { color: var(--blue); text-decoration: none; }
     .footer-right a:hover { text-decoration: underline; }
 
-    /* MOBILE */
-    .hamburger { display:none; flex-direction:column; gap:4px; cursor:pointer; padding:.3rem; border:none; background:none; }
-    .hamburger span { display:block; width:20px; height:2px; background:var(--muted); border-radius:2px; transition:.2s; }
-    .hamburger.open span:nth-child(1) { transform:translateY(6px) rotate(45deg); }
-    .hamburger.open span:nth-child(2) { opacity:0; }
-    .hamburger.open span:nth-child(3) { transform:translateY(-6px) rotate(-45deg); }
-
     @media (max-width: 768px) {
-      nav { padding: .55rem 1rem; flex-wrap: wrap; gap: .4rem; position:relative; }
-      .hamburger { display:flex; }
-      .nav-links {
-        display:none; flex-direction:column; width:100%;
-        background:var(--surface); border-top:1px solid var(--border);
-        padding:.5rem 0; gap:0;
-      }
-      .nav-links.open { display:flex; }
-      .nav-links a { padding:.55rem 1rem; border-radius:0; font-size:.85rem; border-bottom:1px solid var(--border); }
-      .nav-links a:last-child { border-bottom:none; }
-      .nav-meta { gap:.4rem; }
-      .role-badge { display:none; }
       .main { padding: 1rem .75rem; }
       .banner-grid { grid-template-columns: 1fr; }
       .bottom-grid { grid-template-columns: 1fr; }
@@ -273,32 +254,7 @@
 </head>
 <body>
 
-<!-- NAV -->
-<nav>
-  <div class="brand">⚡ Sys<span>Monitor</span></div>
-  <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Menu">
-    <span></span><span></span><span></span>
-  </button>
-  <div class="nav-links" id="nav-links">
-    <a href="/">🏠 Dashboard</a>
-    <a href="/report/">📊 Report</a>
-    {% if role != "guest" %}<a href="/events/">📋 Events</a>{% endif %}
-    {% if role == "user" or role == "admin" %}<a href="/generator-log/">🔧 Generator Shifting Entry</a>{% endif %}
-    <a href="/about/">ℹ️ About Me</a>
-    {% if role == "admin" %}
-    <a href="/devices/">🖥️ Devices</a>
-    <a href="/users/">👥 Users</a>
-    <a href="/notifications/">🔔 Notifications</a>
-    <a href="/activity/">🕵️ Activity</a>
-    <a href="/system/">🛠️ System</a>
-    {% endif %}
-  </div>
-  <div class="nav-meta">
-    <span class="role-badge">{{ role|upper }}</span>
-    <a href="/profile/" class="nav-user" style="text-decoration:none;">👤 {{ user.username }}</a>
-    <a href="/logout/" class="nav-logout">Logout</a>
-  </div>
-</nav>
+{% include "monitor/navbar.html" %}
 
 <!-- WHATSAPP TOKEN HEALTH WARNING -->
 <div id="wa-health-banner" style="display:none; padding:.65rem 2rem; font-size:.82rem; display:none; align-items:center; justify-content:space-between; gap:1rem;">
@@ -362,8 +318,8 @@
       <div class="banner-icon" id="cycle-icon">⏳</div>
       <div class="banner-text">
         <div class="banner-label">Last Power Cycle</div>
-        <h2 id="cycle-title" style="font-size:1rem;font-weight:700">Loading...</h2>
-        <p id="cycle-sub" style="font-size:.78rem;color:var(--muted);margin-top:2px">
+        <h2 id="cycle-title" style="font-size:.82rem;font-weight:700">Loading...</h2>
+        <p id="cycle-sub" style="font-size:.68rem;color:var(--muted);margin-top:2px">
           Fetching cycle data...
         </p>
       </div>
@@ -373,6 +329,21 @@
       </div>
     </div>
 
+    <!-- Division 3: GEN/ATS Auto Mode -->
+    <div class="banner UNKNOWN gen-mode-banner" id="gen-mode-banner">
+      <div class="banner-icon">⚡</div>
+      <div class="banner-text">
+        <div class="banner-label gen-neon-label">Which GEN/ATS in Auto Mode</div>
+        <div class="gen-mode-pills">
+          <div class="gen-pill" id="gen-pill-1"><span class="gen-dot gen-dot-1"></span>ATS/GEN-1</div>
+          <div class="gen-pill" id="gen-pill-2"><span class="gen-dot gen-dot-2"></span>ATS/GEN-2</div>
+        </div>
+      </div>
+      <div class="banner-time gen-mode-time">
+        <div>Since</div>
+        <div id="gen-mode-meta">—</div>
+      </div>
+    </div>
   </div>
 
   <!-- DEVICE STATUS LIGHTS -->
@@ -564,6 +535,24 @@ function refresh() {
         }
       }
 
+      // GEN/ATS Auto Mode
+      const genModeMeta = document.getElementById('gen-mode-meta');
+      const genPill1 = document.getElementById('gen-pill-1');
+      const genPill2 = document.getElementById('gen-pill-2');
+      if (genPill1 && genPill2) {
+        const gm = data.generator_mode;
+        genPill1.classList.remove('active');
+        genPill2.classList.remove('active');
+        if (gm && gm.active === 'Gen-01') {
+          genPill1.classList.add('active');
+          if (genModeMeta) { genModeMeta.textContent = gm.switched_at.replace(/^(\d{1,2}:\d{2}):\d{2}/, '$1'); genModeMeta.title = 'Since ' + gm.switched_at + ' on ' + gm.switched_date; }
+        } else if (gm && gm.active === 'Gen-02') {
+          genPill2.classList.add('active');
+          if (genModeMeta) { genModeMeta.textContent = gm.switched_at.replace(/^(\d{1,2}:\d{2}):\d{2}/, '$1'); genModeMeta.title = 'Since ' + gm.switched_at + ' on ' + gm.switched_date; }
+        } else if (genModeMeta) {
+          genModeMeta.textContent = 'No mode log recorded';
+        }
+      }
       // Device Cards
       const grid = document.getElementById('devices-row');
       if (grid && data.devices && data.devices.length) {
@@ -845,21 +834,6 @@ function checkWaHealth() {
 }
 
 checkWaHealth(); // runs once per page load; only hits the network every 6h
-
-// Hamburger menu toggle
-function toggleNav() {
-  const btn = document.getElementById('hamburger');
-  const links = document.getElementById('nav-links');
-  btn.classList.toggle('open');
-  links.classList.toggle('open');
-}
-// Close nav when a link is clicked on mobile
-document.getElementById('nav-links').querySelectorAll('a').forEach(a => {
-  a.addEventListener('click', () => {
-    document.getElementById('hamburger').classList.remove('open');
-    document.getElementById('nav-links').classList.remove('open');
-  });
-});
 
 // ── Maintenance Mode ─────────────────────────────────────────────────────────
 function getCsrfToken() {

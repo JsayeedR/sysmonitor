@@ -1,0 +1,126 @@
+{% load i18n %}
+<style>
+  /* NAV (shared partial) */
+  nav {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: .6rem 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .brand { font-size: 1rem; font-weight: 700; white-space: nowrap; }
+  .brand span { color: var(--blue); }
+  .nav-links { display: flex; align-items: center; gap: .25rem; }
+  .nav-links a {
+    color: var(--muted); font-size: .8rem; text-decoration: none;
+    padding: .3rem .65rem; border-radius: 6px; transition: all .15s; white-space: nowrap;
+  }
+  .nav-links a:hover { background: var(--border); color: var(--text); }
+  .nav-links a.active {
+    color: var(--yellow); background: rgba(251,191,36,.12); font-weight: 600;
+  }
+  .nav-meta { display: flex; align-items: center; gap: .6rem; }
+  .role-badge {
+    font-size: .68rem; padding: 2px 8px; border-radius: 20px;
+    font-weight: 600; background: #1d4ed8; color: #bfdbfe;
+  }
+  .nav-user { color: var(--faint); font-size: .78rem; }
+  .nav-logout {
+    color: var(--muted); font-size: .78rem; text-decoration: none;
+    padding: .3rem .65rem; border-radius: 6px; transition: all .15s;
+  }
+  .nav-logout:hover { background: var(--border); color: var(--text); }
+  /* DROPDOWN */
+  .nav-dropdown { position: relative; }
+  .nav-dropdown-toggle { cursor: pointer; }
+  .nav-dropdown-menu {
+    display: none; position: absolute; top: 100%; left: 0; margin-top: 4px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: .3rem; min-width: 170px; box-shadow: 0 8px 20px rgba(0,0,0,.35); z-index: 200;
+  }
+  .nav-dropdown-menu a { display: block; }
+  .nav-dropdown.open .nav-dropdown-menu,
+  .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+  /* HAMBURGER */
+  .hamburger { display:none; flex-direction:column; gap:4px; cursor:pointer; padding:.3rem; border:none; background:none; }
+  .hamburger span { display:block; width:20px; height:2px; background:var(--muted); border-radius:2px; transition:.2s; }
+  .hamburger.open span:nth-child(1) { transform:translateY(6px) rotate(45deg); }
+  .hamburger.open span:nth-child(2) { opacity:0; }
+  .hamburger.open span:nth-child(3) { transform:translateY(-6px) rotate(-45deg); }
+  @media (max-width: 900px) {
+    nav { padding: .55rem 1rem; flex-wrap: wrap; gap: .4rem; position:relative; }
+    .hamburger { display:flex; }
+    .nav-links {
+      display: none; flex-direction: column; align-items: stretch;
+      width: 100%; order: 3;
+      background: var(--surface); border-top: 1px solid var(--border);
+      position: absolute; top: 100%; left: 0; right: 0;
+    }
+    .nav-links.open { display:flex; }
+    .nav-links a { padding:.55rem 1rem; border-radius:0; font-size:.85rem; border-bottom:1px solid var(--border); }
+    .nav-links a:last-child { border-bottom:none; }
+    .nav-meta { gap:.4rem; }
+    .role-badge { display:none; }
+    .nav-dropdown-menu {
+      display: none; position: static; box-shadow: none; border: none;
+      border-radius: 0; padding: 0; margin-top: 0; background: var(--bg);
+    }
+    .nav-dropdown.open .nav-dropdown-menu { display: block; }
+    .nav-dropdown:hover .nav-dropdown-menu { display: none; }
+    .nav-dropdown.open:hover .nav-dropdown-menu { display: block; }
+    .nav-dropdown-menu a { padding-left: 2.2rem; }
+  }
+</style>
+<nav>
+  <div class="brand">⚡ Sys<span>Monitor</span></div>
+  <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="nav-links">
+    <a href="/" class="{% if request.path == '/' %}active{% endif %}">🏠 Dashboard</a>
+    <a href="/report/" class="{% if '/report/' in request.path %}active{% endif %}">📊 Report</a>
+    {% if role != "guest" %}<a href="/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 Events</a>{% endif %}
+    {% if role == "user" or role == "admin" %}<a href="/generator-log/" class="{% if '/generator-log/' in request.path %}active{% endif %}">🔧 Generator Shift</a>{% endif %}
+    <a href="/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
+    {% if role == "admin" %}
+    <div class="nav-dropdown" id="admin-dropdown">
+      <a href="#" class="nav-dropdown-toggle {% if '/devices/' in request.path or '/users/' in request.path or '/notifications/' in request.path or '/activity/' in request.path %}active{% endif %}" onclick="toggleAdminDropdown(event)">🗂️ Administrative ▾</a>
+      <div class="nav-dropdown-menu">
+        <a href="/devices/" class="{% if '/devices/' in request.path %}active{% endif %}">🖥️ Devices</a>
+        <a href="/users/" class="{% if '/users/' in request.path %}active{% endif %}">👥 Users</a>
+        <a href="/notifications/" class="{% if '/notifications/' in request.path %}active{% endif %}">🔔 Notifications</a>
+        <a href="/activity/" class="{% if '/activity/' in request.path %}active{% endif %}">🕵️ Activity</a>
+      </div>
+    </div>
+    <a href="/system/" class="{% if '/system/' in request.path %}active{% endif %}">🛠️ System</a>
+    {% endif %}
+    <a href="/about/" class="{% if '/about/' in request.path %}active{% endif %}">ℹ️ About Me</a>
+  </div>
+  <div class="nav-meta">
+    <span class="role-badge">{{ role|upper }}</span>
+    <a href="/profile/" class="nav-user" style="text-decoration:none;">👤 {{ user.username }}</a>
+    <a href="/logout/" class="nav-logout">Logout</a>
+  </div>
+</nav>
+<script>
+function toggleNav() {
+  const btn = document.getElementById('hamburger');
+  const links = document.getElementById('nav-links');
+  btn.classList.toggle('open');
+  links.classList.toggle('open');
+}
+function toggleAdminDropdown(event) {
+  if (window.innerWidth <= 900) {
+    event.preventDefault();
+    document.getElementById('admin-dropdown').classList.toggle('open');
+  }
+}
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('nav-links').querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', (e) => {
+      if (a.classList.contains('nav-dropdown-toggle')) return;
+      document.getElementById('hamburger').classList.remove('open');
+      document.getElementById('nav-links').classList.remove('open');
+    });
+  });
+});
+</script>

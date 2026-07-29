@@ -3,6 +3,8 @@
 *.env
 
 # Database
+# Uptime Kuma runtime data (DB, credentials, TLS certs, uploads)
+uptime-kuma/data/
 db.sqlite3
 *.sqlite3
 **/backups/database/

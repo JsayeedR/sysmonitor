@@ -5,6 +5,8 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.http import JsonResponse
 from .models import Device, DeviceStatus, Event, SystemStatus, UserProfile, ActivityLog, OutageCycle
+from django.http import JsonResponse
+from .kuma_client import get_kuma_monitors, get_monitor_log
 
 import logging
 logger = logging.getLogger(__name__)
@@ -74,6 +76,7 @@ def about_view(request):
         'total_events':    total_events,
         'total_cycles':    total_cycles,
         'days_monitoring': days_monitoring,
+        'role': get_role(request.user),
     })
 
 
@@ -220,6 +223,15 @@ def api_status(request):
         }
     else:
         cycle_data = {'state': 'NONE'}
+    from monitor.models import GeneratorModeLog
+    latest_gen_log = GeneratorModeLog.objects.order_by('-switched_at').first()
+    generator_mode = None
+    if latest_gen_log:
+        generator_mode = {
+            'active':      latest_gen_log.generator,
+            'switched_at': latest_gen_log.switched_at.astimezone(bdt).strftime('%I:%M:%S %p'),
+            'switched_date': latest_gen_log.switched_at.astimezone(bdt).strftime('%d/%m/%Y'),
+        }
 
     return JsonResponse({
         'devices':    devices,
@@ -228,6 +240,7 @@ def api_status(request):
         'updated_at': updated_at,
         'events':     events,
         'cycle':      cycle_data,
+        'generator_mode': generator_mode,
     })
 
 
@@ -824,6 +837,7 @@ def notifications_page(request):
         'gateways':    gateways,
         'recipients':  recipients,
         'recent_logs': recent_logs,
+        'role': 'admin',
     })
 
 
@@ -1704,3 +1718,14 @@ def system_restart_ping(request):
         return JsonResponse({'ok': False, 'error': str(e)})
 
 
+#------- Uptime KUMA
+def uptime_status(request):
+    monitors = get_kuma_monitors()
+    return render(request, "monitor/uptime_status.html", {
+        "monitors": monitors,
+        "role": get_role(request.user),
+    })
+
+def uptime_status_log(request, monitor_id):
+    logs = get_monitor_log(monitor_id)
+    return JsonResponse({"logs": logs})

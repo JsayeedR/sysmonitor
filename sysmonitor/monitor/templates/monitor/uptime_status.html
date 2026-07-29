@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Uptime Status</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:      #0f172a;
+      --surface: #1e293b;
+      --border:  #334155;
+      --text:    #f1f5f9;
+      --muted:   #94a3b8;
+      --faint:   #475569;
+      --blue:    #3b82f6;
+      --green:   #22c55e;
+      --red:     #ef4444;
+      --yellow:  #fbbf24;
+      --orange:  #fb923c;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#f1f5f9; min-height:100vh; }
+    .container { max-width:1150px; margin:0 auto; padding:2rem 1.5rem; }
+    .page-header {
+      display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;
+    }
+    h1 { font-size:1.3rem; font-weight:700; }
+    .btn {
+      padding:.5rem 1.1rem; border-radius:8px; font-size:.85rem;
+      font-weight:600; cursor:pointer; text-decoration:none; border:none; display:inline-block;
+    }
+    .btn-secondary { background:#334155; color:#f1f5f9; }
+    .btn-secondary:hover { background:#475569; }
+    table { width:100%; border-collapse:collapse; background:#1e293b;
+            border-radius:12px; overflow:hidden; }
+    th { background:#0f172a; padding:.75rem 1rem; text-align:left;
+         font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; color:#64748b; }
+    td { padding:.85rem 1rem; border-bottom:1px solid #334155; font-size:.88rem; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:#162032; }
+    .status-dot {
+      display:inline-block; width:10px; height:10px;
+      border-radius:50%; margin-right:6px;
+    }
+    .status-dot.UP      { background:#22c55e; box-shadow:0 0 6px #22c55e; }
+    .status-dot.DOWN    { background:#ef4444; box-shadow:0 0 6px #ef4444; }
+    .status-dot.UNKNOWN { background:#64748b; }
+    .paused-badge {
+      font-size:.68rem; padding:2px 8px; border-radius:20px; font-weight:600;
+      background:#1e293b; color:#94a3b8; border:1px solid #334155; margin-left:6px;
+    }
+    .empty { color:#64748b; text-align:center; padding:3rem; }
+
+    /* Modal */
+    .modal-overlay {
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,.6);
+      align-items:center; justify-content:center; z-index:50; padding:1rem;
+    }
+    .modal-overlay.open { display:flex; }
+    .modal {
+      background:#1e293b; border-radius:12px; max-width:640px; width:100%;
+      max-height:85vh; overflow-y:auto; padding:1.5rem; border:1px solid #334155;
+    }
+    .modal h2 { font-size:1.05rem; margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center; }
+    .modal-close { cursor:pointer; color:#94a3b8; font-size:1.2rem; background:none; border:none; }
+    .modal-close:hover { color:#f1f5f9; }
+    .chart-wrap { background:#0f172a; border-radius:8px; padding:1rem; margin-bottom:1rem; height:220px; }
+    .log-row { display:flex; justify-content:space-between; gap:1rem; padding:.5rem 0; border-bottom:1px solid #334155; font-size:.8rem; }
+    .log-row:last-child { border-bottom:none; }
+    .log-time { color:#64748b; white-space:nowrap; }
+    .log-msg { color:#94a3b8; flex:1; text-align:right; overflow:hidden; text-overflow:ellipsis; }
+  </style>
+</head>
+<body>
+{% include "monitor/navbar.html" %}
+
+<div class="container">
+  <div class="page-header">
+    <h1>🌐 Uptime Status (Websites &amp; Devices)</h1>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Name</th>
+        <th>IP / URL</th>
+        <th>Status</th>
+        <th>Down Since</th>
+        <th>Log</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in monitors %}
+      <tr>
+        <td style="color:#475569">{{ forloop.counter }}</td>
+        <td style="font-weight:600">
+          {{ m.name }}
+          {% if not m.active %}<span class="paused-badge">Paused</span>{% endif %}
+        </td>
+        <td style="font-family:monospace;color:#94a3b8">{{ m.target }}</td>
+        <td>
+          <span class="status-dot {{ m.status }}"></span>
+          <span style="{% if m.status == 'UP' %}color:#22c55e{% elif m.status == 'DOWN' %}color:#ef4444{% else %}color:#64748b{% endif %}">
+            {{ m.status }}
+          </span>
+        </td>
+        <td style="color:#64748b">{{ m.down_since|default:"—" }}</td>
+        <td>
+          <button class="btn btn-secondary" onclick="openLog({{ m.id }}, '{{ m.name|escapejs }}')">View Log</button>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="empty">No monitors found. Add one in Uptime Kuma first.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Log Modal -->
+<div class="modal-overlay" id="logModal">
+  <div class="modal">
+    <h2>
+      <span id="logModalTitle">Log</span>
+      <button class="modal-close" onclick="closeLog()">✕</button>
+    </h2>
+    <div class="chart-wrap"><canvas id="pingChart"></canvas></div>
+    <div id="logModalBody">Loading...</div>
+  </div>
+</div>
+
+<script>
+let pingChart = null;
+
+function openLog(monitorId, name) {
+  document.getElementById('logModalTitle').textContent = 'Log — ' + name;
+  document.getElementById('logModalBody').textContent = 'Loading...';
+  document.getElementById('logModal').classList.add('open');
+
+  fetch('/uptime/' + monitorId + '/log/')
+    .then(r => r.json())
+    .then(data => {
+      const body = document.getElementById('logModalBody');
+      const logs = data.logs || [];
+
+      if (logs.length === 0) {
+        body.innerHTML = '<div class="empty">No history yet.</div>';
+        if (pingChart) { pingChart.destroy(); pingChart = null; }
+        return;
+      }
+
+      // Render list (newest first)
+      body.innerHTML = [...logs].reverse().map(l => `
+        <div class="log-row">
+          <span class="log-time">${l.time}</span>
+          <span style="color:${l.status === 'UP' ? '#22c55e' : '#ef4444'}">${l.status}</span>
+          <span class="log-msg">${l.msg || ''}</span>
+        </div>
+      `).join('');
+
+      // Render response-time chart (chronological order)
+      const ctx = document.getElementById('pingChart');
+      const labels = logs.map(l => l.time.slice(11, 16)); // HH:MM
+      const pings = logs.map(l => l.ping);
+
+      if (pingChart) pingChart.destroy();
+      pingChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Response time (ms)',
+            data: pings,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,.15)',
+            fill: true,
+            tension: .3,
+            pointRadius: 0,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { ticks: { color: '#64748b', maxTicksLimit: 8 }, grid: { color: '#1e293b' } },
+            y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } }
+          },
+          plugins: { legend: { labels: { color: '#94a3b8' } } }
+        }
+      });
+    })
+    .catch(() => {
+      document.getElementById('logModalBody').innerHTML = '<div class="empty">Failed to load log.</div>';
+    });
+}
+
+function closeLog() {
+  document.getElementById('logModal').classList.remove('open');
+}
+</script>
+</body>
+</html>

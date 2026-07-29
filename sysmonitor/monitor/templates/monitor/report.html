@@ -26,33 +26,6 @@
       font-size: 14px;
     }
 
-    /* NAV */
-    nav {
-      background: var(--surface); border-bottom: 1px solid var(--border);
-      padding: .6rem 2rem;
-      display: flex; align-items: center; justify-content: space-between;
-      position: sticky; top: 0; z-index: 100;
-    }
-    .brand { font-size: 1rem; font-weight: 700; white-space: nowrap; }
-    .brand span { color: var(--blue); }
-    .nav-links { display: flex; align-items: center; gap: .25rem; }
-    .nav-links a {
-      color: var(--muted); font-size: .8rem; text-decoration: none;
-      padding: .3rem .65rem; border-radius: 6px; transition: all .15s; white-space: nowrap;
-    }
-    .nav-links a:hover { background: var(--border); color: var(--text); }
-    .nav-links a.active { background: var(--blue); color: #fff; }
-    .nav-meta { display: flex; align-items: center; gap: .6rem; }
-    .role-badge {
-      font-size: .68rem; padding: 2px 8px; border-radius: 20px;
-      font-weight: 600; background: #1d4ed8; color: #bfdbfe;
-    }
-    .nav-user { color: var(--faint); font-size: .78rem; }
-    .nav-logout {
-      color: var(--muted); font-size: .78rem; text-decoration: none;
-      padding: .3rem .65rem; border-radius: 6px; transition: all .15s;
-    }
-    .nav-logout:hover { background: var(--border); color: var(--text); }
 
     /* MAIN */
     .main { flex: 1; max-width: 1400px; width: 100%; margin: 0 auto; padding: 1.25rem 1.5rem; }
@@ -202,30 +175,13 @@
     .footer-right a:hover { text-decoration: underline; }
 
     @media (max-width: 768px) {
-      nav { padding: .55rem 1rem; flex-wrap: wrap; gap: .4rem; }
       .main { padding: 1rem .75rem; }
       .filter-bar { flex-direction: column; align-items: stretch; }
       footer { flex-direction: column; text-align: center; }
     }
   
-    .hamburger { display:none; flex-direction:column; gap:4px; cursor:pointer; padding:.3rem; border:none; background:none; }
-    .hamburger span { display:block; width:20px; height:2px; background:var(--muted); border-radius:2px; transition:.2s; }
-    .hamburger.open span:nth-child(1) { transform:translateY(6px) rotate(45deg); }
-    .hamburger.open span:nth-child(2) { opacity:0; }
-    .hamburger.open span:nth-child(3) { transform:translateY(-6px) rotate(-45deg); }
 
     @media (max-width: 768px) {
-      nav { padding:.55rem 1rem; flex-wrap:wrap; gap:.4rem; position:relative; }
-      .hamburger { display:flex; }
-      .nav-links {
-        display:none; flex-direction:column; width:100%;
-        background:var(--surface); border-top:1px solid var(--border);
-        padding:.5rem 0; gap:0;
-      }
-      .nav-links.open { display:flex; }
-      .nav-links a { padding:.55rem 1rem; border-radius:0; font-size:.85rem; border-bottom:1px solid var(--border); }
-      .nav-links a:last-child { border-bottom:none; }
-      .nav-meta { gap:.4rem; }
       .main { padding: 1rem .75rem; }
       .container { padding: 1.25rem 1rem; }
     }
@@ -233,33 +189,7 @@
 </head>
 <body>
 
-<!-- NAV -->
-<nav>
-  <div class="brand">⚡ Sys<span>Monitor</span></div>
-  <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Menu">
-    <span></span><span></span><span></span>
-  </button>
-  <div class="nav-links" id="nav-links">
-    <a href="/">🏠 Dashboard</a>
-    <a href="/report/" class="active">📊 Report</a>
-    {% if role != "guest" %}<a href="/events/">📋 Events</a>{% endif %}
-    {% if role == "user" or role == "admin" %}<a href="/generator-log/">🔧 Generator Shifting Entry</a>{% endif %}
-    <a href="/about/">ℹ️ About Me</a>
-    {% if role == "admin" %}
-    <a href="/devices/">🖥️ Devices</a>
-    <a href="/users/">👥 Users</a>
-    <a href="/notifications/">🔔 Notifications</a>
-    <a href="/activity/">🕵️ Activity</a>
-    <a href="/system/">🛠️ System</a>
-    {% endif %}
-  </div>
-  <div class="nav-meta">
-    <span class="role-badge">{{ role|upper }}</span>
-    <span class="nav-user">{{ user.username }}</span>
-    <a href="/logout/" class="nav-logout">Logout</a>
-  </div>
-</nav>
-
+{% include "monitor/navbar.html" %}
 <div class="main">
 
   <!-- PAGE HEADER -->
@@ -612,24 +542,6 @@ function renderChart(daily) {
 
 
 <script>
-function toggleNav() {
-  const btn = document.getElementById('hamburger');
-  const links = document.getElementById('nav-links');
-  if (!btn || !links) return;
-  btn.classList.toggle('open');
-  links.classList.toggle('open');
-}
-document.addEventListener('DOMContentLoaded', function() {
-  const links = document.getElementById('nav-links');
-  if (!links) return;
-  links.querySelectorAll('a').forEach(function(a) {
-    a.addEventListener('click', function() {
-      var btn = document.getElementById('hamburger');
-      if (btn) btn.classList.remove('open');
-      links.classList.remove('open');
-    });
-  });
-});
 </script>
 </body>
 </html>

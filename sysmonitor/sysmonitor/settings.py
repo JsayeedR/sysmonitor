@@ -126,3 +126,8 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# --- Uptime Kuma integration ---
+KUMA_URL = os.environ.get('KUMA_URL', 'http://127.0.0.1:3001')
+KUMA_USERNAME = os.environ.get('KUMA_USERNAME')
+KUMA_PASSWORD = os.environ.get('KUMA_PASSWORD')

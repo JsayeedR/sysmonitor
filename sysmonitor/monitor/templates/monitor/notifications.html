@@ -14,15 +14,7 @@
     }
     body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; }
 
-    /* NAV */
-    nav { background:var(--surface); border-bottom:1px solid var(--border); padding:.6rem 2rem; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
-    .brand { font-size:1rem; font-weight:700; }
-    .brand span { color:var(--blue); }
-    .nav-links { display:flex; align-items:center; gap:.25rem; }
-    .nav-links a { color:var(--muted); font-size:.8rem; text-decoration:none; padding:.3rem .65rem; border-radius:6px; transition:all .15s; white-space:nowrap; }
-    .nav-links a:hover, .nav-links a.active { background:var(--border); color:var(--text); }
-    .nav-meta { display:flex; align-items:center; gap:.6rem; }
-    .nav-logout { color:var(--muted); font-size:.78rem; text-decoration:none; padding:.3rem .65rem; border-radius:6px; }
+    .nav-links a:hover,    .nav-logout { color:var(--muted); font-size:.78rem; text-decoration:none; padding:.3rem .65rem; border-radius:6px; }
     .nav-logout:hover { background:var(--border); color:var(--text); }
 
     /* LAYOUT */
@@ -133,24 +125,8 @@
     .modal-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; margin-bottom:1rem; }
     .modal-form-grid .full { grid-column:1/-1; }
   
-    .hamburger { display:none; flex-direction:column; gap:4px; cursor:pointer; padding:.3rem; border:none; background:none; }
-    .hamburger span { display:block; width:20px; height:2px; background:var(--muted); border-radius:2px; transition:.2s; }
-    .hamburger.open span:nth-child(1) { transform:translateY(6px) rotate(45deg); }
-    .hamburger.open span:nth-child(2) { opacity:0; }
-    .hamburger.open span:nth-child(3) { transform:translateY(-6px) rotate(-45deg); }
 
     @media (max-width: 768px) {
-      nav { padding:.55rem 1rem; flex-wrap:wrap; gap:.4rem; position:relative; }
-      .hamburger { display:flex; }
-      .nav-links {
-        display:none; flex-direction:column; width:100%;
-        background:var(--surface); border-top:1px solid var(--border);
-        padding:.5rem 0; gap:0;
-      }
-      .nav-links.open { display:flex; }
-      .nav-links a { padding:.55rem 1rem; border-radius:0; font-size:.85rem; border-bottom:1px solid var(--border); }
-      .nav-links a:last-child { border-bottom:none; }
-      .nav-meta { gap:.4rem; }
       .main { padding: 1rem .75rem; }
       .container { padding: 1.25rem 1rem; }
     }
@@ -158,28 +134,7 @@
 </head>
 <body>
 
-<nav>
-  <div class="brand">Sys<span>Monitor</span></div>
-  <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Menu">
-    <span></span><span></span><span></span>
-  </button>
-  <div class="nav-links" id="nav-links">
-    <a href="{% url 'dashboard' %}">🏠 Dashboard</a>
-    <a href="{% url 'report' %}">📊 Report</a>
-    <a href="{% url 'event_log' %}">📋 Events</a>
-    <a href="{% url 'device_list' %}">🖥️ Devices</a>
-    <a href="/about/">ℹ️ About Me</a>
-    <a href="{% url 'user_list' %}">👥 Users</a>
-    <a href="{% url 'notifications' %}" class="active">🔔 Notifications</a>
-    <a href="{% url 'generator_log_page' %}">🔧 Generator Shifting Entry</a>
-    <a href="{% url 'activity_log' %}">🕵️ Activity</a>
-    <a href="/system/">🛠️ System</a>
-  </div>
-  <div class="nav-meta">
-    <a href="{% url 'logout' %}" class="nav-logout">Logout</a>
-  </div>
-</nav>
-
+{% include "monitor/navbar.html" %}
 <div class="main">
   <div class="page-title">🔔 Notification Settings</div>
 
@@ -765,24 +720,6 @@ function loadLog() {
 
 
 <script>
-function toggleNav() {
-  const btn = document.getElementById('hamburger');
-  const links = document.getElementById('nav-links');
-  if (!btn || !links) return;
-  btn.classList.toggle('open');
-  links.classList.toggle('open');
-}
-document.addEventListener('DOMContentLoaded', function() {
-  const links = document.getElementById('nav-links');
-  if (!links) return;
-  links.querySelectorAll('a').forEach(function(a) {
-    a.addEventListener('click', function() {
-      var btn = document.getElementById('hamburger');
-      if (btn) btn.classList.remove('open');
-      links.classList.remove('open');
-    });
-  });
-});
 </script>
 </body>
 </html>

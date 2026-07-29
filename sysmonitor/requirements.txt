@@ -91,3 +91,4 @@ websocket-client==1.2.3
 xdg==5
 xkit==0.0.0
 zipp==1.0.0
+uptime-kuma-api==1.2.1

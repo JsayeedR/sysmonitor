@@ -7,15 +7,6 @@
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#f1f5f9; min-height:100vh; }
-    nav {
-      background:#1e293b; border-bottom:1px solid #334155;
-      padding:.75rem 2rem; display:flex; align-items:center; justify-content:space-between;
-    }
-    nav .brand { font-size:1.1rem; font-weight:700; }
-    nav .brand span { color:#3b82f6; }
-    nav .links { display:flex; gap:1.5rem; align-items:center; }
-    nav a { color:#94a3b8; font-size:.85rem; text-decoration:none; }
-    nav a:hover { color:#f1f5f9; }
     .container { max-width:900px; margin:0 auto; padding:2rem 1.5rem; }
     .page-header {
       display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;
@@ -38,9 +29,6 @@
     td { padding:.85rem 1rem; border-bottom:1px solid #334155; font-size:.9rem; }
     tr:last-child td { border-bottom:none; }
     tr:hover td { background:#162032; }
-    .role-badge {
-      font-size:.72rem; padding:2px 10px; border-radius:20px; font-weight:600;
-    }
     .role-badge.admin  { background:#1d4ed8; color:#bfdbfe; }
     .role-badge.user   { background:#065f46; color:#6ee7b7; }
     .role-badge.viewer { background:#374151; color:#d1d5db; }
@@ -66,15 +54,8 @@
     .btn-reject:hover { background:#dc2626; }
     .toast { position:fixed; bottom:1.5rem; right:1.5rem; padding:.75rem 1.25rem; border-radius:10px; font-size:.85rem; font-weight:500; z-index:9999; background:#14532d; color:#4ade80; border:1px solid #16a34a; }
 
-    .hamburger { display:none; flex-direction:column; gap:4px; cursor:pointer; padding:.3rem; border:none; background:none; }
-    .hamburger span { display:block; width:20px; height:2px; background:#94a3b8; border-radius:2px; transition:.2s; }
-    .hamburger.open span:nth-child(1) { transform:translateY(6px) rotate(45deg); }
-    .hamburger.open span:nth-child(2) { opacity:0; }
-    .hamburger.open span:nth-child(3) { transform:translateY(-6px) rotate(-45deg); }
 
     @media (max-width: 768px) {
-      nav { padding:.6rem 1rem; flex-wrap:wrap; gap:.4rem; position:relative; }
-      .hamburger { display:flex; }
       .links {
         display:none; flex-direction:column; width:100%;
         background:#1e293b; border-top:1px solid #334155;
@@ -88,25 +69,7 @@
   </style>
 </head>
 <body>
-<nav>
-  <div class="brand">⚡ Sys<span>Monitor</span></div>
-  <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Menu">
-    <span></span><span></span><span></span>
-  </button>
-  <div class="links" id="nav-links">
-    <a href="/">🏠 Dashboard</a>
-    <a href="/report/">📊 Report</a>
-    <a href="/events/">📋 Events</a>
-    <a href="/devices/">🖥️ Devices</a>
-    <a href="/about/">ℹ️ About Me</a>
-    <a href="/users/">👥 Users</a>
-    <a href="/notifications/">🔔 Notifications</a>
-    <a href="/generator-log/">🔧 Generator Shifting Entry</a>
-    <a href="/activity/">🕵️ Activity</a>
-    <a href="/system/">🛠️ System</a>
-    <a href="/logout/">Logout</a>
-  </div>
-</nav>
+{% include "monitor/navbar.html" %}
 <div class="container">
   <div class="page-header">
     <h1>👥 User Management</h1>
@@ -234,24 +197,6 @@ function reviewRequest(id, action) {
   });
 }
 
-function toggleNav() {
-  const btn = document.getElementById('hamburger');
-  const links = document.getElementById('nav-links');
-  if (!btn || !links) return;
-  btn.classList.toggle('open');
-  links.classList.toggle('open');
-}
-document.addEventListener('DOMContentLoaded', function() {
-  const links = document.getElementById('nav-links');
-  if (!links) return;
-  links.querySelectorAll('a').forEach(function(a) {
-    a.addEventListener('click', function() {
-      var btn = document.getElementById('hamburger');
-      if (btn) btn.classList.remove('open');
-      links.classList.remove('open');
-    });
-  });
-});
 </script>
 </body>
 </html>

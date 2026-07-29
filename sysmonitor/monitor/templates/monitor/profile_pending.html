@@ -11,11 +11,6 @@
       --muted:#94a3b8; --blue:#3b82f6; --green:#22c55e; --red:#ef4444;
     }
     body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; }
-    nav { background:var(--surface); border-bottom:1px solid var(--border); padding:.6rem 2rem; display:flex; align-items:center; justify-content:space-between; }
-    .brand { font-size:1rem; font-weight:700; }
-    .brand span { color:var(--blue); }
-    .nav-meta a { color:var(--muted); font-size:.78rem; text-decoration:none; padding:.3rem .65rem; border-radius:6px; }
-    .nav-meta a:hover { background:var(--border); color:var(--text); }
 
     .main { max-width:760px; margin:0 auto; padding:1.5rem; }
     .page-title { font-size:1.3rem; font-weight:700; margin-bottom:1.5rem; }
@@ -36,14 +31,7 @@
 </head>
 <body>
 
-<nav>
-  <div class="brand">Sys<span>Monitor</span></div>
-  <div class="nav-meta">
-    <a href="{% url 'user_list' %}">← Back to Users</a>
-    <a href="{% url 'logout' %}">Logout</a>
-  </div>
-</nav>
-
+{% include "monitor/navbar.html" %}
 <div class="main">
   <div class="page-title">⏳ Pending Profile Changes</div>
 
