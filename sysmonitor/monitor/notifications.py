@@ -366,14 +366,19 @@ def check_whatsapp_token_health(gateway):
 
 # ── Telegram Gateway ───────────────────────────────────────────────────────────
 
-def send_telegram(gateway, chat_id, message):
-    """Send a Telegram message via Bot API."""
+def send_telegram(gateway, chat_id, message, button_text=None, button_url=None):
+    """Send a Telegram message via Bot API. Optionally attach a single
+    inline URL button (button_text + button_url)."""
     url  = f"https://api.telegram.org/bot{gateway.tg_bot_token}/sendMessage"
     payload = {
         'chat_id':    chat_id,
         'text':       message,
         'parse_mode': 'Markdown',
     }
+    if button_text and button_url:
+        payload['reply_markup'] = {
+            'inline_keyboard': [[{'text': button_text, 'url': button_url}]]
+        }
     data = json.dumps(payload).encode('utf-8')
     req  = urllib.request.Request(url, data=data,
                                    headers={'Content-Type': 'application/json'},
