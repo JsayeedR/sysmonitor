@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SysMonitor — Devices</title>
   <style>
+    :root {
+      --bg:#0f172a; --surface:#1e293b; --border:#334155; --text:#f1f5f9;
+      --muted:#94a3b8; --faint:#475569; --blue:#3b82f6; --green:#22c55e;
+      --red:#ef4444; --yellow:#fbbf24; --orange:#fb923c;
+    }
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#f1f5f9; min-height:100vh; }
     .container { max-width:960px; margin:0 auto; padding:2rem 1.5rem; }
@@ -23,7 +28,7 @@
     .btn-secondary { background:#334155; color:#f1f5f9; }
     .btn-secondary:hover { background:#475569; }
     table { width:100%; border-collapse:collapse; background:#1e293b;
-            border-radius:12px; overflow:hidden; }
+            border-radius:12px; }
     th { background:#0f172a; padding:.75rem 1rem; text-align:left;
          font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; color:#64748b; }
     td { padding:.85rem 1rem; border-bottom:1px solid #334155; font-size:.88rem; }
@@ -76,6 +81,7 @@
     {% endfor %}
   {% endif %}
 
+  <div style="overflow-x:auto;">
   <table>
     <thead>
       <tr>
@@ -120,6 +126,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 {% include "monitor/footer.html" %}
 

@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SysMonitor — Event Log</title>
   <style>
+    :root {
+      --bg:#0f172a; --surface:#1e293b; --border:#334155; --text:#f1f5f9;
+      --muted:#94a3b8; --faint:#475569; --blue:#3b82f6; --green:#22c55e;
+      --red:#ef4444; --yellow:#fbbf24; --orange:#fb923c;
+    }
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#f1f5f9; min-height:100vh; }
     .container { max-width:1100px; margin:0 auto; padding:2rem 1.5rem; }
@@ -43,7 +48,7 @@
     .btn-secondary:hover { background:#475569; }
 
     /* TABLE */
-    .table-wrap { background:#1e293b; border:1px solid #334155; border-radius:12px; overflow:hidden; }
+    .table-wrap { background:#1e293b; border:1px solid #334155; border-radius:12px; overflow-x:auto; }
     table { width:100%; border-collapse:collapse; }
     th {
       background:#0f172a; padding:.75rem 1rem; text-align:left;
