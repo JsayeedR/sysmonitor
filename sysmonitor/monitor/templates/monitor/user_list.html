@@ -33,6 +33,7 @@
          font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; color:#64748b; }
     td { padding:.85rem 1rem; border-bottom:1px solid #334155; font-size:.9rem; }
     tr:last-child td { border-bottom:none; }
+    .usage-col { max-width:110px; white-space:normal; line-height:1.3; }
     tr:hover td { background:#162032; }
     .role-badge.admin  { background:#1d4ed8; color:#bfdbfe; }
     .role-badge.user   { background:#065f46; color:#6ee7b7; }
@@ -104,6 +105,7 @@
           <th>Username</th>
           <th>Role</th>
           <th>Joined</th>
+          <th class="usage-col">Total Usage (Start From 02 AUG 26)</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -118,6 +120,7 @@
           </td>
           <td><span class="role-badge {{ u.role }}">{{ u.role|upper }}</span></td>
           <td style="color:#64748b">{{ u.obj.date_joined|date:"Y-m-d" }}</td>
+          <td style="color:#64748b">{{ u.usage_time }}</td>
           <td>
             <div class="actions">
               <a href="/users/{{ u.obj.id }}/edit/" class="btn btn-secondary">Edit</a>

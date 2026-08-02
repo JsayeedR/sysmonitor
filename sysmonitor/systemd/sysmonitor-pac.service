@@ -1,0 +1,17 @@
+[Unit]
+Description=SysMonitor SMW6PAC Status Poller (non-critical, independent of ping_monitor)
+After=network.target sysmonitor-web.service
+
+[Service]
+Type=simple
+User=nanolab
+WorkingDirectory=/home/nanolab/Desktop/sysmonitor
+ExecStart=/home/nanolab/Desktop/sysmonitor/venv/bin/python3 -u monitor/pac_monitor.py
+Restart=always
+RestartSec=15
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sysmonitor-pac
+
+[Install]
+WantedBy=multi-user.target

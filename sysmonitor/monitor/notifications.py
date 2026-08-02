@@ -125,6 +125,19 @@ def build_message(event_type, cycle=None, extra=None):
             f"{note_line}"
         )
 
+    elif event_type == 'PAC_STATUS_CHANGE':
+        # extra is a dict: {'unit': 'Unit 1', 'old': 'ON', 'new': 'STANDBY'}
+        icons = {'ON': '🟢', 'STANDBY': '🟡', 'OFF': '🔴'}
+        unit = extra.get('unit', 'PAC unit') if extra else 'PAC unit'
+        old_state = extra.get('old', '—') if extra else '—'
+        new_state = extra.get('new', '—') if extra else '—'
+        icon = icons.get(new_state, 'ℹ️')
+        return (
+            f"{icon} *SMW6PAC STATUS CHANGE*\n"
+            f"❄️ {unit}\n"
+            f"🔄 {old_state} → {new_state}\n"
+            f"🕐 Time: {now_str}"
+        )
     elif event_type == 'DAILY_SUMMARY':
         # extra is the pre-formatted report text from format_summary_text()
         return extra or 'Daily summary unavailable.'
@@ -498,6 +511,7 @@ def dispatch(event_type, cycle=None, extra=None, force=False):
         'ALARM':          'alert_alarm',
         'COMPLETE':       'alert_complete',
         'DAILY_SUMMARY':  'daily_summary',
+        'PAC_STATUS_CHANGE': 'alert_pac_status',
     }.get(event_type)
 
     if not alert_field and not force:

@@ -77,8 +77,10 @@ def get_kuma_monitors():
                 "active": m.get("active", True),
             })
 
-        # Sort alphabetically by name (case-insensitive)
-        result.sort(key=lambda x: x["name"].lower())
+        # Down devices first (most urgent), then Up, then Unknown;
+        # alphabetical within each group.
+        status_order = {"DOWN": 0, "UP": 1, "UNKNOWN": 2}
+        result.sort(key=lambda x: (status_order.get(x["status"], 3), x["name"].lower()))
         return result
     finally:
         api.disconnect()

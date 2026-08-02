@@ -7,6 +7,7 @@ from django.http import JsonResponse
 from .models import Device, DeviceStatus, Event, SystemStatus, UserProfile, ActivityLog, OutageCycle
 from django.http import JsonResponse
 from .kuma_client import get_kuma_monitors, get_monitor_log
+from .pac_client import get_all_pac_status
 
 import logging
 logger = logging.getLogger(__name__)
@@ -246,13 +247,34 @@ def api_status(request):
 
 # ─── User Management ─────────────────────────────────────────────────────────
 
+def _fmt_usage(total_seconds):
+    """Format accumulated usage seconds as 'Xh Ym' / 'Ym' / '—'."""
+    if not total_seconds:
+        return '—'
+    h, r = divmod(int(total_seconds), 3600)
+    m = r // 60
+    if h:
+        return f'{h}h {m}m'
+    if m:
+        return f'{m}m'
+    return '<1m'
+
+
 @role_required('admin')
 def user_list(request):
     users = User.objects.all().order_by('username')
     user_data = []
     for u in users:
         role = get_role(u)
-        user_data.append({'obj': u, 'role': role})
+        try:
+            usage_seconds = u.userprofile.total_usage_seconds or 0
+        except Exception:
+            usage_seconds = 0
+        user_data.append({
+            'obj': u,
+            'role': role,
+            'usage_time': _fmt_usage(usage_seconds),
+        })
 
     # Pending self-service profile change requests (email / mobile number)
     # are shown as a second tab on this same page so admins don't need a
@@ -937,6 +959,7 @@ def notif_recipient_add(request):
         alert_critical = d.get('alert_critical', True),
         alert_alarm    = d.get('alert_alarm',    True),
         alert_complete = d.get('alert_complete', True),
+        alert_pac_status = d.get('alert_pac_status', False),
         daily_summary  = d.get('daily_summary',  False),
     )
     return JsonResponse({'ok': True, 'id': r.id})
@@ -958,6 +981,7 @@ def notif_recipient_edit(request, rid):
         r.alert_alarm    = d.get('alert_alarm',    r.alert_alarm)
         r.alert_complete = d.get('alert_complete', r.alert_complete)
         r.daily_summary  = d.get('daily_summary',  r.daily_summary)
+        r.alert_pac_status = d.get('alert_pac_status', r.alert_pac_status)
         r.save()
         return JsonResponse({'ok': True})
     except NotificationRecipient.DoesNotExist:
@@ -1729,3 +1753,17 @@ def uptime_status(request):
 def uptime_status_log(request, monitor_id):
     logs = get_monitor_log(monitor_id)
     return JsonResponse({"logs": logs})
+
+
+@role_required('user', 'admin', 'viewer')
+def pac_status_view(request):
+    import pytz
+    from datetime import datetime as dt_class
+    bdt = pytz.timezone('Asia/Dhaka')
+    units = get_all_pac_status()
+    return render(request, "monitor/pac_status.html", {
+        "units": units,
+        "role": get_role(request.user),
+        "user": request.user,
+        "last_updated": dt_class.now(bdt).strftime('%d/%m/%Y %I:%M:%S %p'),
+    })

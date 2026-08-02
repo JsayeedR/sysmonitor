@@ -81,17 +81,18 @@
     {% if role != "guest" %}<a href="/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 Events</a>{% endif %}
     {% if role == "user" or role == "admin" %}<a href="/generator-log/" class="{% if '/generator-log/' in request.path %}active{% endif %}">🔧 Generator Shift</a>{% endif %}
     <a href="/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
+    {% if role != 'guest' %}<a href="/smw6pac/" class="{% if '/smw6pac/' in request.path %}active{% endif %}">❄️ SMW6PAC</a>{% endif %}
     {% if role == "admin" %}
     <div class="nav-dropdown" id="admin-dropdown">
-      <a href="#" class="nav-dropdown-toggle {% if '/devices/' in request.path or '/users/' in request.path or '/notifications/' in request.path or '/activity/' in request.path %}active{% endif %}" onclick="toggleAdminDropdown(event)">🗂️ Administrative ▾</a>
+      <a href="#" class="nav-dropdown-toggle {% if '/devices/' in request.path or '/users/' in request.path or '/notifications/' in request.path or '/activity/' in request.path or '/system/' in request.path %}active{% endif %}" onclick="toggleAdminDropdown(event)">🗂️ Administrative ▾</a>
       <div class="nav-dropdown-menu">
         <a href="/devices/" class="{% if '/devices/' in request.path %}active{% endif %}">🖥️ Devices</a>
         <a href="/users/" class="{% if '/users/' in request.path %}active{% endif %}">👥 Users</a>
         <a href="/notifications/" class="{% if '/notifications/' in request.path %}active{% endif %}">🔔 Notifications</a>
         <a href="/activity/" class="{% if '/activity/' in request.path %}active{% endif %}">🕵️ Activity</a>
+        <a href="/system/" class="{% if '/system/' in request.path %}active{% endif %}">🛠️ System</a>
       </div>
     </div>
-    <a href="/system/" class="{% if '/system/' in request.path %}active{% endif %}">🛠️ System</a>
     {% endif %}
     <a href="/about/" class="{% if '/about/' in request.path %}active{% endif %}">ℹ️ About Me</a>
   </div>

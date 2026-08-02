@@ -282,6 +282,7 @@
           <label class="checkbox-item"><input type="checkbox" id="new-alarm"     checked> 🟠 Alarm</label>
           <label class="checkbox-item"><input type="checkbox" id="new-complete"  checked> ✅ Cycle Complete</label>
           <label class="checkbox-item"><input type="checkbox" id="new-daily"> 📋 Daily Summary (00:01)</label>
+          <label class="checkbox-item"><input type="checkbox" id="new-pac"> ❄️ SMW6PAC Status Change</label>
         </div>
       </div>
       <button class="btn btn-success" onclick="addRecipient()">✅ Add Recipient</button>
@@ -317,6 +318,7 @@
                 <span class="pill {% if r.alert_alarm %}pill-on{% else %}pill-off{% endif %}">🟠 Alarm</span>
                 <span class="pill {% if r.alert_complete %}pill-on{% else %}pill-off{% endif %}">✅ Complete</span>
                 <span class="pill {% if r.daily_summary %}pill-on{% else %}pill-off{% endif %}">📋 Daily</span>
+                <span class="pill {% if r.alert_pac_status %}pill-on{% else %}pill-off{% endif %}">❄️ PAC</span>
               </div>
             </td>
             <td>
@@ -326,7 +328,7 @@
             </td>
             <td>
               <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
-                <button class="btn btn-ghost btn-sm" onclick="openEdit({{ r.id }},'{{ r.name }}','{{ r.channel }}','{{ r.contact }}',{{ r.alert_outage|lower }},{{ r.alert_critical|lower }},{{ r.alert_alarm|lower }},{{ r.alert_complete|lower }},{{ r.daily_summary|lower }})">✏️</button>
+                <button class="btn btn-ghost btn-sm" onclick="openEdit({{ r.id }},'{{ r.name }}','{{ r.channel }}','{{ r.contact }}',{{ r.alert_outage|lower }},{{ r.alert_critical|lower }},{{ r.alert_alarm|lower }},{{ r.alert_complete|lower }},{{ r.daily_summary|lower }},{{ r.alert_pac_status|lower }})">✏️</button>
                 <button class="btn btn-orange btn-sm" onclick="testRecipient({{ r.id }})">🧪 Test</button>
                 <button class="btn btn-ghost btn-sm" onclick="toggleRecipient({{ r.id }})">⏸️</button>
                 <button class="btn btn-danger btn-sm" onclick="deleteRecipient({{ r.id }})">🗑️</button>
@@ -498,6 +500,7 @@
           <label class="checkbox-item"><input type="checkbox" id="edit-alarm">    🟠 Alarm</label>
           <label class="checkbox-item"><input type="checkbox" id="edit-complete"> ✅ Cycle Complete</label>
           <label class="checkbox-item"><input type="checkbox" id="edit-daily"> 📋 Daily Summary (00:01)</label>
+          <label class="checkbox-item"><input type="checkbox" id="edit-pac"> ❄️ SMW6PAC Status Change</label>
         </div>
       </div>
     </div>
@@ -619,6 +622,7 @@ function addRecipient() {
     alert_critical: document.getElementById('new-critical').checked,
     alert_alarm:    document.getElementById('new-alarm').checked,
     alert_complete: document.getElementById('new-complete').checked,
+    alert_pac_status: document.getElementById('new-pac').checked,
     daily_summary:  document.getElementById('new-daily').checked,
   }).then(r => {
     if (r.ok) { toast('✅ Recipient added!'); location.reload(); }
@@ -660,7 +664,7 @@ function toggleRecipient(id) {
 }
 
 // Edit modal
-function openEdit(id, name, channel, contact, outage, critical, alarm, complete, daily) {
+function openEdit(id, name, channel, contact, outage, critical, alarm, complete, daily, pacStatus) {
   document.getElementById('edit-id').value      = id;
   document.getElementById('edit-name').value    = name;
   document.getElementById('edit-channel').value = channel;
@@ -670,6 +674,7 @@ function openEdit(id, name, channel, contact, outage, critical, alarm, complete,
   document.getElementById('edit-alarm').checked    = alarm;
   document.getElementById('edit-complete').checked = complete;
   document.getElementById('edit-daily').checked    = daily;
+  document.getElementById('edit-pac').checked      = pacStatus;
   document.getElementById('edit-modal').classList.add('open');
 }
 
@@ -686,6 +691,7 @@ function saveEdit() {
     alert_alarm:    document.getElementById('edit-alarm').checked,
     alert_complete: document.getElementById('edit-complete').checked,
     daily_summary:  document.getElementById('edit-daily').checked,
+    alert_pac_status: document.getElementById('edit-pac').checked,
   }).then(r => {
     if (r.ok) { toast('✅ Saved'); closeEdit(); location.reload(); }
     else toast('❌ ' + r.error, false);

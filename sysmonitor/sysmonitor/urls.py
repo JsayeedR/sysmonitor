@@ -24,6 +24,7 @@ urlpatterns = [
     path('report/',                           views.report_view,       name='report'),
     path('uptime/',                       views.uptime_status,      name='uptime_status'),
     path('uptime/<int:monitor_id>/log/',  views.uptime_status_log,  name='uptime_status_log'),
+    path('smw6pac/',                      views.pac_status_view,   name='pac_status'),
 ]
 
 # Notification routes (appended)

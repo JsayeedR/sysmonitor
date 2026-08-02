@@ -1,0 +1,17 @@
+[Unit]
+Description=SysMonitor Other Devices Ping (non-critical, excludes Holder/NVR)
+After=network.target sysmonitor-web.service
+
+[Service]
+Type=simple
+User=nanolab
+WorkingDirectory=/home/nanolab/Desktop/sysmonitor
+ExecStart=/home/nanolab/Desktop/sysmonitor/venv/bin/python3 -u monitor/other_devices_ping.py
+Restart=always
+RestartSec=15
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sysmonitor-other-devices
+
+[Install]
+WantedBy=multi-user.target

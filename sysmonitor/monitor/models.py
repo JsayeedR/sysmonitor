@@ -88,6 +88,14 @@ class UserProfile(models.Model):
     telegram_handle = models.CharField(max_length=100, blank=True)  # @username or chat link/number
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
 
+    # Usage tracking — accumulated in real time by UsageTrackingMiddleware.
+    # total_usage_seconds only counts gaps between requests under
+    # USAGE_IDLE_TIMEOUT (see middleware), so idle browser tabs don't
+    # inflate it. Starts at 0 from whenever this was deployed — no
+    # retroactive history is possible.
+    total_usage_seconds = models.BigIntegerField(default=0)
+    last_activity_at    = models.DateTimeField(blank=True, null=True)
+
     def __str__(self):
         return f"{self.user.username} — {self.role}"
 
@@ -263,6 +271,7 @@ class NotificationRecipient(models.Model):
     alert_alarm     = models.BooleanField(default=True)
     alert_complete  = models.BooleanField(default=True)
     daily_summary   = models.BooleanField(default=False)
+    alert_pac_status = models.BooleanField(default=False)
     added_at        = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -353,3 +362,17 @@ class PageViewCounter(models.Model):
 
     def __str__(self):
         return f"PageViewCounter: {self.count}"
+
+
+class PacRunState(models.Model):
+    """
+    Tracks the last known ON/STANDBY/OFF run-state per SMW6PAC controller
+    IP, so pac_monitor.py can detect a transition (and only notify on
+    actual change, not on every poll).
+    """
+    ip           = models.CharField(max_length=20, unique=True)
+    label        = models.CharField(max_length=20)  # ON / STANDBY / OFF
+    changed_at   = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.ip}: {self.label}"

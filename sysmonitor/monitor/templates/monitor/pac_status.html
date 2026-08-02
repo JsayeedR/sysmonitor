@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — SMW6PAC</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:#0f172a; --surface:#1e293b; --border:#334155; --text:#f1f5f9;
+      --muted:#94a3b8; --faint:#475569; --blue:#3b82f6; --green:#22c55e;
+      --red:#ef4444; --yellow:#fbbf24; --orange:#fb923c;
+    }
+    body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; }
+    .main { max-width:1400px; margin:0 auto; padding:1.5rem; }
+    .page-title { font-size:1.3rem; font-weight:700; margin-bottom:.3rem; }
+    .page-sub { color:var(--muted); font-size:.82rem; margin-bottom:1.5rem; }
+    .units-grid {
+      display:grid; grid-template-columns:repeat(3, 1fr); gap:1.25rem;
+    }
+    @media (max-width: 900px) { .units-grid { grid-template-columns:1fr; } }
+    .unit-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.25rem; }
+    .unit-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+    .unit-name { font-size:1rem; font-weight:700; }
+    .unit-badge {
+      font-size:.68rem; padding:2px 9px; border-radius:20px; font-weight:600;
+      background:#1d4ed8; color:#bfdbfe;
+    }
+    .run-state {
+      display:flex; align-items:center; gap:6px;
+      font-size:.72rem; padding:3px 10px; border-radius:20px; font-weight:700;
+      letter-spacing:.03em;
+    }
+    .run-state.green  { background:rgba(34,197,94,.15);  color:var(--green); }
+    .run-state.yellow { background:rgba(251,191,36,.15); color:var(--yellow); }
+    .run-state.red    { background:rgba(239,68,68,.15);  color:var(--red); }
+    .run-state .dot {
+      width:8px; height:8px; border-radius:50%; display:inline-block;
+      background:currentColor; box-shadow:0 0 6px currentColor;
+      animation: glow-pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes glow-pulse {
+      0%,100% { opacity:1; }
+      50%     { opacity:.4; }
+    }
+    .unreachable {
+      background:#450a0a; border:1px solid #991b1b; border-radius:10px;
+      padding:1.5rem; text-align:center; color:#fca5a5; font-size:.85rem;
+    }
+    .section-label { font-size:.68rem; color:var(--faint); text-transform:uppercase; letter-spacing:.04em; margin:.9rem 0 .5rem; }
+    .pct-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:.5rem; }
+    .pct-box {
+      background:var(--bg); border:1px solid var(--border); border-radius:8px;
+      padding:.6rem; text-align:center;
+    }
+    .pct-box .val { font-size:1.05rem; font-weight:700; }
+    .pct-box .lbl { font-size:.62rem; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin-top:2px; }
+    .pct-box.active .val { color:var(--green); }
+    table { width:100%; border-collapse:collapse; margin-top:.3rem; }
+    th { text-align:left; font-size:.62rem; color:var(--faint); text-transform:uppercase; letter-spacing:.03em; padding:.3rem .4rem; }
+    td { padding:.4rem; font-size:.8rem; border-top:1px solid var(--border); }
+    .na { color:var(--faint); }
+    .alarm-row {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:.45rem .6rem; border-radius:8px; margin-bottom:.4rem; font-size:.78rem;
+      background:var(--bg); border:1px solid var(--border);
+    }
+    .alarm-dot { width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:6px; flex-shrink:0; }
+    .alarm-dot.ok { background:var(--green); }
+    .alarm-dot.info { background:var(--blue); }
+    .alarm-dot.warn { background:var(--orange); }
+    .alarm-dot.danger { background:var(--red); }
+    .alarm-since { color:var(--muted); font-size:.68rem; white-space:nowrap; }
+    .no-alarms { color:var(--muted); font-size:.8rem; text-align:center; padding:.6rem; }
+  </style>
+</head>
+<body>
+{% include "monitor/navbar.html" %}
+<div class="main">
+  <div class="page-title">❄️ SMW6PAC Status</div>
+  <div class="page-sub">Precision air-conditioning — live system overview<br>Last updated: {{ last_updated }}</div>
+
+  <div class="units-grid">
+    {% for u in units %}
+    <div class="unit-card">
+      <div class="unit-head">
+        <div class="unit-name">Unit {{ forloop.counter }}</div>
+        {% if u.ok %}
+        <span class="run-state {{ u.run_state.color }}"><span class="dot"></span>{{ u.run_state.label }}</span>
+        {% endif %}
+      </div>
+
+      {% if u.ok %}
+      <div class="pct-grid">
+        <div class="pct-box {% if u.percentages.fan %}active{% endif %}"><div class="val">{{ u.percentages.fan|floatformat:"0"|default:"—" }}%</div><div class="lbl">Fan</div></div>
+        <div class="pct-box {% if u.percentages.cool %}active{% endif %}"><div class="val">{{ u.percentages.cool|floatformat:"0"|default:"—" }}%</div><div class="lbl">Cool</div></div>
+        <div class="pct-box {% if u.percentages.heat %}active{% endif %}"><div class="val">{{ u.percentages.heat|floatformat:"0"|default:"—" }}%</div><div class="lbl">Heat</div></div>
+        <div class="pct-box {% if u.percentages.fc %}active{% endif %}"><div class="val">{{ u.percentages.fc|floatformat:"0"|default:"—" }}%</div><div class="lbl">Free Cool</div></div>
+        <div class="pct-box {% if u.percentages.dehum %}active{% endif %}"><div class="val">{{ u.percentages.dehum|floatformat:"0"|default:"—" }}%</div><div class="lbl">Dehum</div></div>
+        <div class="pct-box {% if u.percentages.humi %}active{% endif %}"><div class="val">{{ u.percentages.humi|floatformat:"0"|default:"—" }}%</div><div class="lbl">Humi</div></div>
+      </div>
+
+      <div class="section-label">Temperature &amp; Humidity</div>
+      <table>
+        <thead><tr><th></th><th>Setp</th><th>Ret</th><th>Sup</th><th>Rem</th></tr></thead>
+        <tbody>
+          <tr>
+            <th>°C</th>
+            <td>{{ u.temperature.setpoint|floatformat:1|default:"—" }}</td>
+            <td>{{ u.temperature.return|floatformat:1|default:"—" }}</td>
+            <td>{{ u.temperature.supply|floatformat:1|default:"—" }}</td>
+            <td>{% if u.temperature.remote %}{{ u.temperature.remote|floatformat:1 }}{% else %}<span class="na">N/A</span>{% endif %}</td>
+          </tr>
+          <tr>
+            <th>%RH</th>
+            <td>{{ u.humidity.setpoint|floatformat:1|default:"—" }}</td>
+            <td>{{ u.humidity.return|floatformat:1|default:"—" }}</td>
+            <td>—</td>
+            <td>{% if u.humidity.remote %}{{ u.humidity.remote|floatformat:1 }}{% else %}<span class="na">N/A</span>{% endif %}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="section-label">Active Alarms</div>
+      {% if u.alarms %}
+        {% for a in u.alarms %}
+        <div class="alarm-row">
+          <div><span class="alarm-dot {{ a.level }}"></span>{{ a.label }}</div>
+          <div class="alarm-since">{{ a.since }}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="no-alarms">✅ No active alarms</div>
+      {% endif %}
+
+      {% else %}
+      <div class="unreachable">⚠️ Unreachable / Resting</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% include "monitor/footer.html" %}
+<script>
+  setTimeout(() => location.reload(), 30000);
+</script>
+</body>
+</html>
