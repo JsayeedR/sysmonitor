@@ -1,11 +1,12 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, re_path
 from monitor import views
 
 urlpatterns = [
     path('admin/',                            admin.site.urls),
     path('',                                  views.dashboard,         name='dashboard'),
     path('login/',                            views.login_view,        name='login'),
+    path('password-reset/',                   views.password_reset_request, name='password_reset'),
     path('about/',                            views.about_view,        name='about'),
     path('logout/',                           views.logout_view,       name='logout'),
     path('api/status/',                       views.api_status,        name='api_status'),
@@ -14,7 +15,9 @@ urlpatterns = [
     path('users/',                            views.user_list,         name='user_list'),
     path('users/create/',                     views.user_create,       name='user_create'),
     path('users/<int:user_id>/edit/',         views.user_edit,         name='user_edit'),
+    path('users/<int:user_id>/toggle-active/', views.user_toggle_active, name='user_toggle_active'),
     path('users/<int:user_id>/delete/',       views.user_delete,       name='user_delete'),
+    path('colocation-setpoints/',              views.colocation_setpoints, name='colocation_setpoints'),
     path('devices/',                          views.device_list,       name='device_list'),
     path('devices/add/',                      views.device_create,     name='device_create'),
     path('devices/<int:device_id>/edit/',     views.device_edit,       name='device_edit'),
@@ -25,6 +28,10 @@ urlpatterns = [
     path('uptime/',                       views.uptime_status,      name='uptime_status'),
     path('uptime/<int:monitor_id>/log/',  views.uptime_status_log,  name='uptime_status_log'),
     path('smw6pac/',                      views.pac_status_view,   name='pac_status'),
+    path('sensor/',                       views.sensor_status_view, name='sensor_status'),
+    path('api/sensor-status/',            views.api_sensor_status,  name='api_sensor_status'),
+    path('api/sensor-history/',           views.api_sensor_history, name='api_sensor_history'),
+    path('sensor/export/',                views.sensor_export_csv,  name='sensor_export_csv'),
 ]
 
 # Notification routes (appended)
@@ -40,6 +47,13 @@ urlpatterns += [
     path('notifications/recipient/<int:rid>/toggle/',         views.notif_recipient_toggle,   name='notif_recipient_toggle'),
     path('notifications/log/',                                views.notif_log,                name='notif_log'),
     path('notifications/whatsapp-health/',                     views.notif_whatsapp_health,    name='notif_whatsapp_health'),
+    path('notifications/templates/',                           views.notif_message_templates,      name='notif_message_templates'),
+    path('notifications/templates/save/',                      views.notif_message_template_save,  name='notif_message_template_save'),
+    path('notifications/monthly-report/send-now/',             views.notif_send_monthly_report_now, name='notif_send_monthly_report_now'),
+    path('genruntime/', views.generator_runtime_report, name='generator_runtime_report'),
+    path('generator-fuel/', views.generator_fuel, name='generator_fuel'),
+    path('generator-fuel-report/', views.generator_fuel_report, name='generator_fuel_report'),
+    path('generator-cycle-audit/', views.generator_cycle_audit, name='generator_cycle_audit'),
     path('generator-log/',                                     views.generator_log_page,       name='generator_log_page'),
     path('generator-log/add/',                                 views.generator_log_add,        name='generator_log_add'),
     path('generator-log/<int:eid>/edit/',                      views.generator_log_edit,       name='generator_log_edit'),
@@ -66,6 +80,14 @@ urlpatterns += [
 
 from django.conf import settings
 from django.conf.urls.static import static
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+from django.views.static import serve
+# Serve uploaded profile/media files.
+# Required because this SysMonitor instance runs with DEBUG=False.
+urlpatterns += [
+    re_path(
+        r'^media/(?P<path>.*)$',
+        serve,
+        {'document_root': settings.MEDIA_ROOT},
+    ),
+]
 

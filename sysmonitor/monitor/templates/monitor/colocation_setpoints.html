@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Colocation Setpoints</title>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+    :root {
+      --bg:#0f172a;
+      --surface:#1e293b;
+      --border:#334155;
+      --text:#f1f5f9;
+      --muted:#94a3b8;
+      --faint:#475569;
+      --blue:#3b82f6;
+      --green:#22c55e;
+      --red:#ef4444;
+      --yellow:#fbbf24;
+    }
+
+    body {
+      font-family:'Segoe UI',system-ui,sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      min-height:100vh;
+      font-size:14px;
+    }
+
+    .main {
+      max-width:900px;
+      margin:0 auto;
+      padding:1.5rem;
+    }
+
+    .page-title {
+      font-size:1.3rem;
+      font-weight:700;
+      margin-bottom:.4rem;
+    }
+
+    .page-sub {
+      color:var(--muted);
+      font-size:.82rem;
+      margin-bottom:1.5rem;
+      line-height:1.6;
+    }
+
+    .card {
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:1.25rem;
+      margin-bottom:1rem;
+    }
+
+    .card-title {
+      font-size:.95rem;
+      font-weight:600;
+      margin-bottom:.4rem;
+    }
+
+    .card-sub {
+      color:var(--muted);
+      font-size:.78rem;
+      line-height:1.6;
+      margin-bottom:1.1rem;
+    }
+
+    .form-grid {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:1rem;
+    }
+
+    .form-group {
+      display:flex;
+      flex-direction:column;
+      gap:.4rem;
+    }
+
+    .form-group.full {
+      grid-column:1/-1;
+    }
+
+    label {
+      font-size:.78rem;
+      color:var(--muted);
+      font-weight:500;
+    }
+
+    .hint {
+      color:var(--faint);
+      font-size:.7rem;
+      line-height:1.4;
+    }
+
+    input[type="number"] {
+      width:100%;
+      background:var(--bg);
+      border:1px solid var(--border);
+      border-radius:8px;
+      color:var(--text);
+      padding:.6rem .75rem;
+      font-size:.88rem;
+      outline:none;
+    }
+
+    input[type="number"]:focus {
+      border-color:var(--blue);
+    }
+
+    .unit-wrap {
+      position:relative;
+    }
+
+    .unit-wrap input {
+      padding-right:3.2rem;
+    }
+
+    .unit {
+      position:absolute;
+      right:.75rem;
+      top:50%;
+      transform:translateY(-50%);
+      color:var(--muted);
+      font-size:.78rem;
+      pointer-events:none;
+    }
+
+    .info-box {
+      background:#0f172a;
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:.9rem 1rem;
+      margin-top:1rem;
+      color:var(--muted);
+      font-size:.76rem;
+      line-height:1.7;
+    }
+
+    .info-box strong {
+      color:var(--text);
+    }
+
+    .warning-box {
+      background:#1c1917;
+      border:1px solid #78350f;
+      border-radius:10px;
+      padding:.9rem 1rem;
+      margin-bottom:1rem;
+      color:#fdba74;
+      font-size:.76rem;
+      line-height:1.6;
+    }
+
+    .actions {
+      display:flex;
+      justify-content:flex-end;
+      gap:.5rem;
+      margin-top:1.25rem;
+    }
+
+    .btn {
+      padding:.5rem 1rem;
+      border-radius:8px;
+      border:none;
+      cursor:pointer;
+      font-size:.8rem;
+      font-weight:500;
+    }
+
+    .btn-primary {
+      background:var(--blue);
+      color:white;
+    }
+
+    .btn-primary:hover {
+      opacity:.9;
+    }
+
+    .message {
+      border-radius:8px;
+      padding:.7rem .9rem;
+      margin-bottom:1rem;
+      font-size:.8rem;
+    }
+
+    .message.success {
+      background:#14532d;
+      color:#4ade80;
+      border:1px solid #16a34a;
+    }
+
+    .message.error {
+      background:#450a0a;
+      color:#fca5a5;
+      border:1px solid #dc2626;
+    }
+
+    .current-status {
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr 1fr 1fr;
+      gap:.6rem;
+      margin-top:1rem;
+    }
+
+    .status-item {
+      background:#0f172a;
+      border:1px solid var(--border);
+      border-radius:8px;
+      padding:.7rem;
+    }
+
+    .status-label {
+      color:var(--muted);
+      font-size:.68rem;
+      margin-bottom:.25rem;
+    }
+
+    .status-value {
+      font-size:.85rem;
+      font-weight:600;
+    }
+
+    @media (max-width:768px) {
+      .main { padding:1rem .75rem; }
+      .form-grid { grid-template-columns:1fr; }
+      .form-group.full { grid-column:auto; }
+      .current-status { grid-template-columns:1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+{% include "monitor/navbar.html" %}
+
+<div class="main">
+  <div class="page-title">🌡️ Colocation Setpoints</div>
+  <div class="page-sub">
+    Configure the temperature and humidity alarm limits for the colocation room sensor.
+    These settings control the dedicated Colocation Temp/Humidity Alarm notification.
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="message {% if message.tags == 'success' %}success{% else %}error{% endif %}">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="warning-box">
+    ⚠️ <strong>Alarm notification behavior:</strong>
+    A notification is sent when a configured temperature or humidity limit is exceeded.
+    Repeated notifications are controlled by the cooldown configured below.
+    Temperature and humidity alarm conditions are handled independently.
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+
+    <div class="card">
+      <div class="card-title">🌡️ Temperature Alarm Limits</div>
+      <div class="card-sub">
+        Set the acceptable temperature range for the colocation room.
+        Leave a field blank if that particular limit should not be monitored.
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="temperature_low">Low Temperature</label>
+          <div class="unit-wrap">
+            <input
+              type="number"
+              id="temperature_low"
+              name="temperature_low"
+              step="0.1"
+              value="{% if config.temperature_low is not None %}{{ config.temperature_low }}{% endif %}"
+              placeholder="e.g. 18.0">
+            <span class="unit">°C</span>
+          </div>
+          <div class="hint">Alarm when temperature falls below this value.</div>
+        </div>
+
+        <div class="form-group">
+          <label for="temperature_high">High Temperature</label>
+          <div class="unit-wrap">
+            <input
+              type="number"
+              id="temperature_high"
+              name="temperature_high"
+              step="0.1"
+              value="{% if config.temperature_high is not None %}{{ config.temperature_high }}{% endif %}"
+              placeholder="e.g. 27.0">
+            <span class="unit">°C</span>
+          </div>
+          <div class="hint">Alarm when temperature rises above this value.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💧 Humidity Alarm Limits</div>
+      <div class="card-sub">
+        Set the acceptable relative humidity range for the colocation room.
+        Leave a field blank if that particular limit should not be monitored.
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="humidity_low">Low Humidity</label>
+          <div class="unit-wrap">
+            <input
+              type="number"
+              id="humidity_low"
+              name="humidity_low"
+              step="0.1"
+              min="0"
+              max="100"
+              value="{% if config.humidity_low is not None %}{{ config.humidity_low }}{% endif %}"
+              placeholder="e.g. 40.0">
+            <span class="unit">%</span>
+          </div>
+          <div class="hint">Alarm when humidity falls below this value.</div>
+        </div>
+
+        <div class="form-group">
+          <label for="humidity_high">High Humidity</label>
+          <div class="unit-wrap">
+            <input
+              type="number"
+              id="humidity_high"
+              name="humidity_high"
+              step="0.1"
+              min="0"
+              max="100"
+              value="{% if config.humidity_high is not None %}{{ config.humidity_high }}{% endif %}"
+              placeholder="e.g. 60.0">
+            <span class="unit">%</span>
+          </div>
+          <div class="hint">Alarm when humidity rises above this value.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⏱️ Alarm Notification Cooldown</div>
+      <div class="card-sub">
+        Controls how often a continuing temperature/humidity alarm can send another notification.
+        Default is 30 minutes.
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="alarm_cooldown_minutes">Cooldown</label>
+          <div class="unit-wrap">
+            <input
+              type="number"
+              id="alarm_cooldown_minutes"
+              name="alarm_cooldown_minutes"
+              min="1"
+              step="1"
+              value="{% if config %}{{ config.alarm_cooldown_minutes }}{% else %}30{% endif %}">
+            <span class="unit">min</span>
+          </div>
+          <div class="hint">
+            Example: 30 means another reminder can be sent only after 30 minutes if the alarm is still active.
+          </div>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <strong>Example:</strong>
+        If the temperature crosses the configured high limit at 10:00,
+        an alarm may be sent at 10:00. With a 30-minute cooldown,
+        the same continuing condition will not send another notification before 10:30.
+        If the temperature returns to normal and later crosses the limit again,
+        that is treated as a new alarm condition.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 Current Configuration</div>
+
+      <div class="current-status">
+        <div class="status-item">
+          <div class="status-label">TEMP LOW</div>
+          <div class="status-value">
+            {% if config.temperature_low is not None %}{{ config.temperature_low }} °C{% else %}Disabled{% endif %}
+          </div>
+        </div>
+
+        <div class="status-item">
+          <div class="status-label">TEMP HIGH</div>
+          <div class="status-value">
+            {% if config.temperature_high is not None %}{{ config.temperature_high }} °C{% else %}Disabled{% endif %}
+          </div>
+        </div>
+
+        <div class="status-item">
+          <div class="status-label">HUMIDITY LOW</div>
+          <div class="status-value">
+            {% if config.humidity_low is not None %}{{ config.humidity_low }} %{% else %}Disabled{% endif %}
+          </div>
+        </div>
+
+        <div class="status-item">
+          <div class="status-label">HUMIDITY HIGH</div>
+          <div class="status-value">
+            {% if config.humidity_high is not None %}{{ config.humidity_high }} %{% else %}Disabled{% endif %}
+          </div>
+        </div>
+
+        <div class="status-item">
+          <div class="status-label">COOLDOWN</div>
+          <div class="status-value">
+            {% if config %}{{ config.alarm_cooldown_minutes }} min{% else %}30 min{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="btn btn-primary">💾 Save Setpoints</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+</body>
+</html>

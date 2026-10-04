@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Message Formats</title>
+  <style>
+    :root {
+      --bg:#0f172a; --surface:#1e293b; --border:#334155; --text:#f1f5f9;
+      --muted:#94a3b8; --blue:#3b82f6; --green:#22c55e; --red:#ef4444; --orange:#fb923c;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+    .main { max-width:900px; margin:0 auto; padding:2rem 1.5rem; }
+    .page-title { font-size:1.3rem; font-weight:700; margin-bottom:.25rem; }
+    .page-sub { color:var(--muted); font-size:.85rem; margin-bottom:1.5rem; }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.25rem; margin-bottom:1.25rem; }
+    .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:.75rem; }
+    .card-title { font-weight:600; font-size:.95rem; }
+    .badge { font-size:.68rem; padding:2px 8px; border-radius:20px; font-weight:600; }
+    .badge-custom { background:#1e3a8a; color:#bfdbfe; }
+    .badge-default { background:#334155; color:var(--muted); }
+    .placeholders { font-size:.75rem; color:var(--muted); margin-bottom:.6rem; }
+    .placeholders code { background:#0f172a; border:1px solid var(--border); border-radius:4px; padding:1px 5px; color:#93c5fd; margin-right:4px; }
+    textarea {
+      width:100%; min-height:110px; background:#0f172a; border:1px solid var(--border);
+      border-radius:8px; color:var(--text); font-family:monospace; font-size:.82rem;
+      padding:.7rem; resize:vertical; outline:none;
+    }
+    textarea:focus { border-color:var(--blue); }
+    .default-preview {
+      background:#0f172a; border:1px dashed var(--border); border-radius:8px;
+      padding:.7rem; font-size:.78rem; color:var(--muted); white-space:pre-wrap;
+      font-family:monospace; margin-top:.6rem;
+    }
+    .row-actions { display:flex; gap:.5rem; margin-top:.75rem; }
+    .btn { padding:.45rem 1rem; border-radius:8px; font-size:.8rem; font-weight:600; cursor:pointer; border:none; }
+    .btn-primary { background:var(--blue); color:white; }
+    .btn-primary:hover { background:#2563eb; }
+    .btn-ghost { background:transparent; border:1px solid var(--border); color:var(--muted); }
+    .btn-ghost:hover { color:var(--text); border-color:#475569; }
+    .toast { position:fixed; bottom:1.5rem; right:1.5rem; padding:.75rem 1.25rem; border-radius:10px; font-size:.85rem; font-weight:500; z-index:9999; background:#14532d; color:#4ade80; border:1px solid #16a34a; }
+    .back-link { color:var(--muted); font-size:.82rem; text-decoration:none; display:inline-block; margin-bottom:1rem; }
+    .back-link:hover { color:var(--text); }
+  </style>
+</head>
+<body>
+{% include "monitor/navbar.html" %}
+<div class="main">
+  <a href="/notifications/" class="back-link">← Back to Notifications</a>
+  <div class="page-title">✍️ Message Formats</div>
+  <div class="page-sub">
+    Customize the wording SysMonitor sends for each event, across WhatsApp/Telegram/Email.
+    Leave a box empty and save to fall back to the built-in default shown below it.
+    Use <code>{placeholder}</code> tokens — only the ones listed for each type are filled in.
+  </div>
+
+  {% for row in rows %}
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">{{ row.label }}</div>
+      {% if row.has_override %}
+        <span class="badge badge-custom">✍️ Custom</span>
+      {% else %}
+        <span class="badge badge-default">Default</span>
+      {% endif %}
+    </div>
+    <div class="placeholders">
+      Available: {% for p in row.placeholders %}<code>{{ '{' }}{{ p }}{{ '}' }}</code>{% endfor %}
+    </div>
+    <textarea id="tpl-{{ row.event_type }}" placeholder="Leave blank to use the default wording below…">{{ row.custom_text }}</textarea>
+    <div class="default-preview">{{ row.default_text }}</div>
+    <div class="row-actions">
+      <button class="btn btn-primary" onclick="saveTemplate('{{ row.event_type }}')">💾 Save</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('tpl-{{ row.event_type }}').value=''; saveTemplate('{{ row.event_type }}');">↩️ Reset to Default</button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% include "monitor/footer.html" %}
+
+<script>
+function getCookie(name) {
+  const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return v ? v.pop() : '';
+}
+const CSRF = '{{ csrf_token }}';
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+function saveTemplate(eventType) {
+  const text = document.getElementById('tpl-' + eventType).value;
+  fetch('/notifications/templates/save/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({ event_type: eventType, template_text: text }),
+  }).then(r => r.json()).then(r => {
+    if (r.ok) { toast('✅ Saved — reloading…'); setTimeout(() => location.reload(), 600); }
+    else toast('❌ ' + (r.error || 'Failed to save'));
+  }).catch(() => toast('❌ Network error'));
+}
+</script>
+</body>
+</html>

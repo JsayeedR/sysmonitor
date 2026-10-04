@@ -1,0 +1,95 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generator Cycle Audit — SysMonitor</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --surface: #111827;
+      --border: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --faint: #6b7280;
+      --yellow: #fbbf24;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+    }
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .page-header {
+      margin-bottom: 1.5rem;
+    }
+    .page-header h1 {
+      margin: 0 0 .4rem;
+      font-size: 1.5rem;
+    }
+    .page-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+    .maintenance-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 3rem 2rem;
+      text-align: center;
+    }
+    .maintenance-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+    .maintenance-card h2 {
+      margin: 0 0 .7rem;
+      font-size: 1.2rem;
+    }
+    .maintenance-card p {
+      margin: 0 auto 1.2rem;
+      max-width: 600px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .badge {
+      display: inline-block;
+      padding: .35rem .75rem;
+      border-radius: 20px;
+      background: rgba(251,191,36,.12);
+      color: var(--yellow);
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+  </style>
+</head>
+<body>
+  {% include "monitor/navbar.html" %}
+
+  <main class="page">
+    <div class="page-header">
+      <h1>🕵️ Generator Cycle Audit</h1>
+      <p>Generator cycle verification, audit history and consistency checks</p>
+    </div>
+
+    <section class="maintenance-card">
+      <div class="maintenance-icon">🚧</div>
+      <h2>Generator Cycle Audit is currently under maintenance</h2>
+      <p>
+        This page will provide generator cycle verification, audit records
+        and related consistency checks.
+      </p>
+      <span class="badge">UNDER MAINTENANCE</span>
+    </section>
+  </main>
+</body>
+</html>

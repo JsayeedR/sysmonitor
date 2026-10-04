@@ -100,6 +100,11 @@ class MonitorState:
         self.cycle            = None
         self.nvr_down_at      = None
         self.both_down_at     = None
+        self.both_down_since  = None  # see periodic_checks() — tracks only
+                                        # the CURRENT continuous both-down
+                                        # window, separate from both_down_at
+                                        # (which marks the whole cycle/outage
+                                        # start and can span generator blips)
         self.gen_start_at     = None
         self.pdb_restored_at  = None
         self.avr_warned       = False
@@ -541,9 +546,14 @@ def handle_changes(holder_dev, nvr_dev, holder_up, nvr_up):
                 STATE.cycle.gen_start = now
                 STATE.cycle.save()
 
+            # Time NVR itself was actually down for THIS blip — not the age
+            # of the whole outage cycle (both_down_at), which was wrong here:
+            # on a repeat NVR blip during an already-long PDB outage it
+            # reported the full cycle age (e.g. "38m56s") instead of the
+            # real ~3-minute generator recovery time for that blip.
             delay = 0
-            if STATE.both_down_at:
-                delay = int((now - STATE.both_down_at).total_seconds())
+            if STATE.nvr_down_at:
+                delay = int((now - STATE.nvr_down_at).total_seconds())
 
             log_event(nvr_dev, 'GEN-UP',
                 f'Generator running — NVR UP after {duration_fmt(delay)}. '
@@ -608,10 +618,28 @@ def handle_changes(holder_dev, nvr_dev, holder_up, nvr_up):
 def periodic_checks(holder_dev, nvr_dev):
     now = now_utc()
 
+    # "Both devices simultaneously down RIGHT NOW" — derived fresh from live
+    # ping state every tick, completely independent of both_down_at (which
+    # marks when the overall outage CYCLE began and deliberately doesn't
+    # reset across a generator blip, e.g. NVR briefly re-dropping while
+    # already running on generator). This is what the 10-minute CRITICAL
+    # threshold is actually supposed to measure — a continuous both-down
+    # window — not the age of the cycle.
+    both_currently_down = (STATE.holder_up is False and STATE.nvr_up is False)
+    if both_currently_down:
+        if STATE.both_down_since is None:
+            STATE.both_down_since = now
+    else:
+        # Either device is up (or state unknown at startup) — no ongoing
+        # both-down window, so re-arm the CRITICAL alert for next time.
+        STATE.both_down_since = None
+        STATE.critical_warned = False
+
     if (STATE.phase == 'OUTAGE'
-            and STATE.both_down_at
+            and both_currently_down
+            and STATE.both_down_since
             and not STATE.critical_warned):
-        secs = int((now - STATE.both_down_at).total_seconds())
+        secs = int((now - STATE.both_down_since).total_seconds())
         if secs >= CRITICAL_THRESHOLD:
             log_event(None, 'CRITICAL',
                 f'TOTAL POWER FAILURE — '

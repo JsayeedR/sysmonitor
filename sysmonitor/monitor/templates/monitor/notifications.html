@@ -144,6 +144,7 @@
     <button class="tab-btn" onclick="switchTab('recipients')">👥 Recipients</button>
     <button class="tab-btn" onclick="switchTab('log')">📋 Log</button>
     <button class="tab-btn" onclick="switchTab('guide')">📖 Setup Guide</button>
+    <a class="tab-btn" href="/notifications/templates/" style="text-decoration:none;">✍️ Message Formats</a>
   </div>
 
   <!-- ── TAB: GATEWAYS ─────────────────────────────────────────────────────── -->
@@ -283,6 +284,9 @@
           <label class="checkbox-item"><input type="checkbox" id="new-complete"  checked> ✅ Cycle Complete</label>
           <label class="checkbox-item"><input type="checkbox" id="new-daily"> 📋 Daily Summary (00:01)</label>
           <label class="checkbox-item"><input type="checkbox" id="new-pac"> ❄️ SMW6PAC Status Change</label>
+          <label class="checkbox-item"><input type="checkbox" id="new-monthly"> 📊 Monthly Loadshedding Report</label>
+          <label class="checkbox-item"><input type="checkbox" id="new-colocation-data"> 📈 Colocation Data — Every 3 Hours</label>
+          <label class="checkbox-item"><input type="checkbox" id="new-colocation-alarm"> 🌡️ Colocation Temp/Humidity Alarm</label>
         </div>
       </div>
       <button class="btn btn-success" onclick="addRecipient()">✅ Add Recipient</button>
@@ -319,6 +323,7 @@
                 <span class="pill {% if r.alert_complete %}pill-on{% else %}pill-off{% endif %}">✅ Complete</span>
                 <span class="pill {% if r.daily_summary %}pill-on{% else %}pill-off{% endif %}">📋 Daily</span>
                 <span class="pill {% if r.alert_pac_status %}pill-on{% else %}pill-off{% endif %}">❄️ PAC</span>
+                <span class="pill {% if r.monthly_report %}pill-on{% else %}pill-off{% endif %}">📊 Monthly</span>
               </div>
             </td>
             <td>
@@ -328,7 +333,7 @@
             </td>
             <td>
               <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
-                <button class="btn btn-ghost btn-sm" onclick="openEdit({{ r.id }},'{{ r.name }}','{{ r.channel }}','{{ r.contact }}',{{ r.alert_outage|lower }},{{ r.alert_critical|lower }},{{ r.alert_alarm|lower }},{{ r.alert_complete|lower }},{{ r.daily_summary|lower }},{{ r.alert_pac_status|lower }})">✏️</button>
+                <button class="btn btn-ghost btn-sm" onclick="openEdit({{ r.id }},'{{ r.name }}','{{ r.channel }}','{{ r.contact }}',{{ r.alert_outage|lower }},{{ r.alert_critical|lower }},{{ r.alert_alarm|lower }},{{ r.alert_complete|lower }},{{ r.daily_summary|lower }},{{ r.alert_pac_status|lower }},{{ r.monthly_report|lower }},{{ r.colocation_data|lower }},{{ r.colocation_alarm|lower }})">✏️</button>
                 <button class="btn btn-orange btn-sm" onclick="testRecipient({{ r.id }})">🧪 Test</button>
                 <button class="btn btn-ghost btn-sm" onclick="toggleRecipient({{ r.id }})">⏸️</button>
                 <button class="btn btn-danger btn-sm" onclick="deleteRecipient({{ r.id }})">🗑️</button>
@@ -340,6 +345,19 @@
           {% endfor %}
         </tbody>
       </table>
+    </div>
+
+    <div class="card" style="margin-top:1rem;">
+      <div class="card-header">
+        <div class="card-title">📊 Monthly Loadshedding Report</div>
+      </div>
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:.75rem;">
+        Sent automatically at 00:05 BDT on the 1st of each month for the month that just ended, to
+        every recipient with the "📊 Monthly" alert checked above (email gets an Excel workbook attached).
+        Use this to send it on demand for testing.
+      </div>
+      <button class="btn btn-primary" onclick="sendMonthlyReportNow()">📤 Send Now (previous month)</button>
+      <span id="monthly-report-result" style="margin-left:.75rem;font-size:.82rem;color:var(--muted);"></span>
     </div>
 
   </div><!-- /tab-recipients -->
@@ -501,6 +519,9 @@
           <label class="checkbox-item"><input type="checkbox" id="edit-complete"> ✅ Cycle Complete</label>
           <label class="checkbox-item"><input type="checkbox" id="edit-daily"> 📋 Daily Summary (00:01)</label>
           <label class="checkbox-item"><input type="checkbox" id="edit-pac"> ❄️ SMW6PAC Status Change</label>
+          <label class="checkbox-item"><input type="checkbox" id="edit-monthly"> 📊 Monthly Loadshedding Report</label>
+          <label class="checkbox-item"><input type="checkbox" id="edit-colocation-data"> 📈 Colocation Data — Every 3 Hours</label>
+          <label class="checkbox-item"><input type="checkbox" id="edit-colocation-alarm"> 🌡️ Colocation Temp/Humidity Alarm</label>
         </div>
       </div>
     </div>
@@ -536,6 +557,21 @@ function post(url, data) {
     headers: { 'Content-Type':'application/json', 'X-CSRFToken': CSRF },
     body: JSON.stringify(data),
   }).then(r => r.json());
+}
+
+function sendMonthlyReportNow() {
+  const out = document.getElementById('monthly-report-result');
+  out.textContent = '⏳ Sending…';
+  post('/notifications/monthly-report/send-now/', {}).then(r => {
+    if (r.ok) {
+      out.textContent = `✅ ${r.label}: ${r.outage_count} event(s), ${r.total_downtime} — sent to ${r.sent_count} recipient(s)` +
+        (r.failed && r.failed.length ? ` (${r.failed.length} failed: ${r.failed.join('; ')})` : '');
+      out.style.color = (r.failed && r.failed.length) ? 'var(--orange)' : 'var(--green)';
+    } else {
+      out.textContent = '❌ ' + (r.error || 'Failed to send');
+      out.style.color = 'var(--red)';
+    }
+  }).catch(() => { out.textContent = '❌ Network error'; out.style.color = 'var(--red)'; });
 }
 
 // ── Gateways ──
@@ -624,6 +660,9 @@ function addRecipient() {
     alert_complete: document.getElementById('new-complete').checked,
     alert_pac_status: document.getElementById('new-pac').checked,
     daily_summary:  document.getElementById('new-daily').checked,
+    monthly_report: document.getElementById('new-monthly').checked,
+    colocation_data: document.getElementById('new-colocation-data').checked,
+    colocation_alarm: document.getElementById('new-colocation-alarm').checked,
   }).then(r => {
     if (r.ok) { toast('✅ Recipient added!'); location.reload(); }
     else {
@@ -664,7 +703,7 @@ function toggleRecipient(id) {
 }
 
 // Edit modal
-function openEdit(id, name, channel, contact, outage, critical, alarm, complete, daily, pacStatus) {
+function openEdit(id, name, channel, contact, outage, critical, alarm, complete, daily, pacStatus, monthly, colocationData, colocationAlarm) {
   document.getElementById('edit-id').value      = id;
   document.getElementById('edit-name').value    = name;
   document.getElementById('edit-channel').value = channel;
@@ -675,6 +714,9 @@ function openEdit(id, name, channel, contact, outage, critical, alarm, complete,
   document.getElementById('edit-complete').checked = complete;
   document.getElementById('edit-daily').checked    = daily;
   document.getElementById('edit-pac').checked      = pacStatus;
+  document.getElementById('edit-monthly').checked  = monthly;
+  document.getElementById('edit-colocation-data').checked = colocationData;
+  document.getElementById('edit-colocation-alarm').checked = colocationAlarm;
   document.getElementById('edit-modal').classList.add('open');
 }
 
@@ -692,6 +734,9 @@ function saveEdit() {
     alert_complete: document.getElementById('edit-complete').checked,
     daily_summary:  document.getElementById('edit-daily').checked,
     alert_pac_status: document.getElementById('edit-pac').checked,
+    monthly_report: document.getElementById('edit-monthly').checked,
+    colocation_data: document.getElementById('edit-colocation-data').checked,
+    colocation_alarm: document.getElementById('edit-colocation-alarm').checked,
   }).then(r => {
     if (r.ok) { toast('✅ Saved'); closeEdit(); location.reload(); }
     else toast('❌ ' + r.error, false);

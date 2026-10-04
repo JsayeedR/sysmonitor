@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin
-from .models import Device, DeviceStatus, Event, SystemStatus, UserProfile, ActivityLog, OutageCycle
+from .models import Device, DeviceStatus, Event, SystemStatus, UserProfile, ActivityLog, OutageCycle, SensorAlarmConfig
 
 @admin.register(Device)
 class DeviceAdmin(admin.ModelAdmin):
@@ -52,3 +52,5 @@ class OutageCycleAdmin(admin.ModelAdmin):
                      'cycle_end', 'pdb_duration_sec', 'gen_runtime_sec', 'is_complete')
     list_filter   = ('cycle_type', 'is_complete')
     readonly_fields = ('created_at', 'updated_at')
+
+admin.site.register(SensorAlarmConfig)

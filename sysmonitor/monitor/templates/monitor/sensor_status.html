@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Colocation Room</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:#0f172a; --surface:#1e293b; --border:#334155; --text:#f1f5f9;
+      --muted:#94a3b8; --faint:#475569; --blue:#3b82f6; --green:#22c55e;
+      --red:#ef4444; --yellow:#fbbf24; --orange:#fb923c;
+    }
+    body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; }
+    .main { max-width:1400px; margin:0 auto; padding:1.5rem; }
+    .page-title { font-size:1.3rem; font-weight:700; margin-bottom:.3rem; }
+    .page-sub { color:var(--muted); font-size:.82rem; margin-bottom:1.5rem; }
+
+    .cards-grid {
+      display:grid; grid-template-columns:repeat(5, 1fr); gap:1.1rem; margin-bottom:1.5rem;
+    }
+    @media (max-width: 1100px) { .cards-grid { grid-template-columns:repeat(2, 1fr); } }
+    @media (max-width: 560px)  { .cards-grid { grid-template-columns:1fr; } }
+
+    .stat-card {
+      background:var(--surface); border:1px solid var(--border); border-radius:12px;
+      padding:1.1rem 1.25rem; display:flex; flex-direction:column; gap:.4rem;
+    }
+    .stat-label {
+      font-size:.68rem; color:var(--faint); text-transform:uppercase;
+      letter-spacing:.04em; display:flex; align-items:center; gap:6px;
+    }
+    .stat-value { font-size:1.6rem; font-weight:700; line-height:1.1; }
+    .stat-value.small { font-size:1.05rem; font-weight:600; }
+    .stat-sub { font-size:.72rem; color:var(--muted); }
+
+    .run-state {
+      display:inline-flex; align-items:center; gap:6px; width:fit-content;
+      font-size:.72rem; padding:3px 10px; border-radius:20px; font-weight:700;
+      letter-spacing:.03em;
+    }
+    .run-state.green  { background:rgba(34,197,94,.15);  color:var(--green); }
+    .run-state.yellow { background:rgba(251,191,36,.15); color:var(--yellow); }
+    .run-state.red    { background:rgba(239,68,68,.15);  color:var(--red); }
+    .run-state .dot {
+      width:8px; height:8px; border-radius:50%; display:inline-block;
+      background:currentColor; box-shadow:0 0 6px currentColor;
+      animation: glow-pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes glow-pulse {
+      0%,100% { opacity:1; }
+      50%     { opacity:.4; }
+    }
+
+    .unreachable {
+      background:#450a0a; border:1px solid #991b1b; border-radius:10px;
+      padding:1.5rem; text-align:center; color:#fca5a5; font-size:.85rem; margin-bottom:1.5rem;
+    }
+
+    .section-label { font-size:.68rem; color:var(--faint); text-transform:uppercase; letter-spacing:.04em; margin:.9rem 0 .5rem; }
+
+
+    /* ===== Sensor Report ===== */
+    .report-section {
+      margin-top: 24px;
+      margin-bottom: 28px;
+    }
+
+    .report-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: 10px;
+    }
+
+    .report-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .report-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      min-height: 105px;
+      box-sizing: border-box;
+    }
+
+    .report-card .report-title {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .report-card .report-value {
+      color: var(--text);
+      font-size: 23px;
+      line-height: 1.2;
+      font-weight: 700;
+    }
+
+    .report-card .report-time {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 7px;
+      line-height: 1.35;
+    }
+
+    .report-card .report-sub {
+      color: var(--faint);
+      font-size: 11px;
+      margin-top: 5px;
+    }
+
+    .report-period {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 12px;
+    }
+
+    .date-filter {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .date-filter label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .date-filter input {
+      background: #0f172a;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 9px;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .date-filter input:focus {
+      border-color: var(--blue);
+    }
+
+    .date-filter button {
+      background: var(--blue);
+      color: white;
+      border: 0;
+      border-radius: 7px;
+      padding: 8px 13px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .date-filter button:hover {
+      opacity: .9;
+    }
+
+    .date-clear-btn {
+      background: transparent !important;
+      color: var(--muted) !important;
+      border: 1px solid var(--border) !important;
+    }
+
+    @media (max-width: 1100px) {
+      .report-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 560px) {
+      .report-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .date-filter {
+        align-items: stretch;
+      }
+
+      .date-filter input,
+      .date-filter button {
+        width: 100%;
+      }
+    }
+
+    .history-card {
+      background:var(--surface); border:1px solid var(--border); border-radius:12px;
+      padding:1.25rem;
+    }
+    .history-head {
+      display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.75rem;
+      margin-bottom:1.1rem;
+    }
+    .history-title { font-size:.95rem; font-weight:700; }
+    .history-controls { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+    .range-btn {
+      background:var(--bg); border:1px solid var(--border); color:var(--muted);
+      font-size:.74rem; padding:.35rem .75rem; border-radius:7px; cursor:pointer;
+      font-weight:600; transition:all .15s;
+    }
+    .range-btn:hover { color:var(--text); border-color:var(--faint); }
+    .range-btn.active { background:rgba(59,130,246,.15); color:var(--blue); border-color:var(--blue); }
+    .download-btn {
+      background:var(--blue); color:#fff; border:none; font-size:.74rem;
+      padding:.4rem .9rem; border-radius:7px; cursor:pointer; font-weight:600;
+      text-decoration:none; display:inline-flex; align-items:center; gap:5px;
+      transition:background .15s;
+    }
+    .download-btn:hover { background:#2563eb; }
+    .chart-wrap { position:relative; height:340px; }
+    .chart-empty {
+      display:flex; align-items:center; justify-content:center; height:340px;
+      color:var(--muted); font-size:.85rem;
+    }
+    .legend-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; }
+  </style>
+</head>
+<body>
+{% include "monitor/navbar.html" %}
+<div class="main">
+  <div class="page-title">🌡️ Colocation Room — Temp / Humidity</div>
+  <div class="page-sub">Tuya sensor — live environmental overview<br>Last updated: <span id="last-updated">{{ last_updated }}</span></div>
+
+  {% if not configured %}
+  <div class="unreachable">⚠️ Tuya sensor is not configured yet. Set TUYA_ACCESS_ID / TUYA_ACCESS_SECRET / TUYA_DEVICE_ID in the server's .env file.</div>
+  {% elif not latest %}
+  <div class="unreachable">⚠️ No sensor readings yet. The poller may not have run — check the sysmonitor-tuya-poll service.</div>
+  {% endif %}
+
+  <div class="cards-grid">
+    <div class="stat-card">
+      <div class="stat-label">🌡️ Temperature</div>
+      <div class="stat-value" id="card-temp">{% if latest.temperature_c %}{{ latest.temperature_c|floatformat:1 }}°C{% else %}—{% endif %}</div>
+      <div class="stat-sub">{{ latest.device_name|default:"Colocation Room" }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">💧 Humidity</div>
+      <div class="stat-value" id="card-humidity">{% if latest.humidity_pct %}{{ latest.humidity_pct|floatformat:1 }}%{% else %}—{% endif %}</div>
+      <div class="stat-sub">Relative humidity</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">🔋 Battery</div>
+      <div id="card-battery">
+        {% if latest.battery_pct %}
+        <div class="stat-value small">{{ latest.battery_pct|floatformat:0 }}%</div>
+        {% elif latest.battery_state == 'high' %}
+        <span class="run-state green"><span class="dot"></span>HIGH</span>
+        {% elif latest.battery_state == 'middle' %}
+        <span class="run-state yellow"><span class="dot"></span>MIDDLE</span>
+        {% elif latest.battery_state == 'low' %}
+        <span class="run-state red"><span class="dot"></span>LOW</span>
+        {% else %}
+        <div class="stat-value small">—</div>
+        {% endif %}
+      </div>
+      <div class="stat-sub">Sensor battery level</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">📶 Status</div>
+      <div id="card-status">
+        {% if latest.is_online %}
+        <span class="run-state green"><span class="dot"></span>ONLINE</span>
+        {% else %}
+        <span class="run-state red"><span class="dot"></span>OFFLINE</span>
+        {% endif %}
+      </div>
+      <div class="stat-sub">Device connectivity</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">🕑 Last Poll</div>
+      <div class="stat-value small" id="card-lastpoll">{% if latest %}{{ latest.recorded_at|date:"d/m/Y H:i:s" }}{% else %}—{% endif %}</div>
+      <div class="stat-sub">Most recent reading time</div>
+    </div>
+  </div>
+
+  <div class="section-label">History</div>
+
+  <!-- ===== Sensor Report ===== -->
+  <div class="report-section">
+    <div class="report-label">Environmental Report</div>
+
+    <div class="report-grid">
+
+      <div class="report-card">
+        <div class="report-title">Total Readings</div>
+        <div class="report-value" id="report-total">—</div>
+        <div class="report-sub" id="report-online">Online: — &nbsp; Offline: —</div>
+      </div>
+
+      <div class="report-card">
+        <div class="report-title">Monitoring Period</div>
+        <div class="report-value" id="report-duration">—</div>
+        <div class="report-time" id="report-period">—</div>
+      </div>
+
+      <div class="report-card">
+        <div class="report-title">Average Temperature</div>
+        <div class="report-value" id="report-temp-avg">—</div>
+        <div class="report-sub">Selected period</div>
+      </div>
+
+      <div class="report-card">
+        <div class="report-title">Average Humidity</div>
+        <div class="report-value" id="report-humidity-avg">—</div>
+        <div class="report-sub">Selected period</div>
+      </div>
+
+      <div class="report-card">
+        <div class="report-title">Highest Temperature</div>
+        <div class="report-value" id="report-temp-high">—</div>
+        <div class="report-time" id="report-temp-high-time">—</div>
+      </div>
+
+      <div class="report-card">
+        <div class="report-title">Lowest Temperature</div>
+        <div class="report-value" id="report-temp-low">—</div>
+        <div class="report-time" id="report-temp-low-time">—</div>
+      </div>
+
+      <div class="report-card">
+        <div class="report-title">Highest Humidity</div>
+        <div class="report-value" id="report-humidity-high">—</div>
+        <div class="report-time" id="report-humidity-high-time">—</div>
+      </div>
+
+      <div class="report-card">
+        <div class="report-title">Lowest Humidity</div>
+        <div class="report-value" id="report-humidity-low">—</div>
+        <div class="report-time" id="report-humidity-low-time">—</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="history-card">
+    <div class="history-head">
+      <div class="history-title">Temperature &amp; Humidity Trend</div>
+
+      <div class="history-controls">
+        <button class="range-btn" data-range="1h">1h</button>
+        <button class="range-btn" data-range="6h">6h</button>
+        <button class="range-btn active" data-range="24h">24h</button>
+        <button class="range-btn" data-range="7d">7d</button>
+        <button class="range-btn" data-range="30d">30d</button>
+        <button class="range-btn" data-range="all">All</button>
+        <a href="/sensor/export/?range=24h" id="download-link" class="download-btn">⬇ Download CSV</a>
+        <button type="button" id="download-png-btn" class="download-btn">🖼 PNG</button>
+      </div>
+    </div>
+
+    <div class="date-filter">
+      <label for="from-date">From</label>
+      <input type="date" id="from-date">
+
+      <label for="to-date">To</label>
+      <input type="date" id="to-date">
+
+      <button type="button" id="apply-date-btn">Apply</button>
+      <button type="button" id="clear-date-btn" class="date-clear-btn">Clear</button>
+    </div>
+
+    <div class="chart-wrap">
+      <canvas id="sensorChart"></canvas>
+      <div id="chart-empty-msg" class="chart-empty" style="display:none;">No readings in this time range yet.</div>
+    </div>
+  </div>
+</div>
+{% include "monitor/footer.html" %}
+<script>
+  let currentRange = '24h';
+  let chart = null;
+
+  function fmtStatus(isOnline) {
+    if (isOnline) {
+      return '<span class="run-state green"><span class="dot"></span>ONLINE</span>';
+    }
+    return '<span class="run-state red"><span class="dot"></span>OFFLINE</span>';
+  }
+
+  function fmtBattery(pct, state) {
+    if (pct !== null && pct !== undefined) {
+      return '<div class="stat-value small">' + Math.round(pct) + '%</div>';
+    }
+    if (state === 'high')   return '<span class="run-state green"><span class="dot"></span>HIGH</span>';
+    if (state === 'middle') return '<span class="run-state yellow"><span class="dot"></span>MIDDLE</span>';
+    if (state === 'low')    return '<span class="run-state red"><span class="dot"></span>LOW</span>';
+    return '<div class="stat-value small">—</div>';
+  }
+
+  function refreshCards() {
+    fetch('/api/sensor-status/').then(r => r.json()).then(d => {
+      if (!d.has_data) return;
+
+      document.getElementById('card-temp').textContent =
+        (d.temperature_c !== null && d.temperature_c !== undefined)
+          ? d.temperature_c.toFixed(1) + '°C' : '—';
+
+      document.getElementById('card-humidity').textContent =
+        (d.humidity_pct !== null && d.humidity_pct !== undefined)
+          ? d.humidity_pct.toFixed(1) + '%' : '—';
+
+      document.getElementById('card-battery').innerHTML =
+        fmtBattery(d.battery_pct, d.battery_state);
+
+      document.getElementById('card-status').innerHTML =
+        fmtStatus(d.is_online);
+
+      document.getElementById('card-lastpoll').textContent =
+        d.recorded_at || '—';
+
+      document.getElementById('last-updated').textContent =
+        d.recorded_at || '—';
+    }).catch(() => {});
+  }
+
+  function formatDuration(seconds) {
+    if (seconds === null || seconds === undefined) return '—';
+
+    seconds = Math.max(0, Number(seconds));
+
+    const days = Math.floor(seconds / 86400);
+    seconds %= 86400;
+
+    const hours = Math.floor(seconds / 3600);
+    seconds %= 3600;
+
+    const minutes = Math.floor(seconds / 60);
+
+    if (days > 0) {
+      return days + 'd ' + hours + 'h';
+    }
+
+    if (hours > 0) {
+      return hours + 'h ' + minutes + 'm';
+    }
+
+    return minutes + 'm';
+  }
+
+  function fmtNumber(value, decimals) {
+    if (value === null || value === undefined) return '—';
+    return Number(value).toFixed(decimals);
+  }
+
+  function updateReport(stats) {
+    if (!stats) return;
+
+    document.getElementById('report-total').textContent =
+      stats.total_readings ?? '—';
+
+    document.getElementById('report-online').textContent =
+      'Online: ' + (stats.online_count ?? '—') +
+      '   Offline: ' + (stats.offline_count ?? '—');
+
+    document.getElementById('report-duration').textContent =
+      formatDuration(stats.duration_seconds);
+
+    let periodText = '—';
+
+    if (stats.first_reading && stats.last_reading) {
+      periodText = stats.first_reading + ' → ' + stats.last_reading;
+    } else if (stats.first_reading) {
+      periodText = stats.first_reading;
+    }
+
+    document.getElementById('report-period').textContent = periodText;
+
+    document.getElementById('report-temp-avg').textContent =
+      fmtNumber(stats.temperature?.avg, 1) + '°C';
+
+    document.getElementById('report-humidity-avg').textContent =
+      fmtNumber(stats.humidity?.avg, 1) + '%';
+
+    document.getElementById('report-temp-high').textContent =
+      fmtNumber(stats.temperature?.max, 1) + '°C';
+
+    document.getElementById('report-temp-high-time').textContent =
+      stats.temperature?.max_time || '—';
+
+    document.getElementById('report-temp-low').textContent =
+      fmtNumber(stats.temperature?.min, 1) + '°C';
+
+    document.getElementById('report-temp-low-time').textContent =
+      stats.temperature?.min_time || '—';
+
+    document.getElementById('report-humidity-high').textContent =
+      fmtNumber(stats.humidity?.max, 1) + '%';
+
+    document.getElementById('report-humidity-high-time').textContent =
+      stats.humidity?.max_time || '—';
+
+    document.getElementById('report-humidity-low').textContent =
+      fmtNumber(stats.humidity?.min, 1) + '%';
+
+    document.getElementById('report-humidity-low-time').textContent =
+      stats.humidity?.min_time || '—';
+  }
+
+  function setRangeButtons(activeRange) {
+    document.querySelectorAll('.range-btn').forEach(b => {
+      b.classList.toggle(
+        'active',
+        b.dataset.range === activeRange
+      );
+    });
+  }
+
+  function getCustomDates() {
+    const fromDate = document.getElementById('from-date').value;
+    const toDate = document.getElementById('to-date').value;
+
+    return {
+      from: fromDate,
+      to: toDate
+    };
+  }
+
+  function buildHistoryUrl() {
+    const dates = getCustomDates();
+
+    if (dates.from || dates.to) {
+      const params = new URLSearchParams();
+
+      if (dates.from) params.set('from', dates.from);
+      if (dates.to) params.set('to', dates.to);
+
+      return '/api/sensor-history/?' + params.toString();
+    }
+
+    return '/api/sensor-history/?range=' +
+      encodeURIComponent(currentRange);
+  }
+
+  function updateDownloadLink() {
+    const dates = getCustomDates();
+    const link = document.getElementById('download-link');
+
+    if (dates.from || dates.to) {
+      const params = new URLSearchParams();
+
+      if (dates.from) params.set('from', dates.from);
+      if (dates.to) params.set('to', dates.to);
+
+      link.href = '/sensor/export/?' + params.toString();
+    } else {
+      link.href = '/sensor/export/?range=' +
+        encodeURIComponent(currentRange);
+    }
+  }
+
+  function loadHistory(range) {
+    currentRange = range;
+
+    const url = buildHistoryUrl();
+
+    updateDownloadLink();
+
+    if (!getCustomDates().from && !getCustomDates().to) {
+      setRangeButtons(range);
+    } else {
+      document.querySelectorAll('.range-btn').forEach(b => {
+        b.classList.remove('active');
+      });
+    }
+
+    fetch(url)
+      .then(r => r.json())
+      .then(d => {
+        updateReport(d.stats);
+
+        const pts = d.points || [];
+        const emptyMsg = document.getElementById('chart-empty-msg');
+        const canvas = document.getElementById('sensorChart');
+
+        if (pts.length === 0) {
+          emptyMsg.style.display = 'flex';
+          canvas.style.display = 'none';
+
+          if (chart) {
+            chart.data.labels = [];
+            chart.data.datasets[0].data = [];
+            chart.data.datasets[1].data = [];
+            chart.update();
+          }
+
+          return;
+        }
+
+        emptyMsg.style.display = 'none';
+        canvas.style.display = 'block';
+
+        const labels = pts.map(p => p.t);
+        const temps = pts.map(p => p.temperature_c);
+        const hums = pts.map(p => p.humidity_pct);
+
+        if (chart) {
+          chart.data.labels = labels;
+          chart.data.datasets[0].data = temps;
+          chart.data.datasets[1].data = hums;
+          chart.update();
+          return;
+        }
+
+        chart = new Chart(canvas.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Temperature (°C)',
+                data: temps,
+                borderColor: '#fb923c',
+                backgroundColor: 'rgba(251,146,60,.08)',
+                yAxisID: 'y',
+                tension: .3,
+                pointRadius: 0,
+                borderWidth: 2,
+                fill: true,
+              },
+              {
+                label: 'Humidity (%)',
+                data: hums,
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59,130,246,.08)',
+                yAxisID: 'y1',
+                tension: .3,
+                pointRadius: 0,
+                borderWidth: 2,
+                fill: true,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: 'index',
+              intersect: false
+            },
+            plugins: {
+              legend: {
+                labels: {
+                  color: '#94a3b8',
+                  font: { size: 11 }
+                }
+              }
+            },
+            scales: {
+              x: {
+                ticks: {
+                  color: '#475569',
+                  maxTicksLimit: 8,
+                  font: { size: 10 }
+                },
+                grid: { color: '#334155' }
+              },
+              y: {
+                position: 'left',
+                ticks: {
+                  color: '#fb923c',
+                  font: { size: 10 }
+                },
+                grid: { color: '#334155' },
+                title: {
+                  display: true,
+                  text: '°C',
+                  color: '#fb923c'
+                }
+              },
+              y1: {
+                position: 'right',
+                ticks: {
+                  color: '#3b82f6',
+                  font: { size: 10 }
+                },
+                grid: { display: false },
+                title: {
+                  display: true,
+                  text: '%',
+                  color: '#3b82f6'
+                }
+              }
+            }
+          }
+        });
+      })
+      .catch(() => {});
+  }
+
+  function applyCustomDates() {
+    const dates = getCustomDates();
+
+    if (dates.from && dates.to && dates.from > dates.to) {
+      alert('From Date cannot be later than To Date.');
+      return;
+    }
+
+    loadHistory(currentRange);
+  }
+
+  function clearCustomDates() {
+    document.getElementById('from-date').value = '';
+    document.getElementById('to-date').value = '';
+
+    currentRange = '24h';
+    loadHistory(currentRange);
+  }
+
+  document.querySelectorAll('.range-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      document.getElementById('from-date').value = '';
+      document.getElementById('to-date').value = '';
+
+      loadHistory(b.dataset.range);
+    });
+  });
+
+  document.getElementById('download-png-btn').addEventListener(
+    'click',
+    () => {
+      const canvas = document.getElementById('sensorChart');
+
+      if (!chart || canvas.style.display === 'none') {
+        alert('No chart data available to export.');
+        return;
+      }
+
+      const link = document.createElement('a');
+
+      link.download = 'temperature_humidity_trend.png';
+      link.href = canvas.toDataURL('image/png', 1.0);
+
+      link.click();
+    }
+  );
+
+  document.getElementById('apply-date-btn').addEventListener(
+    'click',
+    applyCustomDates
+  );
+
+  document.getElementById('clear-date-btn').addEventListener(
+    'click',
+    clearCustomDates
+  );
+
+  loadHistory(currentRange);
+
+  // Live cards: every 30 seconds.
+  setInterval(refreshCards, 30000);
+
+  // Report + chart: every 2 minutes.
+  setInterval(() => loadHistory(currentRange), 120000);
+</script>
+</body>
+</html>

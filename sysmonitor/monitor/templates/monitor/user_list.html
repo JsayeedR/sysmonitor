@@ -94,6 +94,7 @@
       ⏳ Pending Approvals
       {% if pending %}<span class="badge-count">{{ pending|length }}</span>{% endif %}
     </button>
+    <button class="tab-btn" onclick="switchTab('details')">👤 User Details</button>
   </div>
 
   <div id="tab-all" class="tab-panel active">
@@ -104,6 +105,7 @@
           <th>#</th>
           <th>Username</th>
           <th>Role</th>
+          <th>Status</th>
           <th>Joined</th>
           <th class="usage-col">Total Usage (Start From 02 AUG 26)</th>
           <th>Actions</th>
@@ -119,12 +121,25 @@
             {% endif %}
           </td>
           <td><span class="role-badge {{ u.role }}">{{ u.role|upper }}</span></td>
+          <td>
+            {% if u.obj.is_active %}
+              <span style="color:#4ade80;font-size:.8rem;">🟢 Active</span>
+            {% else %}
+              <span style="color:#f87171;font-size:.8rem;">🔴 Disabled</span>
+            {% endif %}
+          </td>
           <td style="color:#64748b">{{ u.obj.date_joined|date:"Y-m-d" }}</td>
           <td style="color:#64748b">{{ u.usage_time }}</td>
           <td>
             <div class="actions">
               <a href="/users/{{ u.obj.id }}/edit/" class="btn btn-secondary">Edit</a>
               {% if not u.obj.is_superuser %}
+              <form method="post" action="/users/{{ u.obj.id }}/toggle-active/" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn {% if u.obj.is_active %}btn-danger{% else %}btn-primary{% endif %}">
+                  {% if u.obj.is_active %}Disable{% else %}Enable{% endif %}
+                </button>
+              </form>
               <a href="/users/{{ u.obj.id }}/delete/" class="btn btn-danger">Delete</a>
               {% endif %}
             </div>
@@ -165,6 +180,320 @@
     {% else %}
     <div class="empty-pending">No pending profile change requests.</div>
     {% endif %}
+  </div>
+
+  <div id="tab-details" class="tab-panel">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;gap:.75rem;flex-wrap:wrap;">
+      <div style="color:#94a3b8;font-size:.8rem;">
+        Compact administrator view — expand a section when detailed information is needed.
+      </div>
+    </div>
+
+    {% for u in user_details %}
+
+    <div style="
+      background:#1e293b;
+      border:1px solid #334155;
+      border-radius:12px;
+      padding:1rem 1.15rem;
+      margin-top:3.4rem;
+      margin-bottom:.75rem;
+    ">
+
+      <!-- PROFILE PICTURE - USER DETAILS -->
+      <div style="
+        display:flex;
+        justify-content:center;
+        margin-top:-3.75rem;
+        margin-bottom:.65rem;
+      ">
+        <div style="
+          width:82px;
+          height:82px;
+          border-radius:50%;
+          overflow:hidden;
+          background:#0f172a;
+          border:4px solid #1e293b;
+          box-shadow:0 4px 12px rgba(0,0,0,.28);
+          display:flex;
+          align-items:center;
+          justify-content:center;
+        ">
+          {% if u.profile_picture %}
+            <img src="{{ u.profile_picture.url }}"
+                 alt="{{ u.obj.username }}"
+                 style="width:100%;height:100%;object-fit:cover;">
+          {% else %}
+            <span style="
+              font-size:1.7rem;
+              font-weight:700;
+              color:#94a3b8;
+            ">
+              {{ u.obj.username|first|upper }}
+            </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- USER HEADER -->
+      <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:1rem;
+        flex-wrap:wrap;
+      ">
+
+        <div style="min-width:200px;">
+          <div style="font-size:1rem;font-weight:700;color:#f1f5f9;">
+            {% if u.obj.first_name or u.obj.last_name %}
+              {{ u.obj.first_name }} {{ u.obj.last_name }}
+            {% else %}
+              {{ u.obj.username }}
+            {% endif %}
+          </div>
+
+          <div style="color:#94a3b8;font-size:.75rem;margin-top:.15rem;">
+            @{{ u.obj.username }}
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+
+          <span class="role-badge {{ u.role }}"
+                style="padding:.25rem .6rem;border-radius:20px;font-size:.65rem;font-weight:700;">
+            {{ u.role|upper }}
+          </span>
+
+          {% if u.obj.is_active %}
+            <span style="color:#4ade80;font-size:.75rem;">● Active</span>
+          {% else %}
+            <span style="color:#f87171;font-size:.75rem;">● Disabled</span>
+          {% endif %}
+
+          <a href="/users/{{ u.obj.id }}/edit/"
+             style="
+               background:#3b82f6;
+               color:white;
+               text-decoration:none;
+               padding:.38rem .7rem;
+               border-radius:7px;
+               font-size:.72rem;
+               font-weight:600;
+             ">
+            ✏️ Edit
+          </a>
+
+        </div>
+      </div>
+
+      <!-- BASIC INFORMATION -->
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+        gap:.45rem 1.25rem;
+        margin-top:.85rem;
+      ">
+
+        <div>
+          <span style="color:#64748b;font-size:.65rem;">DESIGNATION</span><br>
+          <span style="font-size:.8rem;">{{ u.designation|default:"—" }}</span>
+        </div>
+
+        <div>
+          <span style="color:#64748b;font-size:.65rem;">EMAIL</span><br>
+          <span style="font-size:.8rem;">{{ u.obj.email|default:"—" }}</span>
+        </div>
+
+        <div>
+          <span style="color:#64748b;font-size:.65rem;">MOBILE</span><br>
+          <span style="font-size:.8rem;">{{ u.mobile_number|default:"—" }}</span>
+        </div>
+
+      </div>
+
+      <!-- COMPACT STATISTICS -->
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:.5rem;
+        margin-top:.85rem;
+      ">
+
+        <div style="background:#0f172a;border-radius:7px;padding:.5rem .65rem;">
+          <div style="color:#64748b;font-size:.6rem;">LOGIN</div>
+          <div style="font-size:.95rem;font-weight:700;">{{ u.login_count }}</div>
+        </div>
+
+        <div style="background:#0f172a;border-radius:7px;padding:.5rem .65rem;">
+          <div style="color:#64748b;font-size:.6rem;">LOGOUT</div>
+          <div style="font-size:.95rem;font-weight:700;">{{ u.logout_count }}</div>
+        </div>
+
+        <div style="background:#0f172a;border-radius:7px;padding:.5rem .65rem;">
+          <div style="color:#64748b;font-size:.6rem;">FAILED</div>
+          <div style="font-size:.95rem;font-weight:700;">{{ u.failed_login_count }}</div>
+        </div>
+
+        <div style="background:#0f172a;border-radius:7px;padding:.5rem .65rem;">
+          <div style="color:#64748b;font-size:.6rem;">USAGE</div>
+          <div style="font-size:.95rem;font-weight:700;">{{ u.usage_time }}</div>
+        </div>
+
+      </div>
+
+      <!-- IMPORTANT DATES -->
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+        gap:.35rem 1.25rem;
+        margin-top:.75rem;
+        font-size:.75rem;
+      ">
+
+        <div>
+          <span style="color:#64748b;">Last Login:</span>
+          {{ u.last_login|date:"d M Y H:i:s"|default:"—" }}
+        </div>
+
+        <div>
+          <span style="color:#64748b;">Last Activity:</span>
+          {{ u.last_activity|date:"d M Y H:i:s"|default:"—" }}
+        </div>
+
+      </div>
+
+      <!-- MORE ACCOUNT INFORMATION -->
+      <details style="margin-top:.75rem;">
+        <summary style="
+          cursor:pointer;
+          color:#93c5fd;
+          font-size:.75rem;
+          font-weight:600;
+          padding:.4rem 0;
+        ">
+          ▸ More Account Information
+        </summary>
+
+        <div style="
+          display:grid;
+          grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+          gap:.55rem 1.25rem;
+          padding:.7rem 0 .25rem;
+          border-top:1px solid #334155;
+          margin-top:.4rem;
+          font-size:.75rem;
+        ">
+
+          <div>
+            <span style="color:#64748b;">WhatsApp:</span><br>
+            {{ u.whatsapp_number|default:"—" }}
+          </div>
+
+          <div>
+            <span style="color:#64748b;">Telegram:</span><br>
+            {{ u.telegram_handle|default:"—" }}
+          </div>
+
+          <div>
+            <span style="color:#64748b;">Account Created:</span><br>
+            {{ u.obj.date_joined|date:"d M Y H:i:s" }}
+          </div>
+
+          <div>
+            <span style="color:#64748b;">Last Logout:</span><br>
+            {{ u.last_logout|date:"d M Y H:i:s"|default:"—" }}
+          </div>
+
+          <div>
+            <span style="color:#64748b;">Last Failed Login:</span><br>
+            {{ u.last_failed_login|date:"d M Y H:i:s"|default:"—" }}
+          </div>
+
+          <div>
+            <span style="color:#64748b;">Last Login IP:</span><br>
+            {{ u.last_login_ip|default:"—" }}
+          </div>
+
+          <div>
+            <span style="color:#64748b;">Account Status:</span><br>
+            {% if u.obj.is_active %}Active{% else %}Disabled{% endif %}
+          </div>
+
+        </div>
+      </details>
+
+      <!-- RECENT ACTIVITY -->
+      <details style="margin-top:.25rem;">
+        <summary style="
+          cursor:pointer;
+          color:#93c5fd;
+          font-size:.75rem;
+          font-weight:600;
+          padding:.4rem 0;
+        ">
+          ▸ Recent Activity ({{ u.recent_logs|length }})
+        </summary>
+
+        <div style="
+          margin-top:.4rem;
+          border-top:1px solid #334155;
+          padding-top:.6rem;
+          overflow-x:auto;
+        ">
+
+          {% if u.recent_logs %}
+
+          <table style="margin:0;background:#0f172a;font-size:.72rem;">
+            <thead>
+              <tr>
+                <th>Action</th>
+                <th>Time</th>
+                <th>IP Address</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for log in u.recent_logs %}
+              <tr>
+                <td>{{ log.get_action_display }}</td>
+
+                <td style="color:#94a3b8;white-space:nowrap;">
+                  {{ log.timestamp|date:"d/m/Y H:i:s" }}
+                </td>
+
+                <td style="color:#94a3b8;white-space:nowrap;">
+                  {{ log.ip_address|default:"—" }}
+                </td>
+
+                <td style="color:#94a3b8;">
+                  {{ log.detail|default:"—" }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+          {% else %}
+
+          <div style="color:#64748b;font-size:.75rem;">
+            No activity recorded yet.
+          </div>
+
+          {% endif %}
+
+        </div>
+      </details>
+
+    </div>
+
+    {% empty %}
+
+      <div class="empty-pending">No users found.</div>
+
+    {% endfor %}
   </div>
 </div>
 {% include "monitor/footer.html" %}

@@ -24,12 +24,27 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 import pytz
 
+from .models import PageViewCounter
+
 logger = logging.getLogger(__name__)
 BDT    = pytz.timezone('Asia/Dhaka')
 
 # In-memory guard: prevents duplicate notifications within same process lifetime.
 # Solves race condition where DB log hasn't been written when next dispatch fires.
 _dispatched = set()
+
+
+def current_page_view_count():
+    """Return the current page-view counter without incrementing it.
+
+    Web page requests increment the counter through the context processor.
+    Emails only read the current value and therefore do not count as page views.
+    """
+    counter, _ = PageViewCounter.objects.get_or_create(
+        id=1,
+        defaults={'count': 789},
+    )
+    return counter.count
 
 
 def fmt_bdt(dt):
@@ -74,10 +89,84 @@ def log_notification(cycle_id, event_type, channel, recipient, status, error='')
     )
 
 
+# Shown to the admin on the message-template editor page so they know which
+# {placeholders} are available for each event type.
+TEMPLATE_PLACEHOLDERS = {
+    'OUTAGE_START':       ['time', 'location'],
+    'CRITICAL':           ['elapsed', 'start'],
+    'ALARM':              ['start', 'reason'],
+    'COMPLETE':           ['date', 'start', 'end', 'duration', 'type', 'note'],
+    'PAC_STATUS_CHANGE':  ['unit', 'old_state', 'new_state', 'time'],
+    'SENSOR_ALERT':       ['device', 'temperature', 'humidity', 'threshold', 'time'],
+    'TEST':               ['time'],
+}
+
+
 # ── Message builders ───────────────────────────────────────────────────────────
 
-def build_message(event_type, cycle=None, extra=None):
+def _template_context(event_type, cycle=None, extra=None):
+    """Builds the {placeholder} dict available to an admin-edited template
+    for this event_type. Kept in sync with build_message()'s own wording."""
+    now_str = datetime.now(BDT).strftime('%d/%m/%Y %I:%M:%S %p')
+    ctx = {'time': now_str, 'now': now_str, 'location': 'NanoLab'}
+
+    if cycle:
+        ctx['start'] = fmt_bdt(cycle.outage_start)
+        ctx['end']   = fmt_bdt(cycle.pdb_restored)
+        ctx['date']  = cycle.outage_start.astimezone(BDT).strftime('%d/%m/%Y') if cycle.outage_start else '—'
+        dur_min = (cycle.pdb_duration_sec or 0) // 60
+        dur_sec = (cycle.pdb_duration_sec or 0) % 60
+        ctx['duration'] = f"{dur_min}min {dur_sec}s" if dur_sec else f"{dur_min}min"
+        ctx['type']   = cycle.cycle_type
+        ctx['reason'] = getattr(cycle, 'alarm_reason', '') or '—'
+        ctx['note']   = ctx['reason']
+
+    if event_type == 'CRITICAL':
+        ctx['elapsed'] = extra or '10+ min'
+    elif event_type == 'ALARM':
+        ctx['reason'] = extra or ctx.get('reason', 'Unknown')
+    elif event_type == 'PAC_STATUS_CHANGE' and extra:
+        ctx['unit'] = extra.get('unit', 'PAC unit')
+        ctx['old_state'] = extra.get('old', '—')
+        ctx['new_state'] = extra.get('new', '—')
+    elif event_type == 'SENSOR_ALERT' and extra:
+        ctx.update({k: extra.get(k, '—') for k in
+                    ('device', 'temperature', 'humidity', 'threshold')})
+    return ctx
+
+
+class _SafeDict(dict):
+    """dict subclass so {unused_placeholder} in a hand-edited template
+    doesn't raise KeyError — it just renders literally instead of crashing
+    the whole notification pipeline over a typo."""
+    def __missing__(self, key):
+        return '{' + key + '}'
+
+
+def _rendered_override(event_type, cycle=None, extra=None):
+    """Returns the admin's custom template text for this event_type,
+    rendered with the current context — or None if there's no override
+    (falls back to the hardcoded default in build_message)."""
+    try:
+        from monitor.models import MessageTemplate
+        tpl = MessageTemplate.objects.filter(event_type=event_type).first()
+        if not tpl or not tpl.template_text.strip():
+            return None
+        ctx = _template_context(event_type, cycle=cycle, extra=extra)
+        return tpl.template_text.format_map(_SafeDict(ctx))
+    except Exception:
+        # DB not migrated yet, or a bad format string — fail safe to default
+        # wording rather than losing the notification entirely.
+        logger.exception(f"Template override failed for {event_type}, using default")
+        return None
+
+
+def build_message(event_type, cycle=None, extra=None, ignore_override=False):
     """Build a human-friendly message for each event type."""
+    override = None if ignore_override else _rendered_override(event_type, cycle=cycle, extra=extra)
+    if override is not None:
+        return override
+
     now_str = datetime.now(BDT).strftime('%d/%m/%Y %I:%M:%S %p')
 
     if event_type == 'OUTAGE_START':
@@ -141,6 +230,10 @@ def build_message(event_type, cycle=None, extra=None):
     elif event_type == 'DAILY_SUMMARY':
         # extra is the pre-formatted report text from format_summary_text()
         return extra or 'Daily summary unavailable.'
+
+    elif event_type == 'COLOCATION_DATA':
+        # extra is the pre-formatted current colocation sensor report.
+        return extra or 'Colocation data unavailable.'
 
     elif event_type == 'TEST':
         return (
@@ -448,6 +541,7 @@ def send_email(gateway, recipient_email, message, event_type='NOTIFICATION'):
         'ALARM':         '🟠 Alarm: Abnormal Condition — NanoLab',
         'COMPLETE':      '✅ Outage Cycle Complete — NanoLab',
         'DAILY_SUMMARY': f'📋 Daily Generator Summary — {datetime.now(BDT).strftime("%d/%m/%Y")} — NanoLab',
+        'COLOCATION_DATA': '🌡️ Colocation Sensor Data — NanoLab',
         'TEST':          '✅ SysMonitor Test Message',
     }
     subject = subject_map.get(event_type, 'SysMonitor Notification')
@@ -462,18 +556,25 @@ def send_email(gateway, recipient_email, message, event_type='NOTIFICATION'):
 
     # HTML version — daily summary uses a monospace <pre> block to keep
     # the table-style alignment intact; other alerts use normal prose
+    # Light theme — email clients handle dark backgrounds unreliably
+    # (many strip them, some double-apply their own dark mode on top of
+    # an already-dark template), so unlike the app's own dark UI, email
+    # uses a light background with dark text for predictable readability
+    # across Gmail/Outlook/Apple Mail/etc.
     if event_type == 'DAILY_SUMMARY':
-        body_html = f'<pre style="font-family:monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;">{plain}</pre>'
+        body_html = f'<pre style="font-family:monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;color:#1e293b;">{plain}</pre>'
     else:
-        body_html = f'<p style="line-height:1.7;font-size:15px;">{plain.replace(chr(10), "<br>")}</p>'
+        body_html = f'<p style="line-height:1.7;font-size:15px;color:#1e293b;">{plain.replace(chr(10), "<br>")}</p>'
+
+    page_view_count = current_page_view_count()
 
     html = f"""
-    <html><body style="font-family:Arial,sans-serif;background:#0f172a;color:#f1f5f9;padding:20px;">
-    <div style="max-width:520px;margin:0 auto;background:#1e293b;border-radius:12px;padding:24px;border:1px solid #334155;">
-    <h3 style="color:#3b82f6;margin-bottom:16px;">SysMonitor Alert</h3>
+    <html><body style="font-family:Arial,sans-serif;background:#f1f5f9;color:#1e293b;padding:20px;">
+    <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:24px;border:1px solid #e2e8f0;">
+    <h3 style="color:#1d4ed8;margin-bottom:16px;">SysMonitor Alert</h3>
     {body_html}
-    <hr style="border-color:#334155;margin:20px 0;">
-    <p style="color:#64748b;font-size:12px;">NanoLab Power Monitoring System</p>
+    <hr style="border-color:#e2e8f0;margin:20px 0;">
+    <p style="color:#64748b;font-size:12px;"><a href="http://163.47.80.62:9696/about/" style="color:#1d4ed8;text-decoration:none;">ℹ️ About / Docs</a> · Developed by Jikrul Sayeed · © 2026 COXCLS NOC, BSCPLC. All rights reserved. #{page_view_count:05d}</p>
     </div></body></html>
     """
 
@@ -490,6 +591,72 @@ def send_email(gateway, recipient_email, message, event_type='NOTIFICATION'):
         return True, ''
     except Exception as e:
         return False, str(e)
+
+
+def send_raw_email(gateway, recipient_email, subject, html_body, plain_body=None, attachment=None):
+    """
+    Low-level SMTP send for system emails that don't fit the alert
+    event_type flow (password resets, monthly reports). attachment, if
+    given, is a tuple of (filename, bytes, mime_subtype) e.g.
+    ('loadshedding_2026-09.xlsx', b'...', 'vnd.openxmlformats-officedocument.spreadsheetml.sheet').
+    """
+    from email.mime.base import MIMEBase
+    from email import encoders
+
+    msg = MIMEMultipart('mixed')
+    msg['Subject'] = subject
+    msg['From']    = gateway.email_from or gateway.email_username
+    msg['To']      = recipient_email
+
+    body = MIMEMultipart('alternative')
+    body.attach(MIMEText(plain_body or html_body, 'plain'))
+    body.attach(MIMEText(html_body, 'html'))
+    msg.attach(body)
+
+    if attachment:
+        filename, data, subtype = attachment
+        part = MIMEBase('application', subtype)
+        part.set_payload(data)
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', f'attachment; filename="{filename}"')
+        msg.attach(part)
+
+    try:
+        server = smtplib.SMTP(gateway.email_host, gateway.email_port, timeout=15)
+        server.starttls()
+        server.login(gateway.email_username, gateway.email_password)
+        server.sendmail(gateway.email_from or gateway.email_username,
+                        recipient_email, msg.as_string())
+        server.quit()
+        return True, ''
+    except Exception as e:
+        return False, str(e)
+
+
+def send_password_reset_email(gateway, recipient_email, username, temp_password, login_url):
+    """Sends the temporary password + login link. Valid 30 minutes."""
+    subject = '🔑 SysMonitor Password Reset'
+    page_view_count = current_page_view_count()
+    html = f"""
+    <html><body style="font-family:Arial,sans-serif;background:#f1f5f9;color:#1e293b;padding:20px;">
+    <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:24px;border:1px solid #e2e8f0;">
+    <h3 style="color:#1d4ed8;margin-bottom:16px;">Password Reset — SysMonitor</h3>
+    <p style="line-height:1.7;font-size:15px;">Hi {username},</p>
+    <p style="line-height:1.7;font-size:15px;">A password reset was requested for your account. Use this temporary password to log in:</p>
+    <p style="font-family:monospace;font-size:20px;background:#f1f5f9;border-radius:8px;padding:12px 16px;letter-spacing:1px;">{temp_password}</p>
+    <p style="line-height:1.7;font-size:14px;color:#b91c1c;">⏱️ This temporary password is valid for <b>30 minutes</b> only. After logging in you'll be required to set a new password immediately.</p>
+    <p style="margin:20px 0;"><a href="{login_url}" style="background:#1d4ed8;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:14px;">Go to Login</a></p>
+    <p style="line-height:1.6;font-size:12px;color:#64748b;">If you didn't request this, contact your administrator — someone else may have entered your username.</p>
+    <hr style="border-color:#e2e8f0;margin:20px 0;">
+    <p style="color:#64748b;font-size:12px;"><a href="http://163.47.80.62:9696/about/" style="color:#1d4ed8;text-decoration:none;">ℹ️ About / Docs</a> · Developed by Jikrul Sayeed · © 2026 COXCLS NOC, BSCPLC. All rights reserved. #{page_view_count:05d}</p>
+    </div></body></html>
+    """
+    plain = (f"Hi {username},\n\nA password reset was requested for your SysMonitor account.\n\n"
+             f"Temporary password: {temp_password}\n\n"
+             f"This is valid for 30 minutes only. Log in at {login_url} and you'll be "
+             f"asked to set a new password immediately.\n\n"
+             f"If you didn't request this, contact your administrator.")
+    return send_raw_email(gateway, recipient_email, subject, html, plain)
 
 
 # ── Main dispatcher ────────────────────────────────────────────────────────────
@@ -512,6 +679,7 @@ def dispatch(event_type, cycle=None, extra=None, force=False):
         'COMPLETE':       'alert_complete',
         'DAILY_SUMMARY':  'daily_summary',
         'PAC_STATUS_CHANGE': 'alert_pac_status',
+        'COLOCATION_DATA': 'colocation_data',
     }.get(event_type)
 
     if not alert_field and not force:

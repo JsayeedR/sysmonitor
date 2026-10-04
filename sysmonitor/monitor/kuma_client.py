@@ -1,5 +1,21 @@
 from uptime_kuma_api import UptimeKumaApi
 from django.conf import settings
+import pytz
+from datetime import datetime
+
+BD_TZ = pytz.timezone('Asia/Dhaka')
+
+
+def _to_bd(utc_str):
+    """Convert a Kuma UTC timestamp string to Asia/Dhaka local time."""
+    if not utc_str:
+        return utc_str
+    try:
+        dt = datetime.strptime(utc_str, "%Y-%m-%d %H:%M:%S.%f")
+        dt = pytz.utc.localize(dt)
+        return dt.astimezone(BD_TZ).strftime('%Y-%m-%d %I:%M:%S %p')
+    except (ValueError, TypeError):
+        return utc_str  # fall back to raw value if format ever changes
 
 
 def _connect():
@@ -66,7 +82,7 @@ def get_kuma_monitors():
                 down_since = None
             else:
                 status = "DOWN"
-                down_since = last["time"]
+                down_since = _to_bd(last["time"])
 
             result.append({
                 "id": mid,
@@ -92,7 +108,7 @@ def get_monitor_log(monitor_id, hours=24):
         beats = api.get_monitor_beats(monitor_id, hours)
         return [
             {
-                "time": b["time"],
+                "time": _to_bd(b["time"]),
                 "status": "UP" if b["status"] == 1 else "DOWN",
                 "msg": b.get("msg", ""),
                 "ping": b.get("ping"),

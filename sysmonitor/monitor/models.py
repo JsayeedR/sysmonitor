@@ -96,6 +96,14 @@ class UserProfile(models.Model):
     total_usage_seconds = models.BigIntegerField(default=0)
     last_activity_at    = models.DateTimeField(blank=True, null=True)
 
+    # ── Forced password change (used after an admin-issued temporary
+    # password from the "Forgot password" flow). While must_change_password
+    # is True, ForcePasswordChangeMiddleware redirects every request to the
+    # change-password page. temp_password_expires_at is the deadline (30 min
+    # after issue) after which the temporary password itself stops working.
+    must_change_password    = models.BooleanField(default=False)
+    temp_password_expires_at = models.DateTimeField(blank=True, null=True)
+
     def __str__(self):
         return f"{self.user.username} — {self.role}"
 
@@ -272,6 +280,9 @@ class NotificationRecipient(models.Model):
     alert_complete  = models.BooleanField(default=True)
     daily_summary   = models.BooleanField(default=False)
     alert_pac_status = models.BooleanField(default=False)
+    monthly_report  = models.BooleanField(default=False)
+    colocation_data = models.BooleanField(default=False)
+    colocation_alarm = models.BooleanField(default=False)
     added_at        = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -364,6 +375,109 @@ class PageViewCounter(models.Model):
         return f"PageViewCounter: {self.count}"
 
 
+# ── Message Templates (admin-editable email/text formats) ──────────────────────
+
+class MessageTemplate(models.Model):
+    """
+    Lets an admin override the wording of an outgoing notification without
+    touching code. If no row exists for an event_type (or template_text is
+    blank), notifications.build_message() falls back to its built-in default
+    text — so this is purely optional customization.
+
+    template_text supports {placeholder} tokens; the set available depends
+    on event_type (see notifications.TEMPLATE_PLACEHOLDERS for the exact
+    list shown to the admin on the edit page).
+    """
+    EVENT_CHOICES = [
+        ('OUTAGE_START', 'Power Outage Started'),
+        ('CRITICAL',      'Critical — Both Devices Down'),
+        ('ALARM',         'Alarm — Abnormal Condition'),
+        ('COMPLETE',      'Outage Cycle Complete'),
+        ('PAC_STATUS_CHANGE', 'SMW6PAC Status Change'),
+        ('SENSOR_ALERT',  'Colocation Temp/Humidity Alert'),
+        ('TEST',          'Test Message'),
+    ]
+    event_type    = models.CharField(max_length=25, choices=EVENT_CHOICES, unique=True)
+    template_text = models.TextField(blank=True,
+        help_text='Leave blank to use the built-in default wording.')
+    updated_at    = models.DateTimeField(auto_now=True)
+    updated_by    = models.CharField(max_length=100, blank=True)
+
+    class Meta:
+        verbose_name = 'Message Template'
+
+    def __str__(self):
+        return f"Template: {self.get_event_type_display()}"
+
+
+# ── Environmental Sensor (Tuya temperature/humidity) ────────────────────────────
+
+class SensorReading(models.Model):
+    """
+    Polled reading from a Tuya-based temperature/humidity sensor placed in
+    the colocation room. device_id lets more than one sensor share this
+    table (front page shows the latest reading per device).
+    """
+    device_id    = models.CharField(max_length=64)
+    device_name  = models.CharField(max_length=100, blank=True)
+    temperature_c = models.FloatField(null=True, blank=True)
+    humidity_pct  = models.FloatField(null=True, blank=True)
+    battery_pct   = models.FloatField(null=True, blank=True)
+    battery_state = models.CharField(max_length=20, blank=True)  # 'low'/'middle'/'high' — this device reports an enum, not a %
+    is_online     = models.BooleanField(default=True)
+    raw_status    = models.JSONField(null=True, blank=True)
+    recorded_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-recorded_at']
+        indexes = [models.Index(fields=['device_id', '-recorded_at'])]
+
+    def __str__(self):
+        return f"{self.device_name or self.device_id}: {self.temperature_c}°C / {self.humidity_pct}% @ {self.recorded_at}"
+
+
+class SensorAlarmConfig(models.Model):
+    """
+    Admin-configurable alarm setpoints for the colocation room's
+    temperature and humidity sensor.
+
+    This is intended as a single configuration row. Blank values mean
+    that the corresponding alarm limit is not configured yet.
+    """
+    temperature_low = models.FloatField(
+        null=True,
+        blank=True,
+        help_text='Low temperature alarm setpoint in °C.'
+    )
+    temperature_high = models.FloatField(
+        null=True,
+        blank=True,
+        help_text='High temperature alarm setpoint in °C.'
+    )
+    humidity_low = models.FloatField(
+        null=True,
+        blank=True,
+        help_text='Low humidity alarm setpoint in %.'
+    )
+    humidity_high = models.FloatField(
+        null=True,
+        blank=True,
+        help_text='High humidity alarm setpoint in %.'
+    )
+    alarm_cooldown_minutes = models.PositiveIntegerField(
+        default=30,
+        help_text='Minimum minutes between repeated sensor alarm notifications.'
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Colocation Sensor Alarm Configuration'
+        verbose_name_plural = 'Colocation Sensor Alarm Configuration'
+
+    def __str__(self):
+        return 'Colocation Sensor Alarm Setpoints'
+
+
 class PacRunState(models.Model):
     """
     Tracks the last known ON/STANDBY/OFF run-state per SMW6PAC controller
@@ -376,3 +490,57 @@ class PacRunState(models.Model):
 
     def __str__(self):
         return f"{self.ip}: {self.label}"
+
+# ── Generator Fuel Log ────────────────────────────────────────────────────────
+class GeneratorFuelLog(models.Model):
+    GENERATOR_CHOICES = [
+        ('Gen-01', 'Generator 01'),
+        ('Gen-02', 'Generator 02'),
+    ]
+
+    generator = models.CharField(
+        max_length=20,
+        choices=GENERATOR_CHOICES
+    )
+
+    reading_at = models.DateTimeField()
+
+    # Tank reading immediately BEFORE fuel is loaded.
+    fuel_before_l = models.DecimalField(
+        max_digits=8,
+        decimal_places=2
+    )
+
+    # Tank reading immediately AFTER fuel is loaded.
+    fuel_after_l = models.DecimalField(
+        max_digits=8,
+        decimal_places=2
+    )
+
+    note = models.CharField(
+        max_length=300,
+        blank=True
+    )
+
+    added_by = models.CharField(
+        max_length=100,
+        blank=True
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-reading_at']
+
+    @property
+    def fuel_loaded_l(self):
+        return self.fuel_after_l - self.fuel_before_l
+
+    def __str__(self):
+        return (
+            f"{self.generator} — "
+            f"{self.reading_at} — "
+            f"{self.fuel_before_l}L → {self.fuel_after_l}L"
+        )
+

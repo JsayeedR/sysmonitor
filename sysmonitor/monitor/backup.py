@@ -2,6 +2,7 @@ import os
 import sys
 import shutil
 import tarfile
+import subprocess
 import django
 from datetime import datetime
 
@@ -30,6 +31,53 @@ EXCLUDE_NAMES = {
     'backups',                        # don't recursively back up the backups folder itself
     'db.sqlite3',                     # database is backed up separately above
 }
+
+# ── Remote (offsite) sync ────────────────────────────────────────────────────
+# Reads config from environment (.env) — all optional. If REMOTE_BACKUP_HOST
+# is unset, remote sync is skipped entirely and only local backups run (same
+# behavior as before this was added).
+REMOTE_BACKUP_HOST = os.environ.get('REMOTE_BACKUP_HOST', '').strip()
+REMOTE_BACKUP_USER = os.environ.get('REMOTE_BACKUP_USER', '').strip()
+REMOTE_BACKUP_PORT = os.environ.get('REMOTE_BACKUP_PORT', '22').strip()
+REMOTE_BACKUP_PATH = os.environ.get('REMOTE_BACKUP_PATH', '/home/backup/sysmonitor').strip()
+REMOTE_BACKUP_SSH_KEY = os.environ.get('REMOTE_BACKUP_SSH_KEY', '').strip()
+
+
+def remote_sync_enabled():
+    return bool(REMOTE_BACKUP_HOST and REMOTE_BACKUP_USER)
+
+
+def rsync_to_remote(local_path, date_str, label):
+    """
+    Pushes local_path (file or directory) to the remote server via rsync
+    over SSH. Returns (ok, message). Requires the `rsync` binary and an
+    SSH key that's already authorized on the remote host (ssh-copy-id) —
+    this deliberately never handles a password, only key-based auth.
+    """
+    if not remote_sync_enabled():
+        return True, 'skipped (REMOTE_BACKUP_HOST not configured)'
+
+    ssh_cmd = f'ssh -p {REMOTE_BACKUP_PORT} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10'
+    if REMOTE_BACKUP_SSH_KEY:
+        ssh_cmd += f' -i {REMOTE_BACKUP_SSH_KEY}'
+
+    remote_target = f'{REMOTE_BACKUP_USER}@{REMOTE_BACKUP_HOST}:{REMOTE_BACKUP_PATH}/'
+
+    cmd = ['rsync', '-az', '--mkpath', '-e', ssh_cmd, local_path, remote_target]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        if result.returncode == 0:
+            print(f'[{date_str}] Remote sync OK — {label} → {REMOTE_BACKUP_HOST}')
+            return True, ''
+        else:
+            print(f'[{date_str}] Remote sync FAILED — {label}: {result.stderr.strip()}')
+            return False, result.stderr.strip()
+    except FileNotFoundError:
+        return False, "rsync not installed (sudo apt install rsync)"
+    except subprocess.TimeoutExpired:
+        return False, 'rsync timed out after 5 minutes'
+    except Exception as e:
+        return False, str(e)
 
 
 def should_exclude(path):
@@ -103,6 +151,22 @@ def run():
         # ── 2. Project (code) backup ─────────────────────────────────────────
         proj_filename, proj_size_mb = backup_project(now_bdt, date_str, timestamp)
 
+        # ── 2b. Push both to the offsite remote server (if configured) ───────
+        # This is the once-daily "large data" sync — it rides on the same
+        # 00:01 BDT timer as the local backup above. Small, frequent
+        # real-time sync of just the live database is a separate, lighter
+        # job (see realtime_sync.py + its own systemd timer).
+        remote_ok = True
+        remote_note = ''
+        if remote_sync_enabled():
+            ok1, msg1 = rsync_to_remote(
+                os.path.join(DB_BACKUP_DIR, db_filename), date_str, 'database backup')
+            ok2, msg2 = rsync_to_remote(
+                os.path.join(PROJ_BACKUP_DIR, proj_filename), date_str, 'project backup')
+            remote_ok = ok1 and ok2
+            if not remote_ok:
+                remote_note = f' | Remote sync issue: {msg1 or msg2}'
+
         # ── 3. Auto-cleanup 0s cycles before logging ─────────────────────────
         from monitor.models import OutageCycle
         deleted = OutageCycle.objects.filter(is_complete=True, pdb_duration_sec=0).delete()
@@ -118,9 +182,10 @@ def run():
         # ── 4. Log success event to dashboard ────────────────────────────────
         Event.objects.create(
             device=None,
-            level='INFO',
+            level='INFO' if remote_ok else 'ALARM',
             message=f'Backup completed — DB: {db_filename} ({db_size_kb} KB), '
                     f'Project: {proj_filename} ({proj_size_mb:.1f} MB)'
+                    f'{" | Synced to remote server" if remote_sync_enabled() and remote_ok else remote_note}'
         )
 
         # ── 5. Cleanup old backups — keep only last KEEP_DAYS in each folder ─

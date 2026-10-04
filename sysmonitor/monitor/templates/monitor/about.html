@@ -57,7 +57,7 @@
     /* LIVE STATS STRIP */
     .stats-strip {
       max-width:920px; margin:0 auto; padding:0 1.5rem 2.5rem;
-      display:grid; grid-template-columns:repeat(4,1fr); gap:.9rem;
+      display:grid; grid-template-columns:repeat(5,1fr); gap:.9rem;
     }
     .stat-card {
       background:var(--surface); border:1px solid var(--border); border-radius:14px;
@@ -289,6 +289,10 @@
   <div class="stat-card">
     <div class="stat-num">{{ days_monitoring }}</div>
     <div class="stat-label">Days Monitoring</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ page_view_count }}</div>
+    <div class="stat-label">Page Views</div>
   </div>
 </div>
 

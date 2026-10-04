@@ -76,12 +76,55 @@
     <span></span><span></span><span></span>
   </button>
   <div class="nav-links" id="nav-links">
-    <a href="/" class="{% if request.path == '/' %}active{% endif %}">🏠 Dashboard</a>
-    <a href="/report/" class="{% if '/report/' in request.path %}active{% endif %}">📊 Report</a>
-    {% if role != "guest" %}<a href="/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 Events</a>{% endif %}
-    {% if role == "user" or role == "admin" %}<a href="/generator-log/" class="{% if '/generator-log/' in request.path %}active{% endif %}">🔧 Generator Shift</a>{% endif %}
+    <a href="/" class="{% if request.path == '/' %}active{% endif %}">📊 Dashboard</a>
+    <a href="/sensor/" class="{% if '/sensor/' in request.path %}active{% endif %}">🌡️ Colocation</a>
+    <a href="/report/" class="{% if '/report/' in request.path %}active{% endif %}">⚡ Load Shedding</a>
+
+    {% if role == "viewer" %}
+    <div class="nav-dropdown" id="generator-data-dropdown">
+      <a href="#" class="nav-dropdown-toggle {% if '/genruntime/' in request.path or '/generator-fuel-report/' in request.path %}active{% endif %}" onclick="toggleGeneratorDataDropdown(event)">⚙️ Generator Data ▾</a>
+      <div class="nav-dropdown-menu">
+        <a href="/genruntime/" class="{% if '/genruntime/' in request.path %}active{% endif %}">⏱️ Generator Runtime</a>
+        <a href="/generator-fuel-report/" class="{% if '/generator-fuel-report/' in request.path %}active{% endif %}">📊 Generator Fuel Report</a>
+      </div>
+    </div>
+    {% elif role == "user" or role == "admin" %}
+    <div class="nav-dropdown" id="generator-data-dropdown">
+      <a href="#" class="nav-dropdown-toggle {% if '/generator-log/' in request.path or '/generator-fuel/' in request.path or '/generator-fuel-report/' in request.path or '/generator-cycle-audit/' in request.path or '/genruntime/' in request.path %}active{% endif %}" onclick="toggleGeneratorDataDropdown(event)">⚙️ Generator Data ▾</a>
+      <div class="nav-dropdown-menu">
+        <a href="/generator-log/" class="{% if '/generator-log/' in request.path %}active{% endif %}">🔄 Generator Shifting Entry</a>
+        <a href="/generator-fuel/" class="{% if request.path == '/generator-fuel/' %}active{% endif %}">⛽ Generator Fuel Entry</a>
+        <a href="/generator-fuel-report/" class="{% if '/generator-fuel-report/' in request.path %}active{% endif %}">📊 Generator Fuel Report</a>
+        <a href="/generator-cycle-audit/" class="{% if '/generator-cycle-audit/' in request.path %}active{% endif %}">🕵️ Generator Cycle Audit</a>
+        <a href="/genruntime/" class="{% if '/genruntime/' in request.path %}active{% endif %}">⏱️ Generator Runtime</a>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if role == "viewer" %}
+    <a href="/smw6pac/" class="{% if '/smw6pac/' in request.path %}active{% endif %}">❄️ SMW6PAC</a>
     <a href="/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
-    {% if role != 'guest' %}<a href="/smw6pac/" class="{% if '/smw6pac/' in request.path %}active{% endif %}">❄️ SMW6PAC</a>{% endif %}
+    {% endif %}
+
+    {% if role == "user" %}
+    <div class="nav-dropdown" id="others-dropdown">
+      <a href="#" class="nav-dropdown-toggle {% if '/uptime/' in request.path or '/events/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
+      <div class="nav-dropdown-menu">
+        <a href="/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
+        <a href="/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 All Events</a>
+      </div>
+    </div>
+    {% elif role == "admin" %}
+    <div class="nav-dropdown" id="others-dropdown">
+      <a href="#" class="nav-dropdown-toggle {% if '/smw6pac/' in request.path or '/uptime/' in request.path or '/events/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
+      <div class="nav-dropdown-menu">
+        <a href="/smw6pac/" class="{% if '/smw6pac/' in request.path %}active{% endif %}">❄️ SMW6PAC</a>
+        <a href="/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
+        <a href="/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 All Events</a>
+      </div>
+    </div>
+    {% endif %}
+
     {% if role == "admin" %}
     <div class="nav-dropdown" id="admin-dropdown">
       <a href="#" class="nav-dropdown-toggle {% if '/devices/' in request.path or '/users/' in request.path or '/notifications/' in request.path or '/activity/' in request.path or '/system/' in request.path %}active{% endif %}" onclick="toggleAdminDropdown(event)">🗂️ Administrative ▾</a>
@@ -94,6 +137,7 @@
       </div>
     </div>
     {% endif %}
+
     <a href="/about/" class="{% if '/about/' in request.path %}active{% endif %}">ℹ️ About Me</a>
   </div>
   <div class="nav-meta">
@@ -113,6 +157,27 @@ function toggleAdminDropdown(event) {
   if (window.innerWidth <= 900) {
     event.preventDefault();
     document.getElementById('admin-dropdown').classList.toggle('open');
+  }
+}
+
+function toggleGeneratorDataDropdown(event) {
+  if (window.innerWidth <= 900) {
+    event.preventDefault();
+    document.getElementById('generator-data-dropdown').classList.toggle('open');
+  }
+}
+
+function toggleOthersDropdown(event) {
+  if (window.innerWidth <= 900) {
+    event.preventDefault();
+    document.getElementById('others-dropdown').classList.toggle('open');
+  }
+}
+
+function toggleReportsDropdown(event) {
+  if (window.innerWidth <= 900) {
+    event.preventDefault();
+    document.getElementById('reports-dropdown').classList.toggle('open');
   }
 }
 document.addEventListener('DOMContentLoaded', function() {

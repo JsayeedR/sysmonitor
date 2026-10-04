@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>SysMonitor — Generator Fuel Entry</title>
+
+<style>
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-soft: #162033;
+    --border: #334155;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --faint: #475569;
+    --blue: #3b82f6;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #fbbf24;
+}
+
+body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+}
+
+.main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.5rem;
+}
+
+.header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(59,130,246,.13),
+            rgba(30,41,59,.92)
+        );
+
+    border: 1px solid rgba(59,130,246,.32);
+    border-left: 4px solid var(--blue);
+    border-radius: 12px;
+    padding: 1.15rem 1.25rem;
+}
+
+.page-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin-bottom: .4rem;
+    color: #dbeafe;
+}
+
+.page-sub {
+    color: #a8c7fa;
+    font-size: .85rem;
+}
+
+.top-actions {
+    display: flex;
+    gap: .5rem;
+}
+
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.entry-card {
+    background:
+        linear-gradient(
+            180deg,
+            rgba(30,41,59,1),
+            rgba(23,37,61,.98)
+        );
+
+    border: 1px solid rgba(59,130,246,.38);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.025),
+        0 8px 22px rgba(0,0,0,.15);
+}
+
+.entry-card .section-title {
+    color: #93c5fd;
+    border-bottom: 1px solid rgba(59,130,246,.22);
+    padding-bottom: .75rem;
+}
+
+.section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1.1rem;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns:
+        1fr
+        1fr
+        .8fr
+        1fr
+        1fr;
+    gap: .85rem;
+    align-items: end;
+}
+
+.form-grid > div:nth-child(6) {
+    grid-column: 1 / 5;
+}
+
+.form-grid > div:nth-child(7) {
+    grid-column: 5;
+}
+
+label {
+    display: block;
+    font-size: .78rem;
+    color: var(--muted);
+    font-weight: 500;
+    margin-bottom: .4rem;
+}
+
+input,
+select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: .55rem .8rem;
+    font-size: .88rem;
+    min-height: 40px;
+}
+
+input:focus,
+select:focus {
+    outline: none;
+    border-color: var(--blue);
+}
+
+input[type="date"],
+input[type="time"] {
+    color-scheme: dark;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: .55rem 1.1rem;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: .85rem;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: var(--blue);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #2563eb;
+}
+
+.btn-light {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+
+.btn-light:hover {
+    background: var(--border);
+}
+
+.messages {
+    margin-bottom: 1rem;
+}
+
+.message {
+    padding: .75rem 1rem;
+    border-radius: 8px;
+    background: rgba(59, 130, 246, .12);
+    border: 1px solid rgba(59, 130, 246, .35);
+    color: #bfdbfe;
+    font-size: .82rem;
+}
+
+.table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 850px;
+}
+
+th {
+    text-align: left;
+    padding: .65rem .75rem;
+    font-size: .75rem;
+    color: var(--muted);
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+td {
+    padding: .65rem .75rem;
+    font-size: .82rem;
+    border-bottom: 1px solid var(--border);
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+tbody tr:hover {
+    background: rgba(255,255,255,.025);
+}
+
+.muted {
+    color: var(--muted);
+}
+
+@media (max-width: 900px) {
+    .form-grid {
+        grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+
+    .form-grid > div:nth-child(6),
+    .form-grid > div:nth-child(7) {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 650px) {
+    .main {
+        padding: 1rem .75rem;
+    }
+
+    .header-row {
+        flex-direction: column;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .form-grid > div:nth-child(6),
+    .form-grid > div:nth-child(7) {
+        grid-column: auto;
+    }
+}
+</style>
+</head>
+
+<body>
+
+{% include "monitor/navbar.html" %}
+
+<div class="main">
+
+    <div class="header-row">
+        <div>
+            <div class="page-title">
+                ⛽ Generator Fuel Entry
+            </div>
+
+            <div class="page-sub">
+                Add generator fuel readings and review entry history
+            </div>
+        </div>
+
+        <div class="top-actions">
+            <a
+                class="btn btn-light"
+                href="/generator-fuel-report/"
+            >
+                📊 Fuel Report
+            </a>
+        </div>
+    </div>
+
+
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="message">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+
+    <div class="card entry-card">
+
+        <div class="section-title">
+            ➕ Add Fuel Reading
+        </div>
+
+        <form method="post">
+
+            {% csrf_token %}
+
+            <div class="form-grid">
+
+                <div>
+                    <label>Generator</label>
+
+                    <select
+                        name="generator"
+                        required
+                    >
+                        <option value="">
+                            Select
+                        </option>
+
+                        <option value="Gen-01">
+                            Generator 01
+                        </option>
+
+                        <option value="Gen-02">
+                            Generator 02
+                        </option>
+                    </select>
+                </div>
+
+
+                <div>
+                    <label>Date</label>
+
+                    <input
+                        type="date"
+                        name="date"
+                        min="2026-04-01"
+                        required
+                    >
+                </div>
+
+
+                <div>
+                    <label>Time</label>
+
+                    <input
+                        type="time"
+                        name="time"
+                        required
+                    >
+                </div>
+
+
+                <div>
+                    <label>Before Fuel (L)</label>
+
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        name="fuel_before_l"
+                        required
+                    >
+                </div>
+
+
+                <div>
+                    <label>After Fuel (L)</label>
+
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        name="fuel_after_l"
+                        required
+                    >
+                </div>
+
+
+                <div>
+                    <label>Note</label>
+
+                    <input
+                        type="text"
+                        maxlength="300"
+                        name="note"
+                        placeholder="Optional"
+                    >
+                </div>
+
+
+                <div>
+                    <button
+                        class="btn btn-primary"
+                        type="submit"
+                    >
+                        Save
+                    </button>
+                </div>
+
+            </div>
+
+        </form>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="section-title">
+            🕘 Fuel Entry History
+        </div>
+
+        <div class="table-wrap">
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Date & Time</th>
+                        <th>Generator</th>
+                        <th>Before Fuel</th>
+                        <th>After Fuel</th>
+                        <th>Fuel Loaded</th>
+                        <th>Added By</th>
+                        <th>Note</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for row in records %}
+
+                    <tr>
+
+                        <td>
+                            {{ row.obj.reading_at|date:"d/m/Y h:i A" }}
+                        </td>
+
+                        <td>
+                            <strong>
+                                {{ row.obj.generator }}
+                            </strong>
+                        </td>
+
+                        <td>
+                            {{ row.obj.fuel_before_l|floatformat:2 }} L
+                        </td>
+
+                        <td>
+                            {{ row.obj.fuel_after_l|floatformat:2 }} L
+                        </td>
+
+                        <td>
+                            <strong>
+                                {{ row.fuel_loaded|floatformat:2 }} L
+                            </strong>
+                        </td>
+
+                        <td>
+                            {{ row.obj.added_by|default:"—" }}
+                        </td>
+
+                        <td class="muted">
+                            {{ row.obj.note|default:"—" }}
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td
+                            colspan="7"
+                            style="
+                                text-align:center;
+                                color:#64748b;
+                                padding:2rem;
+                            "
+                        >
+                            No fuel entries recorded yet.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% include "monitor/footer.html" %}
+
+</body>
+</html>

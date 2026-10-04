@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.http import JsonResponse
-from .models import Device, DeviceStatus, Event, SystemStatus, UserProfile, ActivityLog, OutageCycle
+from .models import Device, DeviceStatus, Event, SystemStatus, UserProfile, ActivityLog, OutageCycle, SensorAlarmConfig
 from django.http import JsonResponse
 from .kuma_client import get_kuma_monitors, get_monitor_log
 from .pac_client import get_all_pac_status
@@ -90,6 +90,23 @@ def login_view(request):
         password = request.POST.get('password')
         user = authenticate(request, username=username, password=password)
         if user:
+            # Temporary password issued by the "Forgot password" flow is only
+            # valid for 30 minutes — if that window has passed, refuse the
+            # login even though the password itself still matches, and make
+            # them request a fresh reset.
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            if profile.must_change_password and profile.temp_password_expires_at:
+                from django.utils import timezone
+                if timezone.now() > profile.temp_password_expires_at:
+                    user.set_unusable_password()
+                    user.save()
+                    log_activity(user, 'LOGIN_FAILED',
+                                 f'Temporary password for "{username}" had expired.',
+                                 ip=get_ip(request))
+                    error = ('That temporary password has expired (30-minute limit). '
+                              'Request a new password reset.')
+                    return render(request, 'monitor/login.html', {'error': error})
+
             login(request, user)
             log_activity(user, 'LOGIN',
                          f'User "{username}" logged in.',
@@ -100,8 +117,70 @@ def login_view(request):
             log_activity(fake_user, 'LOGIN_FAILED',
                          f'Failed login attempt for "{username}".',
                          ip=get_ip(request))
-            error = 'Invalid username or password'
+            if fake_user and not fake_user.is_active:
+                error = 'This account has been disabled. Contact your administrator.'
+            else:
+                error = 'Invalid username or password'
     return render(request, 'monitor/login.html', {'error': error})
+
+
+# ─── Password Reset (forgot password) ──────────────────────────────────────────
+
+def password_reset_request(request):
+    """
+    Public "Forgot password" page. Looks up the account by username OR
+    email, issues a random temporary password valid for 30 minutes, forces
+    a password change on next login, and emails the temp password + a
+    login link via the configured email gateway.
+
+    Always shows the same generic confirmation message whether or not a
+    matching account was found, so this can't be used to enumerate usernames.
+    """
+    sent = False
+    error = None
+    if request.method == 'POST':
+        identifier = request.POST.get('identifier', '').strip()
+        if not identifier:
+            error = 'Enter your username or email.'
+        else:
+            from django.db.models import Q
+            target = User.objects.filter(
+                Q(username__iexact=identifier) | Q(email__iexact=identifier)
+            ).first()
+
+            if target and target.is_active and target.email:
+                import secrets, string
+                from django.utils import timezone
+                from datetime import timedelta
+                from monitor.models import NotificationGateway
+                from monitor.notifications import send_password_reset_email
+
+                alphabet = string.ascii_letters + string.digits
+                temp_password = ''.join(secrets.choice(alphabet) for _ in range(12))
+                target.set_password(temp_password)
+                target.save()
+
+                profile, _ = UserProfile.objects.get_or_create(user=target)
+                profile.must_change_password = True
+                profile.temp_password_expires_at = timezone.now() + timedelta(minutes=30)
+                profile.save()
+
+                gw = NotificationGateway.objects.filter(channel='email', is_enabled=True).first()
+                login_url = request.build_absolute_uri('/login/')
+                if gw:
+                    send_password_reset_email(gw, target.email, target.username,
+                                               temp_password, login_url)
+
+                log_activity(target, 'PASSWORD_RESET_REQUESTED',
+                             f'Temporary password issued for "{target.username}" '
+                             f'(valid 30 min).', ip=get_ip(request))
+            # Same message regardless of whether target was found/emailed —
+            # avoids revealing which usernames/emails exist in the system.
+            sent = True
+
+    return render(request, 'monitor/password_reset.html', {
+        'sent': sent, 'error': error,
+    })
 
 
 def logout_view(request):
@@ -264,29 +343,133 @@ def _fmt_usage(total_seconds):
 def user_list(request):
     users = User.objects.all().order_by('username')
     user_data = []
+    user_details = []
+
     for u in users:
         role = get_role(u)
+
         try:
-            usage_seconds = u.userprofile.total_usage_seconds or 0
+            profile = u.userprofile
+            usage_seconds = profile.total_usage_seconds or 0
+            last_activity = profile.last_activity_at
+            designation = profile.designation
+            mobile_number = profile.mobile_number
+            whatsapp_number = profile.whatsapp_number
+            telegram_handle = profile.telegram_handle
         except Exception:
+            profile = None
             usage_seconds = 0
+            last_activity = None
+            designation = ''
+            mobile_number = ''
+            whatsapp_number = ''
+            telegram_handle = ''
+
+        logs = ActivityLog.objects.filter(user=u)
+
+        login_count = logs.filter(action='LOGIN').count()
+        logout_count = logs.filter(action='LOGOUT').count()
+        failed_login_count = logs.filter(action='LOGIN_FAILED').count()
+
+        last_login_log = logs.filter(action='LOGIN').first()
+        last_logout_log = logs.filter(action='LOGOUT').first()
+        last_failed_login_log = logs.filter(action='LOGIN_FAILED').first()
+
+        recent_logs = logs[:8]
+
         user_data.append({
             'obj': u,
             'role': role,
             'usage_time': _fmt_usage(usage_seconds),
         })
 
+        user_details.append({
+            'obj': u,
+            'profile': profile,
+            'role': role,
+            'designation': designation,
+            'mobile_number': mobile_number,
+            'whatsapp_number': whatsapp_number,
+            'telegram_handle': telegram_handle,
+            'usage_time': _fmt_usage(usage_seconds),
+            'last_activity': last_activity,
+            'login_count': login_count,
+            'logout_count': logout_count,
+            'failed_login_count': failed_login_count,
+            'last_login': last_login_log.timestamp if last_login_log else None,
+            'last_login_ip': last_login_log.ip_address if last_login_log else None,
+            'last_logout': last_logout_log.timestamp if last_logout_log else None,
+            'last_failed_login': last_failed_login_log.timestamp if last_failed_login_log else None,
+            'profile_picture': profile.profile_picture,
+            'recent_logs': recent_logs,
+        })
+
     # Pending self-service profile change requests (email / mobile number)
     # are shown as a second tab on this same page so admins don't need a
     # separate top-nav item to approve them.
     from monitor.models import ProfileChangeRequest
-    pending = ProfileChangeRequest.objects.filter(status='PENDING').select_related('user')
+    pending = ProfileChangeRequest.objects.filter(
+        status='PENDING'
+    ).select_related('user')
 
     return render(request, 'monitor/user_list.html', {
         'user_data': user_data,
-        'pending':   pending,
-        'role':      get_role(request.user),
-        'user':      request.user,
+        'user_details': user_details,
+        'pending': pending,
+        'role': get_role(request.user),
+        'user': request.user,
+    })
+
+
+@role_required('admin')
+def colocation_setpoints(request):
+    config = SensorAlarmConfig.objects.first()
+
+    if request.method == 'POST':
+        def get_float(name):
+            value = request.POST.get(name, '').strip()
+            return float(value) if value else None
+
+        try:
+            temperature_low = get_float('temperature_low')
+            temperature_high = get_float('temperature_high')
+            humidity_low = get_float('humidity_low')
+            humidity_high = get_float('humidity_high')
+
+            cooldown_raw = request.POST.get(
+                'alarm_cooldown_minutes', '30'
+            ).strip()
+            cooldown = int(cooldown_raw)
+
+            if cooldown < 1:
+                raise ValueError('Cooldown must be at least 1 minute.')
+
+            if config is None:
+                config = SensorAlarmConfig()
+
+            config.temperature_low = temperature_low
+            config.temperature_high = temperature_high
+            config.humidity_low = humidity_low
+            config.humidity_high = humidity_high
+            config.alarm_cooldown_minutes = cooldown
+            config.save()
+
+            messages.success(
+                request,
+                'Colocation temperature/humidity alarm setpoints saved successfully.'
+            )
+            return redirect('colocation_setpoints')
+
+        except (TypeError, ValueError):
+            messages.error(
+                request,
+                'Please enter valid numeric values. Cooldown must be at least 1 minute.'
+            )
+
+    return render(request, 'monitor/colocation_setpoints.html', {
+        'config': config,
+        'role': get_role(request.user),
+        'user': request.user,
     })
 
 
@@ -323,39 +506,93 @@ def user_create(request):
 def user_edit(request, user_id):
     target = get_object_or_404(User, id=user_id)
     error  = None
+    profile, _ = UserProfile.objects.get_or_create(user=target)
 
     if request.method == 'POST':
         new_role = request.POST.get('role', 'viewer')
         new_pass = request.POST.get('password', '').strip()
 
-        profile, _ = UserProfile.objects.get_or_create(user=target)
-        profile.role = new_role
-        profile.save()
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        email = request.POST.get('email', '').strip()
+        designation = request.POST.get('designation', '').strip()
+        mobile_number = request.POST.get('mobile_number', '').strip()
+        whatsapp_number = request.POST.get('whatsapp_number', '').strip()
+        telegram_handle = request.POST.get('telegram_handle', '').strip()
 
-        if new_pass:
-            target.set_password(new_pass)
+        if email and User.objects.exclude(id=target.id).filter(email=email).exists():
+            error = f'Email "{email}" is already used by another user.'
+        else:
+            target.first_name = first_name
+            target.last_name = last_name
+            target.email = email
             target.save()
 
-        log_activity(request.user, 'USER_EDITED',
-                     f'Edited user "{target.username}" — role set to "{new_role}"'
-                     + (' + password changed.' if new_pass else '.'),
-                     ip=get_ip(request))
-        messages.success(request, f'User "{target.username}" updated.')
-        return redirect('user_list')
+            profile.role = new_role
+            profile.designation = designation
+            profile.mobile_number = mobile_number
+            profile.whatsapp_number = whatsapp_number
+            profile.telegram_handle = telegram_handle
 
-    try:
-        current_role = target.userprofile.role
-    except:
-        current_role = 'viewer'
+            profile_picture = request.FILES.get('profile_picture')
+            if profile_picture:
+                profile.profile_picture = profile_picture
+
+            profile.save()
+
+            password_changed = False
+            if new_pass:
+                target.set_password(new_pass)
+                target.save()
+                password_changed = True
+
+            changed = (
+                f'role="{new_role}", profile information updated'
+            )
+            if password_changed:
+                changed += ', password changed'
+
+            log_activity(
+                request.user,
+                'USER_EDITED',
+                f'Edited user "{target.username}" — {changed}.',
+                ip=get_ip(request)
+            )
+
+            messages.success(request, f'User "{target.username}" updated.')
+            return redirect('user_list')
+
+    current_role = profile.role or 'viewer'
 
     return render(request, 'monitor/user_form.html', {
-        'error':        error,
-        'action':       'Edit',
-        'target_user':  target,
+        'error': error,
+        'action': 'Edit',
+        'target_user': target,
+        'target_profile': profile,
         'current_role': current_role,
-        'role':         get_role(request.user),
-        'user':         request.user,
+        'role': get_role(request.user),
+        'user': request.user,
     })
+
+
+@role_required('admin')
+def user_toggle_active(request, user_id):
+    """Enable/disable a login without deleting the account. A disabled
+    account fails authenticate() immediately (Django's ModelBackend checks
+    is_active) and login_view() shows a clear 'account disabled' message."""
+    target = get_object_or_404(User, id=user_id)
+    if target == request.user:
+        messages.error(request, "You can't disable your own account.")
+        return redirect('user_list')
+    if request.method == 'POST':
+        target.is_active = not target.is_active
+        target.save()
+        state = 'enabled' if target.is_active else 'disabled'
+        log_activity(request.user, 'USER_EDITED',
+                     f'Account "{target.username}" {state}.',
+                     ip=get_ip(request))
+        messages.success(request, f'Account "{target.username}" {state}.')
+    return redirect('user_list')
 
 
 @role_required('admin')
@@ -571,7 +808,7 @@ def api_daily_summary(request):
     # so a cycle that started earlier and either is still ongoing, or ended
     # late, isn't missed — same approach as the cron's build_daily_summary().
     from monitor.models import GeneratorModeLog
-    from monitor.daily_summary import get_generator_for_cycle, fmt_duration
+    from monitor.daily_summary import get_generator_segments, fmt_duration
     mode_logs = list(GeneratorModeLog.objects.filter(switched_at__lt=day_end_bdt).order_by('switched_at'))
 
     candidates = OutageCycle.objects.filter(
@@ -590,24 +827,29 @@ def api_daily_summary(request):
         if not seg or seg['duration_sec'] <= 0:
             continue
 
-        total_secs = seg['duration_sec']
-        duration_str = fmt_duration(total_secs)
-        gen = get_generator_for_cycle(c, mode_logs)
-        rows.append({
-            'start':       seg['start'].strftime('%I:%M:%S %p'),
-            'end':         'ongoing…' if seg['is_ongoing'] else seg['end'].strftime('%I:%M:%S %p'),
-            'duration':    duration_str,
-            'generator':   gen,
-            'is_complete': c.is_complete and not seg['is_ongoing'],
-            'is_ongoing':  seg['is_ongoing'],
-            'cycle_type':  c.cycle_type,
-        })
+        pieces = get_generator_segments(c, seg['start'], seg['end'], mode_logs)
+        for i, (p_start, p_end, gen) in enumerate(pieces):
+            piece_secs = int((p_end - p_start).total_seconds())
+            if piece_secs <= 0:
+                continue
+            is_ongoing_piece = seg['is_ongoing'] and (i == len(pieces) - 1)
 
-        # Only count minutes toward the day's total for real (non-blip) cycles,
-        # matching the previous "completed, pdb_duration_sec > 0" intent —
-        # but now measured per calendar day instead of per whole cycle.
-        if c.pdb_duration_sec > 0 or seg['is_ongoing']:
-            total_secs_sum += total_secs
+            rows.append({
+                'start':       p_start.astimezone(bdt).strftime('%I:%M:%S %p'),
+                'end':         'ongoing…' if is_ongoing_piece else p_end.astimezone(bdt).strftime('%I:%M:%S %p'),
+                'duration':    fmt_duration(piece_secs),
+                'generator':   gen,
+                'is_complete': c.is_complete and not is_ongoing_piece,
+                'is_ongoing':  is_ongoing_piece,
+                'cycle_type':  c.cycle_type,
+            })
+
+            # Only count minutes toward the day's total for real (non-blip) cycles,
+            # matching the previous "completed, pdb_duration_sec > 0" intent —
+            # but now measured per calendar day (and per generator piece) instead
+            # of per whole cycle.
+            if c.pdb_duration_sec > 0 or is_ongoing_piece:
+                total_secs_sum += piece_secs
 
     dates_with_cycles = set()
     today_bdt = dt_class.now(bdt).date()
@@ -712,7 +954,8 @@ def api_report(request):
     # Build cycles list
     cycle_rows = []
     from monitor.models import GeneratorModeLog
-    from monitor.daily_summary import get_generator_for_cycle, fmt_duration
+    from monitor.daily_summary import get_generator_segments, fmt_duration
+    from django.utils import timezone as dj_timezone
     mode_logs_all = list(GeneratorModeLog.objects.order_by('switched_at'))
     for c in cycles:
         local_start = c.outage_start.astimezone(bdt)
@@ -725,7 +968,34 @@ def api_report(request):
         )
         dur_str = fmt_duration(total_secs)
 
-        gen = get_generator_for_cycle(c, mode_logs_all)
+        # This is a whole-cycle row (one row = one outage), so if more than
+        # one generator was actually responsible (a changeover happened
+        # mid-outage — see get_generator_segments()), show that plainly
+        # instead of silently attributing the whole thing to whichever
+        # generator merely happened to be active at the start.
+        cycle_end_for_gen = end_dt or dj_timezone.now()
+
+        # Explicit stored generator assignment has priority.
+        # This includes historical generator assignments backfilled
+        # from verified operational records.
+        if c.manual_generator:
+            gen = c.manual_generator
+        else:
+            pieces = get_generator_segments(
+                c,
+                c.outage_start,
+                cycle_end_for_gen,
+                mode_logs_all
+            )
+            distinct_gens = list(
+                dict.fromkeys(
+                    p[2]
+                    for p in pieces
+                    if (p[1] - p[0]).total_seconds() > 0
+                )
+            )
+            gen = ' → '.join(distinct_gens) if distinct_gens else 'UNASSIGNED'
+
         cycle_rows.append({
             'date':         local_start.strftime('%Y-%m-%d'),
             'start':        local_start.strftime('%I:%M:%S %p'),
@@ -961,6 +1231,9 @@ def notif_recipient_add(request):
         alert_complete = d.get('alert_complete', True),
         alert_pac_status = d.get('alert_pac_status', False),
         daily_summary  = d.get('daily_summary',  False),
+        monthly_report = d.get('monthly_report', False),
+        colocation_data = d.get('colocation_data', False),
+        colocation_alarm = d.get('colocation_alarm', False),
     )
     return JsonResponse({'ok': True, 'id': r.id})
 
@@ -982,6 +1255,9 @@ def notif_recipient_edit(request, rid):
         r.alert_complete = d.get('alert_complete', r.alert_complete)
         r.daily_summary  = d.get('daily_summary',  r.daily_summary)
         r.alert_pac_status = d.get('alert_pac_status', r.alert_pac_status)
+        r.monthly_report = d.get('monthly_report', r.monthly_report)
+        r.colocation_data = d.get('colocation_data', r.colocation_data)
+        r.colocation_alarm = d.get('colocation_alarm', r.colocation_alarm)
         r.save()
         return JsonResponse({'ok': True})
     except NotificationRecipient.DoesNotExist:
@@ -1064,6 +1340,568 @@ def notif_whatsapp_health(request):
 
     cache.set('wa_token_health', result, 60 * 60 * 6)  # cache 6 hours
     return JsonResponse(result)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MESSAGE TEMPLATES (admin-editable notification wording)
+# ══════════════════════════════════════════════════════════════════════════════
+
+from monitor.models import MessageTemplate
+from monitor.notifications import TEMPLATE_PLACEHOLDERS, build_message as _preview_build_message
+
+@role_required('admin')
+def notif_message_templates(request):
+    """
+    Admin page to view/edit the wording used for each outgoing
+    notification type. Shows the currently-active text (custom override if
+    one is saved, otherwise the built-in default) plus which {placeholders}
+    are available for that event type.
+    """
+    rows = []
+    for event_type, label in MessageTemplate.EVENT_CHOICES:
+        tpl = MessageTemplate.objects.filter(event_type=event_type).first()
+        custom_text = tpl.template_text if tpl else ''
+        rows.append({
+            'event_type':   event_type,
+            'label':        label,
+            'custom_text':  custom_text,
+            'has_override': bool(custom_text.strip()),
+            'default_text': _preview_build_message(event_type, ignore_override=True),
+            'placeholders': TEMPLATE_PLACEHOLDERS.get(event_type, []),
+        })
+    return render(request, 'monitor/notif_templates.html', {
+        'rows': rows,
+        'role': 'admin',
+    })
+
+
+@role_required('admin')
+def notif_message_template_save(request):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'POST required'})
+    import json as _json
+    d = _json.loads(request.body)
+    event_type = d.get('event_type', '')
+    text       = d.get('template_text', '')
+
+    valid_types = dict(MessageTemplate.EVENT_CHOICES)
+    if event_type not in valid_types:
+        return JsonResponse({'ok': False, 'error': 'Unknown event type'})
+
+    tpl, _ = MessageTemplate.objects.get_or_create(event_type=event_type)
+    tpl.template_text = text
+    tpl.updated_by = request.user.username
+    tpl.save()
+
+    log_activity(request.user, 'USER_EDITED',
+                 f'Updated "{valid_types[event_type]}" message template.',
+                 ip=get_ip(request))
+    return JsonResponse({'ok': True})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MONTHLY LOADSHEDDING REPORT
+# ══════════════════════════════════════════════════════════════════════════════
+
+@role_required('admin')
+def notif_send_monthly_report_now(request):
+    """
+    Manual trigger — lets an admin send the monthly report on demand
+    (testing, or a re-send) instead of waiting for the 1st-of-month cron.
+    POST body may include {"year": 2026, "month": 9} to pick a specific
+    month; omitted = the month that just ended (same as the cron default).
+    """
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'POST required'})
+
+    import json as _json
+    from monitor.monthly_report import send_monthly_report, fmt_duration
+
+    d = _json.loads(request.body) if request.body else {}
+    year  = d.get('year')
+    month = d.get('month')
+
+    try:
+        summary, sent_count, failed = send_monthly_report(year=year, month=month)
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)})
+
+    log_activity(request.user, 'USER_EDITED',
+                 f'Manually sent monthly loadshedding report for {summary["label"]} '
+                 f'to {sent_count} recipient(s).', ip=get_ip(request))
+
+    return JsonResponse({
+        'ok': True,
+        'label': summary['label'],
+        'outage_count': summary['outage_count'],
+        'total_downtime': fmt_duration(summary['grand_total']),
+        'sent_count': sent_count,
+        'failed': failed,
+    })
+
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# GENERATOR RUNTIME REPORT
+# ══════════════════════════════════════════════════════════════════════════════
+
+@role_required('user', 'admin', 'viewer')
+def generator_runtime_report(request):
+    """Generator Runtime Report — currently under construction."""
+    return render(
+        request,
+        "monitor/generator_runtime_report.html",
+        {
+            "role": get_role(request.user),
+            "user": request.user,
+        }
+    )
+
+
+@role_required('user', 'admin')
+def generator_fuel(request):
+    """
+    Generator Fuel register and consumption calculation.
+
+    Fuel Loaded:
+        current AFTER - current BEFORE
+
+    Fuel Used:
+        previous AFTER - current BEFORE
+
+    Generator runtime for a fuel interval:
+        actual PDB outage duration assigned to that generator.
+    """
+    from decimal import Decimal, InvalidOperation
+    from datetime import datetime as dt
+    import calendar
+    import pytz
+
+    from monitor.models import (
+        GeneratorFuelLog,
+        GeneratorModeLog,
+        OutageCycle,
+    )
+
+    bdt = pytz.timezone('Asia/Dhaka')
+    role = get_role(request.user)
+
+    # --------------------------------------------------------
+    # ADD NEW FUEL READING
+    # --------------------------------------------------------
+    if request.method == 'POST':
+
+        if role not in ('admin', 'user'):
+            messages.error(request, 'You do not have permission to add fuel records.')
+            return redirect('generator_fuel')
+
+        generator = request.POST.get('generator', '').strip()
+        date_str = request.POST.get('date', '').strip()
+        time_str = request.POST.get('time', '').strip()
+        before_raw = request.POST.get('fuel_before_l', '').strip()
+        after_raw = request.POST.get('fuel_after_l', '').strip()
+        note = request.POST.get('note', '').strip()
+
+        if generator not in ('Gen-01', 'Gen-02'):
+            messages.error(request, 'Please select a valid generator.')
+            return redirect('generator_fuel')
+
+        try:
+            naive = dt.strptime(
+                f'{date_str} {time_str}',
+                '%Y-%m-%d %H:%M'
+            )
+            reading_at = bdt.localize(naive)
+        except Exception:
+            messages.error(request, 'Valid date and time are required.')
+            return redirect('generator_fuel')
+
+        try:
+            fuel_before = Decimal(before_raw)
+            fuel_after = Decimal(after_raw)
+        except (InvalidOperation, TypeError):
+            messages.error(request, 'Fuel readings must be valid numbers.')
+            return redirect('generator_fuel')
+
+        if fuel_before < 0 or fuel_after < 0:
+            messages.error(request, 'Fuel reading cannot be negative.')
+            return redirect('generator_fuel')
+
+        if fuel_after < fuel_before:
+            messages.error(
+                request,
+                'After Fuel cannot be lower than Before Fuel.'
+            )
+            return redirect('generator_fuel')
+
+        duplicate = GeneratorFuelLog.objects.filter(
+            generator=generator,
+            reading_at=reading_at
+        ).first()
+
+        if duplicate:
+            messages.error(
+                request,
+                f'{generator} already has a fuel record at this exact time.'
+            )
+            return redirect('generator_fuel')
+
+        GeneratorFuelLog.objects.create(
+            generator=generator,
+            reading_at=reading_at,
+            fuel_before_l=fuel_before,
+            fuel_after_l=fuel_after,
+            note=note,
+            added_by=request.user.username,
+        )
+
+        log_activity(
+            request.user,
+            'USER_EDITED',
+            (
+                f'Added generator fuel record: {generator}, '
+                f'before={fuel_before}L, after={fuel_after}L.'
+            ),
+            ip=get_ip(request)
+        )
+
+        messages.success(
+            request,
+            f'{generator} fuel record added successfully.'
+        )
+
+        return redirect('generator_fuel')
+
+    # --------------------------------------------------------
+    # GENERATOR ASSIGNMENT FOR AN OUTAGE CYCLE
+    # --------------------------------------------------------
+    mode_logs = list(
+        GeneratorModeLog.objects
+        .all()
+        .order_by('switched_at')
+    )
+
+    def cycle_generator(cycle):
+        if cycle.manual_generator:
+            return cycle.manual_generator
+
+        chosen = None
+
+        for entry in mode_logs:
+            if entry.switched_at <= cycle.outage_start:
+                chosen = entry.generator
+            else:
+                break
+
+        return chosen
+
+    # --------------------------------------------------------
+    # RUNTIME BETWEEN TWO DATES
+    #
+    # Per agreed rule:
+    # Generator Runtime = actual power-outage duration.
+    # Therefore pdb_duration_sec is used here.
+    # --------------------------------------------------------
+    def runtime_for_generator(generator, start_dt, end_dt):
+
+        if not start_dt or not end_dt or end_dt <= start_dt:
+            return 0
+
+        cycles = (
+            OutageCycle.objects
+            .filter(
+                outage_start__gte=start_dt,
+                outage_start__lt=end_dt,
+                pdb_duration_sec__gt=0,
+            )
+            .order_by('outage_start')
+        )
+
+        total = 0
+
+        for cycle in cycles:
+            if cycle_generator(cycle) == generator:
+                total += cycle.pdb_duration_sec or 0
+
+        return total
+
+    def fmt_runtime(seconds):
+        seconds = int(seconds or 0)
+
+        h, rem = divmod(seconds, 3600)
+        m, s = divmod(rem, 60)
+
+        if h:
+            return f'{h}h {m:02d}m'
+        if m:
+            return f'{m}m {s:02d}s'
+        if s:
+            return f'{s}s'
+
+        return '—'
+
+    # --------------------------------------------------------
+    # SELECTED MONTH
+    # --------------------------------------------------------
+    now_bdt = dt.now(bdt)
+
+    month_value = request.GET.get('month', '').strip()
+
+    try:
+        if month_value:
+            month_start_naive = dt.strptime(
+                month_value + '-01',
+                '%Y-%m-%d'
+            )
+        else:
+            month_start_naive = dt(
+                now_bdt.year,
+                now_bdt.month,
+                1
+            )
+            month_value = month_start_naive.strftime('%Y-%m')
+
+        month_start = bdt.localize(month_start_naive)
+
+    except ValueError:
+        month_start = bdt.localize(
+            dt(now_bdt.year, now_bdt.month, 1)
+        )
+        month_value = month_start.strftime('%Y-%m')
+
+    if month_start.month == 12:
+        next_month = bdt.localize(
+            dt(month_start.year + 1, 1, 1)
+        )
+    else:
+        next_month = bdt.localize(
+            dt(month_start.year, month_start.month + 1, 1)
+        )
+
+    month_label = month_start.strftime('%B %Y')
+
+    # --------------------------------------------------------
+    # BUILD RECORD CALCULATIONS
+    # --------------------------------------------------------
+    all_logs_asc = list(
+        GeneratorFuelLog.objects
+        .all()
+        .order_by('generator', 'reading_at', 'id')
+    )
+
+    previous_by_generator = {}
+    calculated_asc = []
+
+    for entry in all_logs_asc:
+
+        previous = previous_by_generator.get(entry.generator)
+
+        loaded = entry.fuel_after_l - entry.fuel_before_l
+
+        fuel_used = None
+        runtime_sec = 0
+        consumption_lph = None
+        status = 'BASELINE'
+        status_label = 'Baseline'
+
+        if previous:
+
+            fuel_used = (
+                previous.fuel_after_l -
+                entry.fuel_before_l
+            )
+
+            runtime_sec = runtime_for_generator(
+                entry.generator,
+                previous.reading_at,
+                entry.reading_at
+            )
+
+            if fuel_used < 0:
+                status = 'CHECK'
+                status_label = 'Check Reading'
+
+            elif runtime_sec <= 0:
+                status = 'PARTIAL'
+                status_label = 'Partial'
+
+            else:
+                runtime_hours = Decimal(runtime_sec) / Decimal('3600')
+
+                if runtime_hours > 0:
+                    consumption_lph = fuel_used / runtime_hours
+
+                status = 'COMPLETE'
+                status_label = 'Complete'
+
+        calculated_asc.append({
+            'obj': entry,
+            'previous': previous,
+            'fuel_loaded': loaded,
+            'fuel_used': fuel_used,
+            'runtime_sec': runtime_sec,
+            'runtime_fmt': fmt_runtime(runtime_sec),
+            'consumption_lph': consumption_lph,
+            'status': status,
+            'status_label': status_label,
+        })
+
+        previous_by_generator[entry.generator] = entry
+
+    records = list(reversed(calculated_asc))
+
+    # --------------------------------------------------------
+    # MONTHLY SUMMARY
+    # --------------------------------------------------------
+    monthly = {}
+
+    for gen in ('Gen-01', 'Gen-02'):
+
+        gen_rows = [
+            row for row in calculated_asc
+            if (
+                row['obj'].generator == gen
+                and month_start <= row['obj'].reading_at < next_month
+            )
+        ]
+
+        loaded_total = sum(
+            (row['fuel_loaded'] for row in gen_rows),
+            Decimal('0')
+        )
+
+        used_values = [
+            row['fuel_used']
+            for row in gen_rows
+            if row['fuel_used'] is not None and row['fuel_used'] >= 0
+        ]
+
+        used_total = sum(
+            used_values,
+            Decimal('0')
+        )
+
+        runtime_sec = runtime_for_generator(
+            gen,
+            month_start,
+            next_month
+        )
+
+        monthly_lph = None
+
+        if runtime_sec > 0 and used_values:
+            monthly_lph = (
+                used_total /
+                (Decimal(runtime_sec) / Decimal('3600'))
+            )
+
+        complete_count = sum(
+            1 for row in gen_rows
+            if row['status'] == 'COMPLETE'
+        )
+
+        monthly[gen] = {
+            'loaded': loaded_total,
+            'used': used_total if used_values else None,
+            'runtime_sec': runtime_sec,
+            'runtime_fmt': fmt_runtime(runtime_sec),
+            'consumption_lph': monthly_lph,
+            'record_count': len(gen_rows),
+            'complete_count': complete_count,
+        }
+
+    # --------------------------------------------------------
+    # TILL-DATE SUMMARY FROM 26 MAY 2026
+    # --------------------------------------------------------
+    report_start = bdt.localize(dt(2026, 5, 26, 0, 0))
+
+    till_date = {}
+
+    for gen in ('Gen-01', 'Gen-02'):
+
+        gen_rows = [
+            row for row in calculated_asc
+            if (
+                row['obj'].generator == gen
+                and row['obj'].reading_at >= report_start
+            )
+        ]
+
+        loaded_total = sum(
+            (row['fuel_loaded'] for row in gen_rows),
+            Decimal('0')
+        )
+
+        used_values = [
+            row['fuel_used']
+            for row in gen_rows
+            if row['fuel_used'] is not None and row['fuel_used'] >= 0
+        ]
+
+        used_total = sum(
+            used_values,
+            Decimal('0')
+        )
+
+        runtime_sec = runtime_for_generator(
+            gen,
+            report_start,
+            now_bdt
+        )
+
+        lph = None
+
+        if runtime_sec > 0 and used_values:
+            lph = (
+                used_total /
+                (Decimal(runtime_sec) / Decimal('3600'))
+            )
+
+        latest = (
+            GeneratorFuelLog.objects
+            .filter(generator=gen)
+            .order_by('-reading_at')
+            .first()
+        )
+
+        till_date[gen] = {
+            'loaded': loaded_total,
+            'used': used_total if used_values else None,
+            'runtime_sec': runtime_sec,
+            'runtime_fmt': fmt_runtime(runtime_sec),
+            'consumption_lph': lph,
+            'latest_level': latest.fuel_after_l if latest else None,
+            'record_count': len(gen_rows),
+        }
+
+    return render(
+        request,
+        'monitor/generator_fuel.html',
+        {
+            'role': role,
+            'user': request.user,
+            'records': records,
+            'monthly': monthly,
+            'till_date': till_date,
+            'month_value': month_value,
+            'month_label': month_label,
+            'report_start': report_start,
+            'now_bdt': now_bdt,
+        }
+    )
+
+
+@role_required('user', 'admin', 'viewer')
+def generator_cycle_audit(request):
+    """Generator Cycle Audit — currently under maintenance."""
+    return render(
+        request,
+        "monitor/generator_cycle_audit.html",
+        {
+            "role": get_role(request.user),
+            "user": request.user,
+        }
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1382,6 +2220,11 @@ def profile_password_save(request):
     if form.is_valid():
         user = form.save()
         update_session_auth_hash(request, user)  # keep user logged in after password change
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        if profile.must_change_password:
+            profile.must_change_password = False
+            profile.temp_password_expires_at = None
+            profile.save()
         log_activity(request.user, 'PASSWORD_CHANGE', 'Password changed', get_ip(request))
         return JsonResponse({'ok': True})
     else:
@@ -1677,12 +2520,15 @@ def system_recent_cycles(request):
         elif m:  dur = f"{m}min {s}s"
         else:    dur = f"{s}s"
         data.append({
-            'id':       c.id,
-            'start':    c.outage_start.astimezone(bdt).strftime('%d/%m %I:%M:%S %p') if c.outage_start else '—',
-            'end':      end_dt.astimezone(bdt).strftime('%d/%m %I:%M:%S %p') if end_dt else '—',
-            'duration': dur,
-            'type':     c.cycle_type,
-            'complete': c.is_complete,
+            'id':        c.id,
+            'start':     c.outage_start.astimezone(bdt).strftime('%d/%m %I:%M:%S %p') if c.outage_start else '—',
+            'end':       end_dt.astimezone(bdt).strftime('%d/%m %I:%M:%S %p') if end_dt else '—',
+            'duration':  dur,
+            'type':      c.cycle_type,
+            'complete':  c.is_complete,
+            'is_manual': c.is_manual,
+            'added_by':  c.added_by or '—',
+            'note':      c.alarm_reason or '',
         })
     return JsonResponse({'cycles': data})
 
@@ -1767,3 +2613,858 @@ def pac_status_view(request):
         "user": request.user,
         "last_updated": dt_class.now(bdt).strftime('%d/%m/%Y %I:%M:%S %p'),
     })
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TUYA TEMPERATURE / HUMIDITY SENSOR (colocation room)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@role_required('user', 'admin', 'viewer')
+def sensor_status_view(request):
+    import pytz
+    from datetime import datetime as dt_class
+    bdt = pytz.timezone('Asia/Dhaka')
+    from monitor.models import SensorReading
+    from monitor.tuya_client import tuya_configured
+
+    latest = SensorReading.objects.first()
+    recent = list(SensorReading.objects.all()[:100])
+
+    return render(request, "monitor/sensor_status.html", {
+        "latest": latest,
+        "recent": recent,
+        "configured": tuya_configured(),
+        "role": get_role(request.user),
+        "user": request.user,
+        "last_updated": dt_class.now(bdt).strftime('%d/%m/%Y %I:%M:%S %p'),
+    })
+
+
+def api_sensor_status(request):
+    """Latest colocation-room temp/humidity reading, for the dashboard
+    widget and the sensor page's auto-refresh. No role check — same
+    openness as api_status/api_daily_summary elsewhere in this file."""
+    import pytz
+    bdt = pytz.timezone('Asia/Dhaka')
+    from monitor.models import SensorReading
+    from monitor.tuya_client import tuya_configured
+
+    latest = SensorReading.objects.first()
+    if not latest:
+        return JsonResponse({
+            'has_data': False,
+            'configured': tuya_configured(),
+        })
+
+    return JsonResponse({
+        'has_data': True,
+        'configured': tuya_configured(),
+        'device_name': latest.device_name,
+        'temperature_c': latest.temperature_c,
+        'humidity_pct': latest.humidity_pct,
+        'battery_pct': latest.battery_pct,
+        'battery_state': latest.battery_state,
+        'is_online': latest.is_online,
+        'recorded_at': latest.recorded_at.astimezone(bdt).strftime('%d/%m/%Y %I:%M:%S %p'),
+    })
+
+
+def _sensor_range_cutoff(range_key):
+    """Translate a ?range= query value into a timedelta, or None for 'all'."""
+    from datetime import timedelta
+
+    mapping = {
+        '1h':  timedelta(hours=1),
+        '6h':  timedelta(hours=6),
+        '24h': timedelta(hours=24),
+        '7d':  timedelta(days=7),
+        '30d': timedelta(days=30),
+    }
+    return mapping.get(range_key)
+
+
+def _sensor_filtered_queryset(request):
+    """
+    Build the sensor queryset using either:
+      ?range=1h/6h/24h/7d/30d/all
+    or:
+      ?from=YYYY-MM-DD&to=YYYY-MM-DD
+
+    Custom dates are interpreted as Bangladesh (Asia/Dhaka) dates.
+    """
+    import pytz
+    from datetime import datetime, time, timedelta
+    from django.utils import timezone as dj_tz
+    from monitor.models import SensorReading
+
+    bdt = pytz.timezone('Asia/Dhaka')
+
+    range_key = request.GET.get('range', '24h')
+    from_date = request.GET.get('from', '').strip()
+    to_date = request.GET.get('to', '').strip()
+
+    qs = SensorReading.objects.all().order_by('recorded_at')
+
+    # Custom From/To date has priority over the relative range buttons.
+    if from_date or to_date:
+        try:
+            if from_date:
+                start_date = datetime.strptime(from_date, '%Y-%m-%d').date()
+                start_dt = bdt.localize(datetime.combine(start_date, time.min))
+                qs = qs.filter(recorded_at__gte=start_dt)
+
+            if to_date:
+                end_date = datetime.strptime(to_date, '%Y-%m-%d').date()
+                end_dt = bdt.localize(
+                    datetime.combine(end_date + timedelta(days=1), time.min)
+                )
+                qs = qs.filter(recorded_at__lt=end_dt)
+
+        except ValueError:
+            # If an invalid custom date is supplied, safely fall back to range.
+            delta = _sensor_range_cutoff(range_key)
+            if delta:
+                qs = qs.filter(recorded_at__gte=dj_tz.now() - delta)
+    else:
+        delta = _sensor_range_cutoff(range_key)
+        if delta:
+            qs = qs.filter(recorded_at__gte=dj_tz.now() - delta)
+
+    return qs, range_key, from_date, to_date
+
+
+def _sensor_report_stats(qs, bdt):
+    """Calculate report statistics for the selected sensor period."""
+    from django.db.models import Min, Max, Avg, Count
+
+    total = qs.count()
+
+    temp_qs = qs.filter(temperature_c__isnull=False)
+    humidity_qs = qs.filter(humidity_pct__isnull=False)
+
+    temp_stats = temp_qs.aggregate(
+        minimum=Min('temperature_c'),
+        maximum=Max('temperature_c'),
+        average=Avg('temperature_c'),
+    )
+
+    humidity_stats = humidity_qs.aggregate(
+        minimum=Min('humidity_pct'),
+        maximum=Max('humidity_pct'),
+        average=Avg('humidity_pct'),
+    )
+
+    t_high = temp_qs.order_by('-temperature_c', 'recorded_at').first()
+    t_low = temp_qs.order_by('temperature_c', 'recorded_at').first()
+
+    h_high = humidity_qs.order_by('-humidity_pct', 'recorded_at').first()
+    h_low = humidity_qs.order_by('humidity_pct', 'recorded_at').first()
+
+    first = qs.order_by('recorded_at').first()
+    last = qs.order_by('-recorded_at').first()
+
+    def fmt_dt(obj):
+        if not obj:
+            return None
+        return obj.recorded_at.astimezone(bdt).strftime(
+            '%d/%m/%Y %I:%M:%S %p'
+        )
+
+    duration_seconds = None
+    if first and last:
+        duration_seconds = int(
+            (last.recorded_at - first.recorded_at).total_seconds()
+        )
+
+    return {
+        'total_readings': total,
+
+        'temperature': {
+            'min': temp_stats['minimum'],
+            'max': temp_stats['maximum'],
+            'avg': temp_stats['average'],
+            'min_time': fmt_dt(t_low),
+            'max_time': fmt_dt(t_high),
+        },
+
+        'humidity': {
+            'min': humidity_stats['minimum'],
+            'max': humidity_stats['maximum'],
+            'avg': humidity_stats['average'],
+            'min_time': fmt_dt(h_low),
+            'max_time': fmt_dt(h_high),
+        },
+
+        'online_count': qs.filter(is_online=True).count(),
+        'offline_count': qs.filter(is_online=False).count(),
+
+        'first_reading': fmt_dt(first),
+        'last_reading': fmt_dt(last),
+        'duration_seconds': duration_seconds,
+    }
+
+
+def api_sensor_history(request):
+    """
+    Time-series points + report statistics.
+
+    Supports:
+      ?range=1h/6h/24h/7d/30d/all
+      ?from=YYYY-MM-DD&to=YYYY-MM-DD
+
+    Custom From/To dates take priority over the range buttons.
+    """
+    import pytz
+    from monitor.models import SensorReading
+
+    bdt = pytz.timezone('Asia/Dhaka')
+
+    qs, range_key, from_date, to_date = _sensor_filtered_queryset(request)
+
+    # Keep the browser payload reasonably small for long periods.
+    rows = list(qs)
+    max_points = 500
+
+    if len(rows) > max_points:
+        step = len(rows) // max_points + 1
+        rows = rows[::step]
+
+    points = [{
+        't': r.recorded_at.astimezone(bdt).strftime('%Y-%m-%d %H:%M:%S'),
+        'temperature_c': r.temperature_c,
+        'humidity_pct': r.humidity_pct,
+        'battery_pct': r.battery_pct,
+        'battery_state': r.battery_state,
+        'is_online': r.is_online,
+    } for r in rows]
+
+    # Statistics use the complete filtered queryset, not the
+    # 500-point chart sample.
+    stats = _sensor_report_stats(qs, bdt)
+
+    return JsonResponse({
+        'range': range_key,
+        'from': from_date,
+        'to': to_date,
+        'points': points,
+        'stats': stats,
+    })
+
+
+@role_required('user', 'admin', 'viewer')
+def sensor_export_csv(request):
+    """
+    Download sensor history as CSV.
+
+    Supports:
+      ?range=1h/6h/24h/7d/30d/all
+      ?from=YYYY-MM-DD&to=YYYY-MM-DD
+    """
+    import csv
+    import pytz
+    from django.http import HttpResponse
+
+    bdt = pytz.timezone('Asia/Dhaka')
+
+    qs, range_key, from_date, to_date = _sensor_filtered_queryset(request)
+
+    if from_date or to_date:
+        filename_suffix = f"{from_date or 'start'}_to_{to_date or 'end'}"
+    else:
+        filename_suffix = range_key
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = (
+        f'attachment; filename="colocation_sensor_{filename_suffix}.csv"'
+    )
+
+    writer = csv.writer(response)
+
+    writer.writerow([
+        'Recorded At (BDT)',
+        'Device',
+        'Temperature (C)',
+        'Humidity (%)',
+        'Battery (%)',
+        'Battery State',
+        'Online',
+    ])
+
+    for r in qs:
+        writer.writerow([
+            r.recorded_at.astimezone(bdt).strftime(
+                '%d/%m/%Y %I:%M:%S %p'
+            ),
+            r.device_name,
+            r.temperature_c if r.temperature_c is not None else '',
+            r.humidity_pct if r.humidity_pct is not None else '',
+            r.battery_pct if r.battery_pct is not None else '',
+            r.battery_state or '',
+            'Yes' if r.is_online else 'No',
+        ])
+
+    return response
+
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# GENERATOR FUEL REPORT
+# ══════════════════════════════════════════════════════════════════════════════
+
+@role_required('user', 'admin', 'viewer')
+def generator_fuel_report(request):
+    """
+    Generator Fuel Report.
+
+    Accessible by:
+        Admin
+        User
+        Viewer
+
+    Fuel Loaded:
+        After Fuel - Before Fuel
+
+    Fuel Used:
+        Previous After Fuel - Current Before Fuel
+
+    Runtime:
+        PDB outage duration assigned to the selected generator.
+    """
+    from decimal import Decimal
+    from datetime import datetime as dt, timedelta
+    import json
+    import pytz
+
+    from monitor.models import (
+        GeneratorFuelLog,
+        GeneratorModeLog,
+        OutageCycle,
+    )
+
+    bdt = pytz.timezone('Asia/Dhaka')
+    role = get_role(request.user)
+
+    report_floor = bdt.localize(
+        dt(2026, 4, 1, 0, 0, 0)
+    )
+
+    now_bdt = dt.now(bdt)
+
+    # --------------------------------------------------------
+    # GENERATOR ASSIGNMENT
+    # --------------------------------------------------------
+    mode_logs = list(
+        GeneratorModeLog.objects
+        .all()
+        .order_by('switched_at')
+    )
+
+    def cycle_generator(cycle):
+        if cycle.manual_generator:
+            return cycle.manual_generator
+
+        chosen = None
+
+        for entry in mode_logs:
+            if entry.switched_at <= cycle.outage_start:
+                chosen = entry.generator
+            else:
+                break
+
+        return chosen
+
+    # --------------------------------------------------------
+    # RUNTIME
+    # --------------------------------------------------------
+    def runtime_for_generator(generator, start_dt, end_dt):
+
+        if not start_dt or not end_dt or end_dt <= start_dt:
+            return 0
+
+        cycles = (
+            OutageCycle.objects
+            .filter(
+                outage_start__gte=start_dt,
+                outage_start__lt=end_dt,
+                pdb_duration_sec__gt=0,
+            )
+            .order_by('outage_start')
+        )
+
+        total = 0
+
+        for cycle in cycles:
+            if cycle_generator(cycle) == generator:
+                total += cycle.pdb_duration_sec or 0
+
+        return total
+
+    def fmt_runtime(seconds):
+        seconds = int(seconds or 0)
+
+        h, rem = divmod(seconds, 3600)
+        m, s = divmod(rem, 60)
+
+        if h:
+            return f'{h}h {m:02d}m'
+        if m:
+            return f'{m}m {s:02d}s'
+        if s:
+            return f'{s}s'
+
+        return '—'
+
+    # --------------------------------------------------------
+    # FILTER MODE
+    #
+    # Default:
+    #   Monthly report for the PREVIOUS calendar month.
+    #
+    # Modes:
+    #   month = selected calendar month
+    #   range = custom date range
+    #   all   = 01-Apr-2026 through current time
+    # --------------------------------------------------------
+
+    current_month_start = bdt.localize(
+        dt(now_bdt.year, now_bdt.month, 1)
+    )
+
+    if current_month_start.month == 1:
+        previous_month_start = bdt.localize(
+            dt(current_month_start.year - 1, 12, 1)
+        )
+    else:
+        previous_month_start = bdt.localize(
+            dt(
+                current_month_start.year,
+                current_month_start.month - 1,
+                1
+            )
+        )
+
+    if previous_month_start < report_floor:
+        previous_month_start = report_floor
+
+    default_month_value = previous_month_start.strftime('%Y-%m')
+
+    mode = request.GET.get('mode', 'month').strip().lower()
+
+    month_value = request.GET.get(
+        'month',
+        default_month_value
+    ).strip()
+
+    from_value = request.GET.get('from', '').strip()
+    to_value = request.GET.get('to', '').strip()
+
+    # --------------------------------------------------------
+    # ALL TIME
+    # --------------------------------------------------------
+    if mode == 'all':
+
+        range_start = report_floor
+        range_end = now_bdt + timedelta(seconds=1)
+
+        report_label = (
+            f"All Time · "
+            f"{report_floor.strftime('%d %b %Y')} – "
+            f"{now_bdt.strftime('%d %b %Y')}"
+        )
+
+    # --------------------------------------------------------
+    # CUSTOM DATE RANGE
+    # --------------------------------------------------------
+    elif mode == 'range':
+
+        if not from_value:
+            from_value = report_floor.strftime('%Y-%m-%d')
+
+        if not to_value:
+            to_value = now_bdt.strftime('%Y-%m-%d')
+
+        try:
+            range_start = bdt.localize(
+                dt.strptime(from_value, '%Y-%m-%d')
+            )
+
+            range_end_day = bdt.localize(
+                dt.strptime(to_value, '%Y-%m-%d')
+            )
+
+        except ValueError:
+            range_start = report_floor
+
+            range_end_day = bdt.localize(
+                dt(
+                    now_bdt.year,
+                    now_bdt.month,
+                    now_bdt.day
+                )
+            )
+
+            from_value = report_floor.strftime('%Y-%m-%d')
+            to_value = now_bdt.strftime('%Y-%m-%d')
+
+        if range_start < report_floor:
+            range_start = report_floor
+            from_value = report_floor.strftime('%Y-%m-%d')
+
+        today_start = bdt.localize(
+            dt(
+                now_bdt.year,
+                now_bdt.month,
+                now_bdt.day
+            )
+        )
+
+        if range_end_day > today_start:
+            range_end_day = today_start
+            to_value = today_start.strftime('%Y-%m-%d')
+
+        if range_end_day < range_start:
+            range_end_day = range_start
+            to_value = range_start.strftime('%Y-%m-%d')
+
+        range_end = range_end_day + timedelta(days=1)
+
+        report_label = (
+            f"{range_start.strftime('%d %b %Y')} – "
+            f"{range_end_day.strftime('%d %b %Y')}"
+        )
+
+    # --------------------------------------------------------
+    # MONTHLY
+    # --------------------------------------------------------
+    else:
+        mode = 'month'
+
+        try:
+            month_naive = dt.strptime(
+                month_value + '-01',
+                '%Y-%m-%d'
+            )
+
+        except ValueError:
+            month_naive = dt(
+                previous_month_start.year,
+                previous_month_start.month,
+                1
+            )
+
+            month_value = default_month_value
+
+        range_start = bdt.localize(month_naive)
+
+        if range_start < report_floor:
+            range_start = report_floor
+            month_value = report_floor.strftime('%Y-%m')
+
+        if range_start.month == 12:
+            range_end = bdt.localize(
+                dt(range_start.year + 1, 1, 1)
+            )
+        else:
+            range_end = bdt.localize(
+                dt(
+                    range_start.year,
+                    range_start.month + 1,
+                    1
+                )
+            )
+
+        report_label = range_start.strftime('%B %Y')
+
+    # --------------------------------------------------------
+    # BUILD CALCULATED FUEL INTERVALS
+    # --------------------------------------------------------
+    all_logs = list(
+        GeneratorFuelLog.objects
+        .all()
+        .order_by('generator', 'reading_at', 'id')
+    )
+
+    previous_by_generator = {}
+    calculated = []
+
+    for entry in all_logs:
+
+        previous = previous_by_generator.get(entry.generator)
+
+        loaded = (
+            entry.fuel_after_l -
+            entry.fuel_before_l
+        )
+
+        fuel_used = None
+        level_increase_l = None
+        runtime_sec = 0
+        consumption_lph = None
+        status = 'BASELINE'
+
+        if previous:
+
+            raw_fuel_used = (
+                previous.fuel_after_l -
+                entry.fuel_before_l
+            )
+
+            runtime_sec = runtime_for_generator(
+                entry.generator,
+                previous.reading_at,
+                entry.reading_at
+            )
+
+            # Negative calculated fuel usage is not treated as
+            # consumption. Keep the record as a partial interval.
+            if raw_fuel_used < 0:
+                fuel_used = None
+                consumption_lph = None
+                status = 'PARTIAL'
+
+            else:
+                fuel_used = raw_fuel_used
+
+                if runtime_sec <= 0:
+                    status = 'PARTIAL'
+
+                else:
+                    runtime_hours = (
+                        Decimal(runtime_sec) /
+                        Decimal('3600')
+                    )
+
+                    if runtime_hours > 0:
+                        consumption_lph = (
+                            fuel_used /
+                            runtime_hours
+                        )
+
+                    status = 'COMPLETE'
+
+        calculated.append({
+            'obj': entry,
+            'fuel_loaded': loaded,
+            'fuel_used': fuel_used,
+            'level_increase_l': level_increase_l,
+            'runtime_sec': runtime_sec,
+            'runtime_fmt': fmt_runtime(runtime_sec),
+            'consumption_lph': consumption_lph,
+            'status': status,
+        })
+
+        previous_by_generator[entry.generator] = entry
+
+    # --------------------------------------------------------
+    # SELECTED REPORT ROWS
+    # --------------------------------------------------------
+    selected_rows = [
+        row for row in calculated
+        if (
+            range_start
+            <= row['obj'].reading_at
+            < range_end
+        )
+    ]
+
+    # --------------------------------------------------------
+    # GENERATOR SUMMARY
+    # --------------------------------------------------------
+    summary = {}
+
+    for gen in ('Gen-01', 'Gen-02'):
+
+        rows = [
+            row for row in selected_rows
+            if row['obj'].generator == gen
+        ]
+
+        loaded = sum(
+            (
+                row['fuel_loaded']
+                for row in rows
+            ),
+            Decimal('0')
+        )
+
+        used_values = [
+            row['fuel_used']
+            for row in rows
+            if (
+                row['fuel_used'] is not None
+                and row['fuel_used'] >= 0
+            )
+        ]
+
+        used = sum(
+            used_values,
+            Decimal('0')
+        )
+
+        runtime_sec = runtime_for_generator(
+            gen,
+            range_start,
+            range_end
+        )
+
+        lph = None
+
+        if runtime_sec > 0 and used_values:
+            lph = (
+                used /
+                (
+                    Decimal(runtime_sec) /
+                    Decimal('3600')
+                )
+            )
+
+        latest = (
+            GeneratorFuelLog.objects
+            .filter(
+                generator=gen,
+                reading_at__lt=range_end
+            )
+            .order_by('-reading_at')
+            .first()
+        )
+
+        summary[gen] = {
+            'loaded': loaded,
+            'used': used if used_values else None,
+            'runtime_sec': runtime_sec,
+            'runtime_fmt': fmt_runtime(runtime_sec),
+            'consumption_lph': lph,
+            'entries': len(rows),
+            'latest_level': (
+                latest.fuel_after_l
+                if latest else None
+            ),
+        }
+
+    # --------------------------------------------------------
+    # COMBINED TOTALS
+    # --------------------------------------------------------
+    total_loaded = (
+        summary['Gen-01']['loaded'] +
+        summary['Gen-02']['loaded']
+    )
+
+    used_parts = [
+        s['used']
+        for s in summary.values()
+        if s['used'] is not None
+    ]
+
+    total_used = (
+        sum(used_parts, Decimal('0'))
+        if used_parts else None
+    )
+
+    total_runtime_sec = (
+        summary['Gen-01']['runtime_sec'] +
+        summary['Gen-02']['runtime_sec']
+    )
+
+    overall_lph = None
+
+    if total_used is not None and total_runtime_sec > 0:
+        overall_lph = (
+            total_used /
+            (
+                Decimal(total_runtime_sec) /
+                Decimal('3600')
+            )
+        )
+
+    totals = {
+        'loaded': total_loaded,
+        'used': total_used,
+        'runtime_fmt': fmt_runtime(total_runtime_sec),
+        'runtime_sec': total_runtime_sec,
+        'consumption_lph': overall_lph,
+        'entries': len(selected_rows),
+    }
+
+    # --------------------------------------------------------
+    # CHART DATA
+    # --------------------------------------------------------
+    chart_labels = []
+    chart_gen1 = []
+    chart_gen2 = []
+
+    for row in sorted(
+        selected_rows,
+        key=lambda x: x['obj'].reading_at
+    ):
+        if row['consumption_lph'] is None:
+            continue
+
+        label = row['obj'].reading_at.astimezone(
+            bdt
+        ).strftime('%d %b %H:%M')
+
+        chart_labels.append(label)
+
+        if row['obj'].generator == 'Gen-01':
+            chart_gen1.append(
+                float(row['consumption_lph'])
+            )
+            chart_gen2.append(None)
+        else:
+            chart_gen1.append(None)
+            chart_gen2.append(
+                float(row['consumption_lph'])
+            )
+
+    runtime_chart = {
+        'labels': ['Generator 01', 'Generator 02'],
+        'values': [
+            round(
+                summary['Gen-01']['runtime_sec'] / 3600,
+                2
+            ),
+            round(
+                summary['Gen-02']['runtime_sec'] / 3600,
+                2
+            ),
+        ],
+    }
+
+    fuel_chart = {
+        'labels': ['Generator 01', 'Generator 02'],
+        'loaded': [
+            float(summary['Gen-01']['loaded']),
+            float(summary['Gen-02']['loaded']),
+        ],
+        'used': [
+            float(summary['Gen-01']['used'] or 0),
+            float(summary['Gen-02']['used'] or 0),
+        ],
+    }
+
+    return render(
+        request,
+        'monitor/generator_fuel_report.html',
+        {
+            'role': role,
+            'user': request.user,
+
+            'report_floor': report_floor,
+            'report_label': report_label,
+
+            'mode': mode,
+            'month_value': month_value,
+            'from_value': from_value,
+            'to_value': to_value,
+
+            'rows': list(reversed(selected_rows)),
+            'summary': summary,
+            'totals': totals,
+
+            'chart_labels_json': json.dumps(chart_labels),
+            'chart_gen1_json': json.dumps(chart_gen1),
+            'chart_gen2_json': json.dumps(chart_gen2),
+            'runtime_chart_json': json.dumps(runtime_chart),
+            'fuel_chart_json': json.dumps(fuel_chart),
+        }
+    )

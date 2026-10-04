@@ -69,9 +69,10 @@
 
     /* BANNER GRID */
     .banner-grid {
-      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
       gap: 1rem; margin-bottom: 1.25rem;
     }
+    @media (max-width: 1300px) { .banner-grid { grid-template-columns: 1fr 1fr; } }
     /* GEN/ATS AUTO MODE — neon accents inside the 3rd banner */
     .gen-neon-label {
       color: #c4b5fd; text-shadow: 0 0 6px rgba(167,139,250,.55);
@@ -99,6 +100,15 @@
     .gen-pill#gen-pill-1.active { color: #f97316; }
     .gen-pill#gen-pill-2.active { color: #3b82f6; }
     .gen-mode-time { font-size: .68rem; white-space: nowrap; }
+
+    /* COLOCATION BANNER — small inline readout pills (temp / humidity / battery) */
+    .colo-readout { display:flex; align-items:baseline; gap:.5rem; flex-wrap:wrap; margin-top:1px; }
+    .colo-readout .big { font-size:.82rem; font-weight:700; }
+    .colo-dot {
+      width:8px; height:8px; border-radius:50%; display:inline-block;
+      margin-right:5px; box-shadow:0 0 5px currentColor;
+      animation: glow-g 2s infinite;
+    }
 
     /* DEVICES */
     .devices-row {
@@ -342,6 +352,23 @@
       <div class="banner-time gen-mode-time">
         <div>Since</div>
         <div id="gen-mode-meta">—</div>
+      </div>
+    </div>
+
+    <!-- Division 4: Colocation Room (Tuya Temp/Humidity Sensor) -->
+    <div class="banner UNKNOWN" id="colo-banner">
+      <div class="banner-icon" id="colo-icon">🌡️</div>
+      <div class="banner-text">
+        <div class="banner-label">Colocation Room</div>
+        <div class="colo-readout" id="colo-readout">
+          <span class="big" id="colo-temp">—°C</span>
+          <span id="colo-humidity" style="color:var(--muted)">—% RH</span>
+        </div>
+        <p id="colo-sub">Fetching sensor data...</p>
+      </div>
+      <div class="banner-time">
+        <div>Last Poll</div>
+        <div id="colo-time">—</div>
       </div>
     </div>
   </div>
@@ -611,6 +638,55 @@ function refresh() {
     .catch(() => {});
 }
 
+// ── Colocation Room (Tuya sensor) refresh ───────────────────────────────────
+function refreshColocation() {
+  fetch('/api/sensor-status/')
+    .then(r => r.json())
+    .then(d => {
+      const banner  = document.getElementById('colo-banner');
+      const iconEl  = document.getElementById('colo-icon');
+      const tempEl  = document.getElementById('colo-temp');
+      const humEl   = document.getElementById('colo-humidity');
+      const subEl   = document.getElementById('colo-sub');
+      const timeEl  = document.getElementById('colo-time');
+      if (!banner) return;
+
+      if (!d.configured) {
+        banner.className = 'banner UNKNOWN';
+        if (iconEl) iconEl.textContent = '🌡️';
+        if (subEl)  subEl.textContent  = 'Sensor not configured yet';
+        return;
+      }
+      if (!d.has_data) {
+        banner.className = 'banner UNKNOWN';
+        if (iconEl) iconEl.textContent = '🌡️';
+        if (subEl)  subEl.textContent  = 'No readings yet';
+        return;
+      }
+
+      banner.className = 'banner ' + (d.is_online ? 'NORMAL' : 'OUTAGE');
+      if (iconEl) iconEl.textContent = d.is_online ? '🌡️' : '⚠️';
+      if (tempEl) tempEl.textContent = (d.temperature_c !== null && d.temperature_c !== undefined)
+        ? d.temperature_c.toFixed(1) + '°C' : '—°C';
+      if (humEl)  humEl.textContent  = (d.humidity_pct !== null && d.humidity_pct !== undefined)
+        ? d.humidity_pct.toFixed(1) + '% RH' : '—% RH';
+
+      let batteryText = '';
+      if (d.battery_pct !== null && d.battery_pct !== undefined) {
+        batteryText = 'Battery ' + Math.round(d.battery_pct) + '%';
+      } else if (d.battery_state) {
+        batteryText = 'Battery ' + d.battery_state.charAt(0).toUpperCase() + d.battery_state.slice(1);
+      }
+      const dotColor = d.is_online ? 'var(--green)' : 'var(--red)';
+      if (subEl) subEl.innerHTML =
+        `<span class="colo-dot" style="background:${dotColor};color:${dotColor}"></span>` +
+        (d.is_online ? 'Online' : 'Offline') +
+        (batteryText ? ' · ' + batteryText : '');
+      if (timeEl) timeEl.textContent = d.recorded_at || '—';
+    })
+    .catch(() => {});
+}
+
 // ── Daily Summary Panel ───────────────────────────────────────────────────────
 let currentSummaryDate = '';
 
@@ -765,11 +841,13 @@ function tick() {
     counter = 30;
     refresh();
     loadSummary(currentSummaryDate);
+    refreshColocation();
   }
 }
 
 refresh();
 loadSummary('');
+refreshColocation();
 setInterval(tick, 1000);
 
 // ── WhatsApp Token Health Banner (checks at most once every 6 hours) ───────────
@@ -891,4 +969,3 @@ setInterval(checkMaintenanceStatus, 30 * 1000); // poll every 30s — needs to b
 
 </body>
 </html>
-

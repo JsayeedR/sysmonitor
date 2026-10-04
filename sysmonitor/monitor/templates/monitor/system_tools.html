@@ -413,21 +413,25 @@ function loadRecentCycles() {
               <th style="padding:.4rem .6rem;color:var(--muted);font-weight:500;text-align:left;">Duration</th>
               <th style="padding:.4rem .6rem;color:var(--muted);font-weight:500;text-align:left;">Type</th>
               <th style="padding:.4rem .6rem;color:var(--muted);font-weight:500;text-align:left;">Status</th>
+              <th style="padding:.4rem .6rem;color:var(--muted);font-weight:500;text-align:left;">Added By</th>
+              <th style="padding:.4rem .6rem;color:var(--muted);font-weight:500;text-align:left;">Note</th>
             </tr>
           </thead>
           <tbody>
             ${data.cycles.map(c => `
-              <tr style="border-bottom:1px solid var(--border);">
+              <tr style="border-bottom:1px solid var(--border);${c.is_manual ? 'background:rgba(251,146,60,.06);' : ''}">
                 <td style="padding:.4rem .6rem;color:var(--orange);font-weight:600;">${c.id}</td>
                 <td style="padding:.4rem .6rem;font-family:monospace;">${c.start}</td>
                 <td style="padding:.4rem .6rem;font-family:monospace;">${c.end}</td>
                 <td style="padding:.4rem .6rem;">${c.duration}</td>
-                <td style="padding:.4rem .6rem;">${c.type}</td>
+                <td style="padding:.4rem .6rem;">${c.is_manual ? '✍️ ' : ''}${c.type}</td>
                 <td style="padding:.4rem .6rem;">
                   <span style="color:${c.complete ? 'var(--green)' : 'var(--orange)'}">
                     ${c.complete ? '✅ Complete' : '⏳ Ongoing'}
                   </span>
                 </td>
+                <td style="padding:.4rem .6rem;">${c.added_by}</td>
+                <td style="padding:.4rem .6rem;color:var(--muted);max-width:220px;">${c.note || '—'}</td>
               </tr>
             `).join('')}
           </tbody>

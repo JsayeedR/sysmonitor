@@ -1,0 +1,11 @@
+[Unit]
+Description=SysMonitor Tuya Colocation Sensor Poll — every 2 minutes
+Requires=sysmonitor-tuya-poll.service
+
+[Timer]
+OnCalendar=*-*-* *:0/2:00
+AccuracySec=10s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

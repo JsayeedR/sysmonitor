@@ -49,3 +49,38 @@ class UsageTrackingMiddleware:
                     profile.save(update_fields=["total_usage_seconds", "last_activity_at"])
 
         return response
+
+
+# Paths a user with must_change_password=True is still allowed to hit —
+# otherwise they'd be stuck unable to even load the change-password page,
+# its save endpoint, static assets, or log out.
+_PASSWORD_CHANGE_ALLOWED_PREFIXES = (
+    '/profile/password',
+    '/logout',
+    '/static/',
+    '/media/',
+)
+
+
+class ForcePasswordChangeMiddleware:
+    """
+    After a "Forgot password" reset, the account is logged in with a
+    temporary password (see views.password_reset_request). This middleware
+    redirects every request straight to the change-password page until the
+    user sets a real one, so a temporary password can't linger in use.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = getattr(request, "user", None)
+        if user is not None and user.is_authenticated:
+            if not any(request.path.startswith(p) for p in _PASSWORD_CHANGE_ALLOWED_PREFIXES):
+                try:
+                    profile = user.userprofile
+                except Exception:
+                    profile = None
+                if profile is not None and profile.must_change_password:
+                    from django.shortcuts import redirect
+                    return redirect('profile_password')
+        return self.get_response(request)

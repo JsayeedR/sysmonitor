@@ -2,13 +2,16 @@
 monitor/daily_summary.py
 ─────────────────────────
 Builds the daily Generator Log summary report by matching each completed
-OutageCycle to the generator that was in "auto mode" during that cycle's
-time window, based on manually logged GeneratorModeLog entries.
+OutageCycle to the generator(s) that were in "auto mode" during that
+cycle's time window, based on manually logged GeneratorModeLog entries.
 
-Matching rule: for each outage cycle's outage_start time, find the most
-recent GeneratorModeLog entry with switched_at <= outage_start. That's
-the generator that was active. If no log entry exists before the outage
-at all (very first entry in history), it's marked UNASSIGNED.
+Matching rule: for each portion of a cycle, find the most recent
+GeneratorModeLog entry with switched_at <= that portion's start. If a
+generator switch happens WHILE the cycle is still ongoing (e.g. Gen-01
+hands off to Gen-02 mid-outage), the cycle's duration is split at that
+switch point so each generator only gets credited for the time it was
+actually running (see get_generator_segments()). If no log entry exists
+before the outage at all, it's marked UNASSIGNED.
 """
 
 from datetime import datetime, timedelta
@@ -37,9 +40,11 @@ def fmt_duration(total_secs):
 
 def get_generator_for_cycle(cycle, mode_logs_sorted):
     """
-    mode_logs_sorted: list of GeneratorModeLog objects sorted by switched_at ASC.
-    Returns the generator name active at the time this cycle's outage started,
-    using "last known generator before the gap" as the default rule.
+    Returns the generator active at the moment this cycle's outage started.
+    Kept for anywhere that only needs a single best-guess label (e.g. a
+    quick UI hint) — for anything that needs to be accurate when a
+    generator changeover happened DURING the outage, use
+    get_generator_segments() instead, which splits the window properly.
 
     Manual/audited cycles (cycle.is_manual=True) carry their own explicit
     manual_generator value set by whoever entered them — that always wins
@@ -60,6 +65,53 @@ def get_generator_for_cycle(cycle, mode_logs_sorted):
             break  # logs are sorted ascending, no need to check further
 
     return active_gen or 'UNASSIGNED'
+
+
+def get_generator_segments(cycle, seg_start, seg_end, mode_logs_sorted):
+    """
+    Splits the time window [seg_start, seg_end) into one or more
+    (start, end, generator) pieces, cut at every GeneratorModeLog switch
+    point that falls strictly inside the window.
+
+    This is what correctly handles an outage that spans a generator
+    changeover mid-cycle (e.g. Gen-01 -> Gen-02 while Holder is still
+    down) — instead of the whole span being stamped with whichever
+    generator happened to be active at the very start (which is what
+    get_generator_for_cycle() alone would do, and is wrong for exactly
+    this case — see the 24/09/2026 09:09-12:02 outage, which needed a
+    manual split for this reason before this function existed).
+
+    Manual/audited cycles (cycle.is_manual=True) are never split — the
+    human who logged it already stated the one generator responsible for
+    that whole entry, and that always wins.
+    """
+    if cycle.is_manual and cycle.manual_generator:
+        return [(seg_start, seg_end, cycle.manual_generator)]
+
+    if seg_end <= seg_start:
+        return []
+
+    # Generator active at the moment this window begins.
+    current_gen = 'UNASSIGNED'
+    for log in mode_logs_sorted:
+        if log.switched_at <= seg_start:
+            current_gen = log.generator
+        else:
+            break
+
+    # Switch points strictly inside the window, already ascending since
+    # mode_logs_sorted is sorted by switched_at.
+    switches_inside = [log for log in mode_logs_sorted
+                        if seg_start < log.switched_at < seg_end]
+
+    pieces = []
+    cursor = seg_start
+    for sw in switches_inside:
+        pieces.append((cursor, sw.switched_at, current_gen))
+        cursor = sw.switched_at
+        current_gen = sw.generator
+    pieces.append((cursor, seg_end, current_gen))
+    return pieces
 
 
 def build_daily_summary(target_date):
@@ -113,19 +165,22 @@ def build_daily_summary(target_date):
         for seg in split_cycle_by_day(c, BDT, now=now):
             if seg['date'] != target_date:
                 continue
-            secs = seg['duration_sec']
-            if secs <= 0:
-                continue
 
-            gen = get_generator_for_cycle(c, mode_logs)
-            rows.append({
-                'start': seg['start'].strftime('%I:%M:%S %p'),
-                'end': 'ongoing…' if seg['is_ongoing'] else seg['end'].strftime('%I:%M:%S %p'),
-                'duration_sec': secs,
-                'generator': gen,
-                'is_ongoing': seg['is_ongoing'],
-            })
-            totals[gen] = totals.get(gen, 0) + secs
+            pieces = get_generator_segments(c, seg['start'], seg['end'], mode_logs)
+            for i, (p_start, p_end, gen) in enumerate(pieces):
+                secs = int((p_end - p_start).total_seconds())
+                if secs <= 0:
+                    continue
+                is_ongoing_piece = seg['is_ongoing'] and (i == len(pieces) - 1)
+
+                rows.append({
+                    'start': p_start.astimezone(BDT).strftime('%I:%M:%S %p'),
+                    'end': 'ongoing…' if is_ongoing_piece else p_end.astimezone(BDT).strftime('%I:%M:%S %p'),
+                    'duration_sec': secs,
+                    'generator': gen,
+                    'is_ongoing': is_ongoing_piece,
+                })
+                totals[gen] = totals.get(gen, 0) + secs
 
     grand_total = sum(totals.values())
 

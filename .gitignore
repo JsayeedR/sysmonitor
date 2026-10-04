@@ -40,3 +40,39 @@ sysmonitor-apk/local.properties
 .vscode/
 .idea/
 sysmonitor-apk/
+
+
+# ============================================================
+# SysMonitor local / private files
+# ============================================================
+
+# SysMonitor backups
+sysmonitor/backups/
+
+# Environment / credential files
+sysmonitor/.env
+sysmonitor/.env*
+
+# Temporary pre-patch copies
+sysmonitor/**/*.pre-patch*
+sysmonitor/*.pre-patch*
+
+# Manual backup copies
+sysmonitor/**/*.backup
+sysmonitor/**/*.backup_*
+sysmonitor/**/*.bak
+sysmonitor/**/*.bak_*
+
+# Local database
+sysmonitor/db.sqlite3
+sysmonitor/*.sqlite3
+
+# Local Python environment
+sysmonitor/venv/
+
+# User uploads / media
+sysmonitor/media/
+
+# Python cache
+sysmonitor/**/__pycache__/
+sysmonitor/**/*.pyc
