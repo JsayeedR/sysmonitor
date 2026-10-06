@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.conf import settings
+from django.db import transaction
 from django.http import JsonResponse
 from .models import Device, DeviceStatus, Event, SystemStatus, UserProfile, ActivityLog, OutageCycle, SensorAlarmConfig
 from django.http import JsonResponse
@@ -1989,6 +1990,7 @@ def generator_log_page(request):
 
 
 @login_required
+@transaction.atomic
 def generator_log_add(request):
     """AJAX POST to add a new Generator Mode Log entry. Any logged-in user can add."""
     if request.method != 'POST':
@@ -2027,16 +2029,24 @@ def generator_log_add(request):
                      f'Contact an admin if it needs correction.'
         })
 
-    GeneratorModeLog.objects.create(
+    entry = GeneratorModeLog.objects.create(
         generator=generator,
         switched_at=switched_at,
         note=note,
         added_by=request.user.username,
     )
+
+    detail = (
+        f'Generator shift added: ID:{entry.id}, {generator}, '
+        f'time={switched_at}, by={request.user.username}'
+    )
+    log_activity(request.user, 'GEN_SHIFT_ADD', detail, get_ip(request))
+    Event.objects.create(device=None, level='NOTICE', message=detail)
     return JsonResponse({'ok': True})
 
 
 @role_required('admin')
+@transaction.atomic
 def generator_log_edit(request, eid):
     """AJAX POST to edit an existing entry. Admin only."""
     if request.method != 'POST':
@@ -2050,6 +2060,9 @@ def generator_log_edit(request, eid):
         e = GeneratorModeLog.objects.get(id=eid)
     except GeneratorModeLog.DoesNotExist:
         return JsonResponse({'ok': False, 'error': 'Entry not found'})
+
+    previous_generator = e.generator
+    previous_time = e.switched_at
 
     generator = d.get('generator', e.generator).strip()
     date_str  = d.get('date', '').strip()
@@ -2070,15 +2083,37 @@ def generator_log_edit(request, eid):
     e.generator = generator
     e.note = note
     e.save()
+
+    detail = (
+        f'Generator shift edited: ID:{e.id}, '
+        f'{previous_generator} at {previous_time} -> '
+        f'{e.generator} at {e.switched_at}, '
+        f'by={request.user.username}'
+    )
+    log_activity(request.user, 'GEN_SHIFT_EDIT', detail, get_ip(request))
+    Event.objects.create(device=None, level='NOTICE', message=detail)
     return JsonResponse({'ok': True})
 
 
 @role_required('admin')
+@transaction.atomic
 def generator_log_delete(request, eid):
     """Delete an entry. Admin only."""
     if request.method != 'POST':
         return JsonResponse({'ok': False})
-    GeneratorModeLog.objects.filter(id=eid).delete()
+    entry = GeneratorModeLog.objects.filter(id=eid).first()
+    if not entry:
+        return JsonResponse({'ok': False, 'error': 'Entry not found'})
+
+    detail = (
+        f'Generator shift deleted: ID:{entry.id}, '
+        f'{entry.generator} at {entry.switched_at}, '
+        f'by={request.user.username}'
+    )
+
+    entry.delete()
+    log_activity(request.user, 'GEN_SHIFT_DELETE', detail, get_ip(request))
+    Event.objects.create(device=None, level='NOTICE', message=detail)
     return JsonResponse({'ok': True})
 
 
