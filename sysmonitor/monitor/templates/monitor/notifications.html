@@ -373,8 +373,27 @@
     <div class="card">
       <div class="card-header">
         <div class="card-title">📋 Recent Notification Log</div>
-        <button class="btn btn-ghost btn-sm" onclick="loadLog()">🔄 Refresh</button>
+
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-ghost btn-sm notif-range-btn" data-range="this_week" onclick="setNotifRange('this_week')">This Week</button>
+          <button class="btn btn-ghost btn-sm notif-range-btn" data-range="last_week" onclick="setNotifRange('last_week')">Last Week</button>
+          <button class="btn btn-ghost btn-sm notif-range-btn active" data-range="this_month" onclick="setNotifRange('this_month')">This Month</button>
+          <button class="btn btn-ghost btn-sm notif-range-btn" data-range="last_month" onclick="setNotifRange('last_month')">Last Month</button>
+          <button class="btn btn-ghost btn-sm notif-range-btn" data-range="this_year" onclick="setNotifRange('this_year')">This Year</button>
+          <button class="btn btn-ghost btn-sm notif-range-btn" data-range="all" onclick="setNotifRange('all')">All Time</button>
+
+          <button class="btn btn-ghost btn-sm" onclick="exportNotifLog('csv')">⬇ CSV</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportNotifLog('pdf')">📄 PDF</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadLog()">🔄 Refresh</button>
+        </div>
       </div>
+      <div
+        id="notif-log-count"
+        style="font-size:.72rem;color:var(--muted);margin:.65rem 0;"
+      >
+        Showing: This Month
+      </div>
+
       <table class="log-table" id="log-table">
         <thead>
           <tr><th>Time</th><th>Event</th><th>Channel</th><th>Recipient</th><th>Status</th><th>Error</th></tr>
@@ -750,9 +769,40 @@ function saveEdit() {
 }
 
 // Log
+let notifLogRange = 'this_month';
+
+function setNotifRange(range) {
+  notifLogRange = range;
+
+  document.querySelectorAll('.notif-range-btn').forEach(btn => {
+    btn.classList.toggle(
+      'active',
+      btn.dataset.range === range
+    );
+  });
+
+  loadLog();
+}
+
+function exportNotifLog(format) {
+  window.location.href =
+    `{{ base_path }}/notifications/log/?range=${encodeURIComponent(notifLogRange)}&export=${encodeURIComponent(format)}`;
+}
+
 function loadLog() {
-  fetch('{{ base_path }}/notifications/log/').then(r=>r.json()).then(r => {
+  fetch(
+    `{{ base_path }}/notifications/log/?range=${encodeURIComponent(notifLogRange)}`
+  ).then(r=>r.json()).then(r => {
     const tbody = document.getElementById('log-tbody');
+
+    const countEl = document.getElementById('notif-log-count');
+
+    if (countEl) {
+      const count = Number(r.range_count || 0);
+      countEl.textContent =
+        `Showing: ${r.range_label || notifLogRange} • ` +
+        `${count} ${count === 1 ? 'entry' : 'entries'}`;
+    }
     if (!r.logs.length) {
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem;">No notifications sent yet.</td></tr>';
       return;

@@ -761,70 +761,410 @@ def device_delete(request, device_id):
     })
 
 
+
+def _common_log_range(request):
+    """
+    Resolve common log quick-range controls in Asia/Dhaka.
+
+    Returns:
+        range_key, start_dt, end_dt, human_label
+
+    end_dt is exclusive.
+    """
+    import pytz
+    from datetime import datetime as dt, timedelta
+
+    bdt = pytz.timezone('Asia/Dhaka')
+    now = dt.now(bdt)
+
+    range_key = (request.GET.get('range') or 'this_month').strip()
+
+    valid = {
+        'this_week',
+        'last_week',
+        'this_month',
+        'last_month',
+        'this_year',
+        'all',
+    }
+
+    if range_key not in valid:
+        range_key = 'this_month'
+
+    today = now.date()
+
+    if range_key == 'all':
+        return 'all', None, None, 'All Time'
+
+    if range_key == 'this_week':
+        start_date = today - timedelta(days=today.weekday())
+        end_date = start_date + timedelta(days=7)
+        label = 'This Week'
+
+    elif range_key == 'last_week':
+        this_week = today - timedelta(days=today.weekday())
+        start_date = this_week - timedelta(days=7)
+        end_date = this_week
+        label = 'Last Week'
+
+    elif range_key == 'this_month':
+        start_date = today.replace(day=1)
+
+        if start_date.month == 12:
+            end_date = start_date.replace(
+                year=start_date.year + 1,
+                month=1,
+                day=1,
+            )
+        else:
+            end_date = start_date.replace(
+                month=start_date.month + 1,
+                day=1,
+            )
+
+        label = start_date.strftime('%B %Y')
+
+    elif range_key == 'last_month':
+        this_month = today.replace(day=1)
+        end_date = this_month
+
+        if this_month.month == 1:
+            start_date = this_month.replace(
+                year=this_month.year - 1,
+                month=12,
+            )
+        else:
+            start_date = this_month.replace(
+                month=this_month.month - 1,
+            )
+
+        label = start_date.strftime('%B %Y')
+
+    else:  # this_year
+        start_date = today.replace(month=1, day=1)
+        end_date = start_date.replace(year=start_date.year + 1)
+        label = str(start_date.year)
+
+    start_dt = bdt.localize(
+        dt(
+            start_date.year,
+            start_date.month,
+            start_date.day,
+            0, 0, 0,
+        )
+    )
+
+    end_dt = bdt.localize(
+        dt(
+            end_date.year,
+            end_date.month,
+            end_date.day,
+            0, 0, 0,
+        )
+    )
+
+    return range_key, start_dt, end_dt, label
+
+
+def _export_table_response(title, range_label, headers, rows, fmt, filename_base):
+    """Shared CSV/PDF exporter for simple log tables."""
+
+    from django.http import HttpResponse
+
+    fmt = (fmt or '').lower()
+
+    if fmt == 'csv':
+        import csv
+
+        response = HttpResponse(
+            content_type='text/csv; charset=utf-8'
+        )
+        response['Content-Disposition'] = (
+            f'attachment; filename="{filename_base}.csv"'
+        )
+
+        response.write('\ufeff')
+
+        writer = csv.writer(response)
+        writer.writerow([title])
+        writer.writerow(['Period', range_label])
+        writer.writerow([])
+        writer.writerow(headers)
+
+        for row in rows:
+            writer.writerow(row)
+
+        return response
+
+    if fmt == 'pdf':
+        from io import BytesIO
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import landscape, A4
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.units import mm
+        from reportlab.platypus import (
+            SimpleDocTemplate,
+            Paragraph,
+            Spacer,
+            Table,
+            TableStyle,
+        )
+
+        buffer = BytesIO()
+
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=landscape(A4),
+            leftMargin=9 * mm,
+            rightMargin=9 * mm,
+            topMargin=9 * mm,
+            bottomMargin=9 * mm,
+            title=title,
+        )
+
+        styles = getSampleStyleSheet()
+
+        story = [
+            Paragraph(title, styles['Title']),
+            Paragraph(f'Period: {range_label}', styles['Normal']),
+            Spacer(1, 5 * mm),
+        ]
+
+        data = [headers] + [
+            [str(value if value is not None else '') for value in row]
+            for row in rows
+        ]
+
+        col_width = 270 * mm / max(len(headers), 1)
+
+        table = Table(
+            data,
+            repeatRows=1,
+            colWidths=[col_width] * len(headers),
+        )
+
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#D1D5DB')),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 7),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('GRID', (0, 0), (-1, -1), .3, colors.grey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [
+                colors.white,
+                colors.HexColor('#F8FAFC'),
+            ]),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+
+        story.append(table)
+
+        doc.build(story)
+
+        response = HttpResponse(
+            buffer.getvalue(),
+            content_type='application/pdf',
+        )
+
+        response['Content-Disposition'] = (
+            f'attachment; filename="{filename_base}.pdf"'
+        )
+
+        buffer.close()
+
+        return response
+
+    return None
+
+
 # ─── Event Log ────────────────────────────────────────────────────────────────
 
 @role_required('user', 'admin', 'viewer')
 def event_log(request):
+    import pytz
+
     role = get_role(request.user)
+    bdt = pytz.timezone('Asia/Dhaka')
 
     filter_device = request.GET.get('device', '')
-    filter_level  = request.GET.get('level', '')
-    filter_date   = request.GET.get('date', '')
+    filter_level = request.GET.get('level', '')
+    filter_date = request.GET.get('date', '')
+    export_format = request.GET.get('export', '').strip().lower()
+
+    filter_range, range_start, range_end, range_label = (
+        _common_log_range(request)
+    )
 
     events = Event.objects.all()
+
     if filter_device:
         events = events.filter(device__id=filter_device)
+
     if filter_level:
         events = events.filter(level=filter_level)
-    if filter_date:
-        events = events.filter(created_at__date=filter_date)
 
-    events       = list(events[:200])
-    outage_count = sum(1 for e in events if e.level == 'OUTAGE')
-    devices      = Device.objects.all()
+    if filter_date:
+        # Existing exact-date filter remains supported.
+        events = events.filter(created_at__date=filter_date)
+        range_label = filter_date
+
+    elif range_start and range_end:
+        events = events.filter(
+            created_at__gte=range_start,
+            created_at__lt=range_end,
+        )
+
+    events = events.order_by('-created_at')
+
+    range_count = events.count()
+
+    if export_format in ('csv', 'pdf'):
+        export_rows = []
+
+        for e in events:
+            export_rows.append([
+                e.created_at.astimezone(bdt).strftime(
+                    '%d/%m/%Y %I:%M:%S %p'
+                ),
+                e.device.name if e.device else '',
+                e.level,
+                e.message,
+            ])
+
+        response = _export_table_response(
+            'SysMonitor Event Log',
+            range_label,
+            ['Time', 'Device', 'Level', 'Message'],
+            export_rows,
+            export_format,
+            f'event_log_{filter_range}',
+        )
+
+        if response:
+            return response
+
+    events = list(events[:200])
+
+    outage_count = sum(
+        1 for e in events if e.level == 'OUTAGE'
+    )
+
+    devices = Device.objects.all()
 
     context = {
-        'events':        events,
-        'devices':       devices,
+        'events': events,
+        'devices': devices,
         'filter_device': filter_device,
-        'filter_level':  filter_level,
-        'filter_date':   filter_date,
-        'role':          role,
-        'user':          request.user,
-        'level_choices': ['INFO', 'NOTICE', 'OUTAGE', 'GEN-UP', 'ATS', 'NORMAL', 'CRITICAL'],
-        'outage_count':  outage_count,
+        'filter_level': filter_level,
+        'filter_date': filter_date,
+        'filter_range': filter_range,
+        'range_label': range_label,
+        'range_count': range_count,
+        'role': role,
+        'user': request.user,
+        'level_choices': [
+            'INFO',
+            'NOTICE',
+            'OUTAGE',
+            'GEN-UP',
+            'ATS',
+            'NORMAL',
+            'CRITICAL',
+        ],
+        'outage_count': outage_count,
     }
-    return render(request, 'monitor/event_log.html', context)
+
+    return render(
+        request,
+        'monitor/event_log.html',
+        context,
+    )
 
 
 # ─── Activity Log ─────────────────────────────────────────────────────────────
 
 @role_required('admin')
 def activity_log(request):
-    filter_user   = request.GET.get('user', '')
+    import pytz
+
+    bdt = pytz.timezone('Asia/Dhaka')
+
+    filter_user = request.GET.get('user', '')
     filter_action = request.GET.get('action', '')
-    filter_date   = request.GET.get('date', '')
+    filter_date = request.GET.get('date', '')
+    export_format = request.GET.get('export', '').strip().lower()
+
+    filter_range, range_start, range_end, range_label = (
+        _common_log_range(request)
+    )
 
     logs = ActivityLog.objects.all()
+
     if filter_user:
         logs = logs.filter(user__id=filter_user)
+
     if filter_action:
         logs = logs.filter(action=filter_action)
+
     if filter_date:
         logs = logs.filter(timestamp__date=filter_date)
+        range_label = filter_date
+
+    elif range_start and range_end:
+        logs = logs.filter(
+            timestamp__gte=range_start,
+            timestamp__lt=range_end,
+        )
+
+    logs = logs.order_by('-timestamp')
+
+    range_count = logs.count()
+
+    if export_format in ('csv', 'pdf'):
+        export_rows = []
+
+        for item in logs:
+            export_rows.append([
+                item.timestamp.astimezone(bdt).strftime(
+                    '%d/%m/%Y %I:%M:%S %p'
+                ),
+                item.user.username if item.user else '',
+                item.action,
+                item.detail,
+                item.ip_address or '',
+            ])
+
+        response = _export_table_response(
+            'SysMonitor Activity Log',
+            range_label,
+            ['Time', 'User', 'Action', 'Detail', 'IP Address'],
+            export_rows,
+            export_format,
+            f'activity_log_{filter_range}',
+        )
+
+        if response:
+            return response
 
     logs = logs[:300]
 
-    return render(request, 'monitor/activity_log.html', {
-        'logs':           logs,
-        'all_users':      User.objects.all(),
-        'filter_user':    filter_user,
-        'filter_action':  filter_action,
-        'filter_date':    filter_date,
-        'action_choices': ActivityLog.ACTION_CHOICES,
-        'role':           get_role(request.user),
-        'user':           request.user,
-    })
+    return render(
+        request,
+        'monitor/activity_log.html',
+        {
+            'logs': logs,
+            'all_users': User.objects.all(),
+            'filter_user': filter_user,
+            'filter_action': filter_action,
+            'filter_date': filter_date,
+            'filter_range': filter_range,
+            'range_label': range_label,
+            'range_count': range_count,
+            'action_choices': ActivityLog.ACTION_CHOICES,
+            'role': get_role(request.user),
+            'user': request.user,
+        }
+    )
 
 
 # ─── Daily Cycle Summary API ──────────────────────────────────────────────────
@@ -1000,6 +1340,15 @@ def api_report(request):
     from monitor.daily_summary import get_generator_segments, fmt_duration
     from django.utils import timezone as dj_timezone
     mode_logs_all = list(GeneratorModeLog.objects.order_by('switched_at'))
+
+    # Generator runtime totals for the currently selected report range.
+    # These are calculated from the same segmented outage windows used
+    # elsewhere in SysMonitor, so generator changeovers inside one outage
+    # are attributed to the correct generator.
+    gen1_total_secs = 0
+    gen2_total_secs = 0
+    cycle_gen_seconds = {}
+
     for c in cycles:
         local_start = c.outage_start.astimezone(bdt)
         # End time = pdb_restored (when Holder came back = grid restored)
@@ -1018,11 +1367,13 @@ def api_report(request):
         # generator merely happened to be active at the start.
         cycle_end_for_gen = end_dt or dj_timezone.now()
 
-        # Explicit stored generator assignment has priority.
-        # This includes historical generator assignments backfilled
-        # from verified operational records.
+        # Preserve explicit/manual historical generator assignments.
+        # If no explicit assignment exists, split the outage at actual
+        # GeneratorModeLog changeovers.
         if c.manual_generator:
-            gen = c.manual_generator
+            pieces = [
+                (c.outage_start, cycle_end_for_gen, c.manual_generator)
+            ]
         else:
             pieces = get_generator_segments(
                 c,
@@ -1030,14 +1381,35 @@ def api_report(request):
                 cycle_end_for_gen,
                 mode_logs_all
             )
-            distinct_gens = list(
-                dict.fromkeys(
-                    p[2]
-                    for p in pieces
-                    if (p[1] - p[0]).total_seconds() > 0
-                )
+
+        gen_secs = {
+            'Gen-01': 0,
+            'Gen-02': 0,
+            'UNASSIGNED': 0,
+        }
+
+        for p_start, p_end, p_gen in pieces:
+            secs = int((p_end - p_start).total_seconds())
+            if secs <= 0:
+                continue
+            gen_secs[p_gen] = gen_secs.get(p_gen, 0) + secs
+
+        gen1_total_secs += gen_secs.get('Gen-01', 0)
+        gen2_total_secs += gen_secs.get('Gen-02', 0)
+
+        cycle_gen_seconds[c.id] = {
+            'Gen-01': gen_secs.get('Gen-01', 0),
+            'Gen-02': gen_secs.get('Gen-02', 0),
+        }
+
+        distinct_gens = list(
+            dict.fromkeys(
+                p_gen
+                for p_start, p_end, p_gen in pieces
+                if (p_end - p_start).total_seconds() > 0
             )
-            gen = ' → '.join(distinct_gens) if distinct_gens else 'UNASSIGNED'
+        )
+        gen = ' → '.join(distinct_gens) if distinct_gens else 'UNASSIGNED'
 
         cycle_rows.append({
             'date':         local_start.strftime('%Y-%m-%d'),
@@ -1045,6 +1417,10 @@ def api_report(request):
             'end':          local_end.strftime('%I:%M:%S %p') if local_end else '—',
             'duration':     dur_str,
             'generator':    gen,
+            'gen1_runtime': fmt_duration(gen_secs.get('Gen-01', 0)),
+            'gen2_runtime': fmt_duration(gen_secs.get('Gen-02', 0)),
+            'gen1_secs':    gen_secs.get('Gen-01', 0),
+            'gen2_secs':    gen_secs.get('Gen-02', 0),
             'pdb_duration': c.pdb_duration_fmt(),
             'gen_runtime':  c.gen_runtime_fmt(),
             'cycle_type':   c.cycle_type,
@@ -1110,12 +1486,19 @@ def api_report(request):
         mins   = round(c.pdb_duration_sec / 60) if c.pdb_duration_sec else 0
         if m_key not in monthly_map:
             monthly_map[m_key] = {
-                'month': m_label, 'count': 0, 'total_mins': 0,
-                'max_mins': 0, 'days': set()
+                'month': m_label,
+                'count': 0,
+                'total_mins': 0,
+                'gen1_secs': 0,
+                'gen2_secs': 0,
+                'max_mins': 0,
+                'days': set(),
             }
             monthly_order.append(m_key)
         monthly_map[m_key]['count']      += 1
         monthly_map[m_key]['total_mins'] += mins
+        monthly_map[m_key]['gen1_secs'] += cycle_gen_seconds.get(c.id, {}).get('Gen-01', 0)
+        monthly_map[m_key]['gen2_secs'] += cycle_gen_seconds.get(c.id, {}).get('Gen-02', 0)
         monthly_map[m_key]['days'].add(local_start.strftime('%Y-%m-%d'))
         if mins > monthly_map[m_key]['max_mins']:
             monthly_map[m_key]['max_mins'] = mins
@@ -1128,6 +1511,10 @@ def api_report(request):
             'month':       m['month'],
             'count':       m['count'],
             'total_mins':  m['total_mins'],
+            'gen1_runtime': fmt_duration(m['gen1_secs']),
+            'gen2_runtime': fmt_duration(m['gen2_secs']),
+            'gen1_secs':    m['gen1_secs'],
+            'gen2_secs':    m['gen2_secs'],
             'avg_per_day': round(m['total_mins'] / days_in_month, 1) if days_in_month else 0,
             'max_mins':    m['max_mins'],
         })
@@ -1146,8 +1533,243 @@ def api_report(request):
             'min_mins':          min_mins,
             'min_date':          min_date,
             'days_with_outages': days_with,
+            'gen1_runtime':       fmt_duration(gen1_total_secs),
+            'gen2_runtime':       fmt_duration(gen2_total_secs),
+            'gen1_secs':          gen1_total_secs,
+            'gen2_secs':          gen2_total_secs,
         },
     })
+
+
+
+@login_required(login_url='login')
+def report_export_csv(request):
+    """Export the currently selected PDB outage report range as CSV."""
+    import csv
+    import json
+    from django.http import HttpResponse
+
+    report_response = api_report(request)
+    if report_response.status_code != 200:
+        return report_response
+
+    data = json.loads(report_response.content.decode('utf-8'))
+
+    from_str = request.GET.get('from', '').strip()
+    to_str = request.GET.get('to', '').strip()
+
+    if from_str or to_str:
+        filename_range = f"{from_str or 'start'}_to_{to_str or 'end'}"
+    else:
+        filename_range = 'all_time'
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = (
+        f'attachment; filename="pdb_outage_report_{filename_range}.csv"'
+    )
+
+    # UTF-8 BOM helps Excel display text cleanly.
+    response.write('\ufeff')
+
+    writer = csv.writer(response)
+
+    writer.writerow(['SysMonitor - PDB Outage Report'])
+    writer.writerow(['Selected Period', data.get('date_range', 'All time')])
+    writer.writerow([
+        'Total Outages',
+        data.get('summary', {}).get('count', 0),
+    ])
+    writer.writerow([
+        'Total Outage Duration',
+        data.get('summary', {}).get('total_mins', 0),
+        'minutes',
+    ])
+    writer.writerow([
+        'GEN-1 Runtime',
+        data.get('summary', {}).get('gen1_runtime', '0m 00s'),
+    ])
+    writer.writerow([
+        'GEN-2 Runtime',
+        data.get('summary', {}).get('gen2_runtime', '0m 00s'),
+    ])
+    writer.writerow([])
+
+    writer.writerow([
+        'Date',
+        'Start Time',
+        'PDB Restored',
+        'PDB Outage Duration',
+        'GEN-1 Runtime',
+        'GEN-2 Runtime',
+        'Generator',
+        'Type',
+    ])
+
+    for row in data.get('cycles', []):
+        writer.writerow([
+            row.get('date', ''),
+            row.get('start', ''),
+            row.get('end', ''),
+            row.get('duration', ''),
+            row.get('gen1_runtime', ''),
+            row.get('gen2_runtime', ''),
+            row.get('generator', ''),
+            row.get('cycle_type', ''),
+        ])
+
+    return response
+
+
+@login_required(login_url='login')
+def report_export_pdf(request):
+    """Export the currently selected PDB outage report range as PDF."""
+    import json
+    from io import BytesIO
+    from django.http import HttpResponse
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (
+        SimpleDocTemplate,
+        Paragraph,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+
+    report_response = api_report(request)
+    if report_response.status_code != 200:
+        return report_response
+
+    data = json.loads(report_response.content.decode('utf-8'))
+    summary = data.get('summary', {})
+
+    from_str = request.GET.get('from', '').strip()
+    to_str = request.GET.get('to', '').strip()
+
+    if from_str or to_str:
+        filename_range = f"{from_str or 'start'}_to_{to_str or 'end'}"
+    else:
+        filename_range = 'all_time'
+
+    buffer = BytesIO()
+
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        rightMargin=10 * mm,
+        leftMargin=10 * mm,
+        topMargin=10 * mm,
+        bottomMargin=10 * mm,
+        title='SysMonitor PDB Outage Report',
+    )
+
+    styles = getSampleStyleSheet()
+    story = []
+
+    story.append(Paragraph('SysMonitor - PDB Outage Report', styles['Title']))
+    story.append(
+        Paragraph(
+            f"Selected Period: {data.get('date_range', 'All time')}",
+            styles['Normal']
+        )
+    )
+    story.append(Spacer(1, 5 * mm))
+
+    summary_table = Table(
+        [
+            ['Total Outages', 'Total Duration', 'GEN-1 Runtime', 'GEN-2 Runtime'],
+            [
+                str(summary.get('count', 0)),
+                f"{summary.get('total_mins', 0)} min",
+                summary.get('gen1_runtime', '0m 00s'),
+                summary.get('gen2_runtime', '0m 00s'),
+            ],
+        ],
+        colWidths=[65 * mm, 65 * mm, 65 * mm, 65 * mm],
+    )
+
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E5E7EB')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+    ]))
+
+    story.append(summary_table)
+    story.append(Spacer(1, 6 * mm))
+
+    rows = [[
+        'Date',
+        'Start',
+        'PDB Restored',
+        'Outage',
+        'GEN-1 Runtime',
+        'GEN-2 Runtime',
+        'Generator',
+        'Type',
+    ]]
+
+    for row in data.get('cycles', []):
+        rows.append([
+            row.get('date', ''),
+            row.get('start', ''),
+            row.get('end', ''),
+            row.get('duration', ''),
+            row.get('gen1_runtime', ''),
+            row.get('gen2_runtime', ''),
+            row.get('generator', ''),
+            row.get('cycle_type', ''),
+        ])
+
+    table = Table(
+        rows,
+        repeatRows=1,
+        colWidths=[
+            27 * mm,
+            31 * mm,
+            31 * mm,
+            30 * mm,
+            30 * mm,
+            30 * mm,
+            35 * mm,
+            25 * mm,
+        ],
+    )
+
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#D1D5DB')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 7.5),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.35, colors.grey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [
+            colors.white,
+            colors.HexColor('#F9FAFB'),
+        ]),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+    ]))
+
+    story.append(table)
+    doc.build(story)
+
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = (
+        f'attachment; filename="pdb_outage_report_{filename_range}.pdf"'
+    )
+    return response
+
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1358,13 +1980,76 @@ def notif_recipient_toggle(request, rid):
 @role_required('admin')
 def notif_log(request):
     import pytz
+
     bdt = pytz.timezone('Asia/Dhaka')
-    logs = NotificationLog.objects.all()[:100]
-    data = [{'sent_at': l.sent_at.astimezone(bdt).strftime('%d/%m %I:%M:%S %p'),
-             'event_type': l.event_type, 'channel': l.channel,
-             'recipient': l.recipient, 'status': l.status, 'error': l.error}
-            for l in logs]
-    return JsonResponse({'logs': data})
+
+    export_format = request.GET.get('export', '').strip().lower()
+
+    filter_range, range_start, range_end, range_label = (
+        _common_log_range(request)
+    )
+
+    logs = NotificationLog.objects.all().order_by('-sent_at')
+
+    if range_start and range_end:
+        logs = logs.filter(
+            sent_at__gte=range_start,
+            sent_at__lt=range_end,
+        )
+
+    range_count = logs.count()
+
+    if export_format in ('csv', 'pdf'):
+        rows = []
+
+        for l in logs:
+            rows.append([
+                l.sent_at.astimezone(bdt).strftime(
+                    '%d/%m/%Y %I:%M:%S %p'
+                ),
+                l.event_type,
+                l.channel,
+                l.recipient,
+                l.status,
+                l.error or '',
+            ])
+
+        response = _export_table_response(
+            'SysMonitor Notification Log',
+            range_label,
+            [
+                'Time',
+                'Event',
+                'Channel',
+                'Recipient',
+                'Status',
+                'Error',
+            ],
+            rows,
+            export_format,
+            f'notification_log_{filter_range}',
+        )
+
+        if response:
+            return response
+
+    data = [{
+        'sent_at': l.sent_at.astimezone(bdt).strftime(
+            '%d/%m %I:%M:%S %p'
+        ),
+        'event_type': l.event_type,
+        'channel': l.channel,
+        'recipient': l.recipient,
+        'status': l.status,
+        'error': l.error,
+    } for l in logs[:500]]
+
+    return JsonResponse({
+        'logs': data,
+        'filter_range': filter_range,
+        'range_label': range_label,
+        'range_count': range_count,
+    })
 
 
 @role_required('admin')
@@ -1806,6 +2491,66 @@ def generator_fuel(request):
     records = list(reversed(calculated_asc))
 
     # --------------------------------------------------------
+    # FUEL ENTRY HISTORY RANGE / EXPORT
+    # --------------------------------------------------------
+    export_format = request.GET.get('export', '').strip().lower()
+
+    filter_range, range_start, range_end, range_label = (
+        _common_log_range(request)
+    )
+
+    history_records = records
+
+    if range_start and range_end:
+        history_records = [
+            row
+            for row in records
+            if range_start <= row['obj'].reading_at < range_end
+        ]
+
+    range_count = len(history_records)
+
+    if export_format in ('csv', 'pdf'):
+        export_rows = []
+
+        for row in history_records:
+            obj = row['obj']
+
+            export_rows.append([
+                obj.reading_at.astimezone(bdt).strftime(
+                    '%d/%m/%Y %I:%M:%S %p'
+                ),
+                obj.generator,
+                f'{obj.fuel_before_l:.2f}',
+                f'{obj.fuel_after_l:.2f}',
+                f'{row["fuel_loaded"]:.2f}',
+                obj.added_by or '',
+                obj.note or '',
+            ])
+
+        response = _export_table_response(
+            'SysMonitor Generator Fuel Entry History',
+            range_label,
+            [
+                'Date & Time',
+                'Generator',
+                'Before Fuel (L)',
+                'After Fuel (L)',
+                'Fuel Loaded (L)',
+                'Added By',
+                'Note',
+            ],
+            export_rows,
+            export_format,
+            f'generator_fuel_history_{filter_range}',
+        )
+
+        if response:
+            return response
+
+    records = history_records
+
+    # --------------------------------------------------------
     # MONTHLY SUMMARY
     # --------------------------------------------------------
     monthly = {}
@@ -1936,6 +2681,9 @@ def generator_fuel(request):
             'role': role,
             'user': request.user,
             'records': records,
+            'filter_range': filter_range,
+            'range_label': range_label,
+            'range_count': range_count,
             'monthly': monthly,
             'till_date': till_date,
             'month_value': month_value,
@@ -1969,24 +2717,81 @@ from monitor.models import GeneratorModeLog
 def generator_log_page(request):
     """Page to view and submit Generator Mode Log entries."""
     import pytz
+
     bdt = pytz.timezone('Asia/Dhaka')
 
-    entries = GeneratorModeLog.objects.all()[:50]
+    export_format = request.GET.get('export', '').strip().lower()
+
+    filter_range, range_start, range_end, range_label = (
+        _common_log_range(request)
+    )
+
+    entries = GeneratorModeLog.objects.all()
+
+    if range_start and range_end:
+        entries = entries.filter(
+            switched_at__gte=range_start,
+            switched_at__lt=range_end,
+        )
+
+    entries = entries.order_by('-switched_at', '-id')
+
+    range_count = entries.count()
+
+    if export_format in ('csv', 'pdf'):
+        rows = []
+
+        for e in entries:
+            rows.append([
+                e.id,
+                e.switched_at.astimezone(bdt).strftime(
+                    '%d/%m/%Y %I:%M:%S %p'
+                ),
+                e.generator,
+                e.added_by or '',
+                e.note or '',
+            ])
+
+        response = _export_table_response(
+            'SysMonitor Generator Mode Log',
+            range_label,
+            ['ID', 'Switch Time', 'Generator', 'Added By', 'Note'],
+            rows,
+            export_format,
+            f'generator_mode_log_{filter_range}',
+        )
+
+        if response:
+            return response
+
     entries_display = [{
         'id': e.id,
         'generator': e.generator,
-        'switched_at': e.switched_at.astimezone(bdt).strftime('%d/%m/%Y %I:%M:%S %p'),
-        'switched_date_raw': e.switched_at.astimezone(bdt).strftime('%Y-%m-%d'),
-        'switched_time_raw': e.switched_at.astimezone(bdt).strftime('%H:%M'),
+        'switched_at': e.switched_at.astimezone(bdt).strftime(
+            '%d/%m/%Y %I:%M:%S %p'
+        ),
+        'switched_date_raw': e.switched_at.astimezone(bdt).strftime(
+            '%Y-%m-%d'
+        ),
+        'switched_time_raw': e.switched_at.astimezone(bdt).strftime(
+            '%H:%M'
+        ),
         'note': e.note,
         'added_by': e.added_by,
     } for e in entries]
 
-    return render(request, 'monitor/generator_log.html', {
-        'entries': entries_display,
-        'role':    get_role(request.user),
-        'user':    request.user,
-    })
+    return render(
+        request,
+        'monitor/generator_log.html',
+        {
+            'entries': entries_display,
+            'filter_range': filter_range,
+            'range_label': range_label,
+            'range_count': range_count,
+            'role': get_role(request.user),
+            'user': request.user,
+        }
+    )
 
 
 @login_required
@@ -2442,19 +3247,108 @@ def system_live_state(request):
 
 @role_required('admin')
 def system_journal(request):
-    """Returns last N lines from sysmonitor-ping journal as JSON."""
+    """Fetch/filter/export sysmonitor-ping journal output."""
     import subprocess
-    lines = int(request.GET.get('lines', 50))
-    lines = max(10, min(lines, 200))
+    import pytz
+
+    bdt = pytz.timezone('Asia/Dhaka')
+
+    export_format = request.GET.get('export', '').strip().lower()
+
+    filter_range, range_start, range_end, range_label = (
+        _common_log_range(request)
+    )
+
+    raw_lines = request.GET.get('lines', '200')
+
+    try:
+        lines = int(raw_lines)
+    except (TypeError, ValueError):
+        lines = 200
+
+    lines = max(10, min(lines, 5000))
+
+    cmd = [
+        'sudo',
+        'journalctl',
+        '-u',
+        'sysmonitor-ping',
+        '--no-pager',
+        '--output=short-iso',
+    ]
+
+    if range_start:
+        cmd.extend([
+            '--since',
+            range_start.strftime('%Y-%m-%d %H:%M:%S'),
+        ])
+
+    if range_end:
+        cmd.extend([
+            '--until',
+            range_end.strftime('%Y-%m-%d %H:%M:%S'),
+        ])
+
+    # All Time can be large, but normal on-screen loading remains capped.
+    if export_format not in ('csv', 'pdf'):
+        cmd.extend(['-n', str(lines)])
+
     try:
         result = subprocess.run(
-            ['sudo', 'journalctl', '-u', 'sysmonitor-ping',
-             '-n', str(lines), '--no-pager', '--output=short'],
-            capture_output=True, text=True, timeout=10
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=20,
         )
-        return JsonResponse({'ok': True, 'log': result.stdout})
+
+        if result.returncode != 0:
+            return JsonResponse({
+                'ok': False,
+                'error': result.stderr.strip() or 'journalctl failed',
+            })
+
+        log_text = result.stdout or ''
+
+        loaded_count = len([
+            line
+            for line in log_text.splitlines()
+            if line.strip()
+        ])
+
+        if export_format in ('csv', 'pdf'):
+            journal_lines = [
+                line
+                for line in log_text.splitlines()
+                if line.strip()
+            ]
+
+            rows = [[line] for line in journal_lines]
+
+            response = _export_table_response(
+                'SysMonitor sysmonitor-ping Journal Log',
+                range_label,
+                ['Journal Entry'],
+                rows,
+                export_format,
+                f'sysmonitor_ping_journal_{filter_range}',
+            )
+
+            if response:
+                return response
+
+        return JsonResponse({
+            'ok': True,
+            'log': log_text,
+            'filter_range': filter_range,
+            'range_label': range_label,
+            'loaded_count': loaded_count,
+        })
+
     except Exception as e:
-        return JsonResponse({'ok': False, 'error': str(e)})
+        return JsonResponse({
+            'ok': False,
+            'error': str(e),
+        })
 
 
 @role_required('admin')
@@ -2660,15 +3554,81 @@ def generator_cycle_audit_data(request):
     import pytz
     bdt = pytz.timezone('Asia/Dhaka')
 
+    export_format = request.GET.get('export', '').strip().lower()
+
+    filter_range, range_start, range_end, range_label = (
+        _common_log_range(request)
+    )
+
     raw_limit = (request.GET.get('limit') or '10').strip().lower()
 
-    if raw_limit == 'all':
-        cycles = (
-            OutageCycle.objects
-            .filter(is_manual=True)
-            .order_by('-outage_start', '-id')
+    cycles = (
+        OutageCycle.objects
+        .filter(is_manual=True)
+        .order_by('-outage_start', '-id')
+    )
+
+    if range_start and range_end:
+        cycles = cycles.filter(
+            outage_start__gte=range_start,
+            outage_start__lt=range_end,
         )
-    else:
+
+    range_count = cycles.count()
+
+    if export_format in ('csv', 'pdf'):
+        rows = []
+
+        for c in cycles:
+            end_dt = c.cycle_end or c.pdb_restored
+            seconds = c.pdb_duration_sec or 0
+
+            h, rem = divmod(seconds, 3600)
+            m, s = divmod(rem, 60)
+
+            if h:
+                duration = f'{h}h {m:02d}m'
+            elif m:
+                duration = f'{m}m {s:02d}s'
+            else:
+                duration = f'{s}s'
+
+            rows.append([
+                c.id,
+                c.outage_start.astimezone(bdt).strftime(
+                    '%d/%m/%Y %I:%M %p'
+                ) if c.outage_start else '',
+                end_dt.astimezone(bdt).strftime(
+                    '%d/%m/%Y %I:%M %p'
+                ) if end_dt else '',
+                duration,
+                c.manual_generator or '',
+                c.added_by or '',
+                c.alarm_reason or '',
+            ])
+
+        response = _export_table_response(
+            'SysMonitor Generator Cycle Audit',
+            range_label,
+            [
+                'Cycle ID',
+                'Start',
+                'End',
+                'Duration',
+                'Generator',
+                'Added By',
+                'Note',
+            ],
+            rows,
+            export_format,
+            f'generator_cycle_audit_{filter_range}',
+        )
+
+        if response:
+            return response
+
+    # Keep existing row-limit selector working.
+    if raw_limit != 'all':
         try:
             limit = int(raw_limit)
         except (TypeError, ValueError):
@@ -2677,17 +3637,15 @@ def generator_cycle_audit_data(request):
         if limit not in (5, 10, 50, 100):
             limit = 10
 
-        cycles = (
-            OutageCycle.objects
-            .filter(is_manual=True)
-            .order_by('-outage_start', '-id')[:limit]
-        )
+        cycles = cycles[:limit]
 
     data = []
+
     for c in cycles:
-        start = c.outage_start
-        end = c.cycle_end or c.pdb_restored
+        start_dt = c.outage_start
+        end_dt = c.cycle_end or c.pdb_restored
         seconds = c.pdb_duration_sec or 0
+
         h, rem = divmod(seconds, 3600)
         m, s = divmod(rem, 60)
 
@@ -2700,18 +3658,42 @@ def generator_cycle_audit_data(request):
 
         data.append({
             'id': c.id,
-            'start': start.astimezone(bdt).strftime('%d/%m/%Y %I:%M %p') if start else '—',
-            'end': end.astimezone(bdt).strftime('%d/%m/%Y %I:%M %p') if end else '—',
-            'start_date': start.astimezone(bdt).strftime('%Y-%m-%d') if start else '',
-            'start_time': start.astimezone(bdt).strftime('%H:%M') if start else '',
-            'end_date': end.astimezone(bdt).strftime('%Y-%m-%d') if end else '',
-            'end_time': end.astimezone(bdt).strftime('%H:%M') if end else '',
+            'start': (
+                start_dt.astimezone(bdt).strftime(
+                    '%d/%m/%Y %I:%M %p'
+                )
+                if start_dt else '—'
+            ),
+            'end': (
+                end_dt.astimezone(bdt).strftime(
+                    '%d/%m/%Y %I:%M %p'
+                )
+                if end_dt else '—'
+            ),
+            'start_date': (
+                start_dt.astimezone(bdt).strftime('%Y-%m-%d')
+                if start_dt else ''
+            ),
+            'start_time': (
+                start_dt.astimezone(bdt).strftime('%H:%M')
+                if start_dt else ''
+            ),
+            'end_date': (
+                end_dt.astimezone(bdt).strftime('%Y-%m-%d')
+                if end_dt else ''
+            ),
+            'end_time': (
+                end_dt.astimezone(bdt).strftime('%H:%M')
+                if end_dt else ''
+            ),
             'duration': duration,
             'generator': c.manual_generator,
             'added_by': c.added_by or '—',
             'note': c.alarm_reason or '',
             'created_at': (
-                c.created_at.astimezone(bdt).strftime('%d/%m/%Y %I:%M %p')
+                c.created_at.astimezone(bdt).strftime(
+                    '%d/%m/%Y %I:%M %p'
+                )
                 if c.created_at else '—'
             ),
         })
@@ -2720,6 +3702,9 @@ def generator_cycle_audit_data(request):
         'ok': True,
         'cycles': data,
         'role': get_role(request.user),
+        'filter_range': filter_range,
+        'range_label': range_label,
+        'range_count': range_count,
     })
 
 

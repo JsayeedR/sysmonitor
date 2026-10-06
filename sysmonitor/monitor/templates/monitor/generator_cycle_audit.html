@@ -242,7 +242,58 @@
       .form-grid { grid-template-columns:1fr; }
       .field.full { grid-column:auto; }
     }
-  </style>
+
+    /* Cycle Audit date-range controls */
+    .audit-range-toolbar {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:.65rem;
+      flex-wrap:wrap;
+      margin:.8rem 0;
+      padding:.7rem;
+      background:#111827;
+      border:1px solid var(--border);
+      border-radius:9px;
+    }
+
+    .audit-range-group {
+      display:flex;
+      align-items:center;
+      gap:.35rem;
+      flex-wrap:wrap;
+    }
+
+    .audit-range-btn {
+      border:1px solid var(--border);
+      background:#0f172a;
+      color:var(--text);
+      border-radius:7px;
+      padding:.4rem .68rem;
+      font-size:.72rem;
+      font-weight:600;
+      cursor:pointer;
+      transition:.15s ease;
+    }
+
+    .audit-range-btn:hover {
+      border-color:#3b82f6;
+    }
+
+    .audit-range-btn.active {
+      background:#2563eb;
+      border-color:#3b82f6;
+      color:#fff;
+    }
+
+    .audit-range-caption {
+      width:100%;
+      color:var(--muted);
+      font-size:.7rem;
+      margin-top:.1rem;
+    }
+
+</style>
 </head>
 
 <body>
@@ -368,6 +419,26 @@
       </div>
     </div>
 
+    <div class="audit-range-toolbar">
+      <div class="audit-range-group">
+        <button type="button" class="audit-range-btn" data-range="this_week" onclick="setAuditRange('this_week')">This Week</button>
+        <button type="button" class="audit-range-btn" data-range="last_week" onclick="setAuditRange('last_week')">Last Week</button>
+        <button type="button" class="audit-range-btn active" data-range="this_month" onclick="setAuditRange('this_month')">This Month</button>
+        <button type="button" class="audit-range-btn" data-range="last_month" onclick="setAuditRange('last_month')">Last Month</button>
+        <button type="button" class="audit-range-btn" data-range="this_year" onclick="setAuditRange('this_year')">This Year</button>
+        <button type="button" class="audit-range-btn" data-range="all" onclick="setAuditRange('all')">All Time</button>
+      </div>
+
+      <div class="audit-range-group">
+        <button type="button" class="audit-range-btn" onclick="exportAudit('csv')">⬇ CSV</button>
+        <button type="button" class="audit-range-btn" onclick="exportAudit('pdf')">📄 PDF</button>
+      </div>
+
+      <div class="audit-range-caption" id="audit-range-caption">
+        Showing: This Month
+      </div>
+    </div>
+
     <div id="manual-summary">
       <div class="loading">Loading manual cycles…</div>
     </div>
@@ -405,6 +476,50 @@ function setMessage(text, ok=false) {
   el.textContent = text || '';
 }
 
+
+
+let auditRange = 'this_month';
+
+const AUDIT_RANGE_LABELS = {
+  this_week: 'This Week',
+  last_week: 'Last Week',
+  this_month: 'This Month',
+  last_month: 'Last Month',
+  this_year: 'This Year',
+  all: 'All Time',
+};
+
+function setAuditRange(range) {
+  auditRange = range;
+
+  document
+    .querySelectorAll('.audit-range-btn[data-range]')
+    .forEach(btn => {
+      btn.classList.toggle(
+        'active',
+        btn.dataset.range === range
+      );
+    });
+
+  const caption = document.getElementById('audit-range-caption');
+
+  if (caption) {
+    caption.textContent =
+      `Showing: ${AUDIT_RANGE_LABELS[range] || range}`;
+  }
+
+  loadManualCycles();
+}
+
+function exportAudit(format) {
+  const url =
+    `${BASE_PATH}/generator-cycle-audit/data/` +
+    `?limit=all` +
+    `&range=${encodeURIComponent(auditRange)}` +
+    `&export=${encodeURIComponent(format)}`;
+
+  window.location.href = url;
+}
 
 function cyclePayload() {
   return {
@@ -626,7 +741,7 @@ async function loadManualCycles() {
     const limit = document.getElementById('manual-cycle-limit').value;
 
     const response = await fetch(
-      `${BASE_PATH}/generator-cycle-audit/data/?limit=${encodeURIComponent(limit)}`,
+      `${BASE_PATH}/generator-cycle-audit/data/?limit=${encodeURIComponent(limit)}&range=${encodeURIComponent(auditRange)}`,
       {
         headers: {
           'Accept':'application/json',
@@ -636,6 +751,20 @@ async function loadManualCycles() {
     );
 
     const data = await response.json();
+
+    const caption = document.getElementById('audit-range-caption');
+
+    if (caption) {
+      const label =
+        data.range_label ||
+        AUDIT_RANGE_LABELS[auditRange] ||
+        auditRange;
+
+      const count = Number(data.range_count || 0);
+
+      caption.textContent =
+        `Showing: ${label} • ${count} ${count === 1 ? 'entry' : 'entries'}`;
+    }
 
     if (!data.ok) {
       panel.innerHTML =

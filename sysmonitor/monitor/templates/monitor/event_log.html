@@ -110,7 +110,7 @@
   <div class="page-header">
     <div>
       <h1>📋 Event Log</h1>
-      <div class="count">Showing {{ events|length }} event(s)
+      <div class="count">
         {% if filter_device or filter_level or filter_date %}
         — filtered
         {% endif %}
@@ -140,7 +140,9 @@
     </div>
   </div>
 
-  <!-- FILTER BAR -->
+  {% include "monitor/log_range_toolbar.html" %}
+
+<!-- FILTER BAR -->
   <form method="get" action="{{ base_path }}/events/">
     <div class="filter-bar">
       <div class="filter-group">

@@ -179,12 +179,253 @@
       .filter-bar { flex-direction: column; align-items: stretch; }
       footer { flex-direction: column; text-align: center; }
     }
-  
+
 
     @media (max-width: 768px) {
       .main { padding: 1rem .75rem; }
       .container { padding: 1.25rem 1rem; }
     }
+
+    /* Report summary: 4 cards per row = 2 clean rows for 8 statistics */
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: .75rem;
+    }
+
+    .summary-row .stat-card {
+      min-width: 0;
+      padding: 1rem;
+    }
+
+    .summary-row .stat-value {
+      font-size: 1.45rem;
+    }
+
+    @media (max-width: 900px) {
+      .summary-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 520px) {
+      .summary-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Professional monthly generator runtime comparison */
+    .runtime-analysis-panel {
+      margin-top: 1rem;
+    }
+
+    .runtime-analysis-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .runtime-analysis-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .runtime-analysis-subtitle {
+      margin-top: .25rem;
+      font-size: .78rem;
+      color: var(--muted);
+    }
+
+    .runtime-actions {
+      display: flex;
+      align-items: center;
+      gap: .65rem;
+      flex-wrap: wrap;
+    }
+
+    .runtime-legend {
+      display: flex;
+      align-items: center;
+      gap: .85rem;
+      font-size: .76rem;
+      color: var(--muted);
+    }
+
+    .runtime-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+    }
+
+    .runtime-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .runtime-dot.gen1 {
+      background: #34d399;
+    }
+
+    .runtime-dot.gen2 {
+      background: #60a5fa;
+    }
+
+    .runtime-download {
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      border-radius: 8px;
+      padding: .5rem .8rem;
+      font-size: .75rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .runtime-download:hover {
+      border-color: #60a5fa;
+    }
+
+    .runtime-summary-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: .65rem;
+      margin-bottom: 1rem;
+    }
+
+    .runtime-mini-card {
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      border-radius: 9px;
+      padding: .7rem .85rem;
+    }
+
+    .runtime-mini-label {
+      font-size: .68rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--faint);
+      margin-bottom: .25rem;
+    }
+
+    .runtime-mini-value {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .runtime-months {
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .runtime-month-row {
+      display: grid;
+      grid-template-columns: 120px minmax(240px, 1fr) 105px;
+      gap: 1rem;
+      align-items: center;
+      padding: .8rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .runtime-month-row:last-child {
+      border-bottom: 0;
+    }
+
+    .runtime-month-name {
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .runtime-bars {
+      display: flex;
+      flex-direction: column;
+      gap: .45rem;
+    }
+
+    .runtime-bar-line {
+      display: grid;
+      grid-template-columns: 48px minmax(100px, 1fr);
+      gap: .5rem;
+      align-items: center;
+    }
+
+    .runtime-bar-label {
+      font-size: .67rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .runtime-track {
+      height: 9px;
+      border-radius: 999px;
+      background: rgba(148,163,184,.12);
+      overflow: hidden;
+    }
+
+    .runtime-fill {
+      height: 100%;
+      min-width: 0;
+      border-radius: inherit;
+    }
+
+    .runtime-fill.gen1 {
+      background: #34d399;
+    }
+
+    .runtime-fill.gen2 {
+      background: #60a5fa;
+    }
+
+    .runtime-values {
+      text-align: right;
+      font-family: monospace;
+      font-size: .72rem;
+      line-height: 1.55;
+      white-space: nowrap;
+    }
+
+    .runtime-values .g1 {
+      color: #34d399;
+    }
+
+    .runtime-values .g2 {
+      color: #60a5fa;
+    }
+
+    .runtime-empty {
+      padding: 2.5rem 1rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: .85rem;
+    }
+
+    @media (max-width: 760px) {
+      .runtime-summary-strip {
+        grid-template-columns: 1fr;
+      }
+
+      .runtime-month-row {
+        grid-template-columns: 90px minmax(220px, 1fr) 95px;
+        gap: .7rem;
+        min-width: 560px;
+      }
+
+      .runtime-months {
+        overflow-x: auto;
+      }
+    }
+
+
   </style>
 </head>
 <body>
@@ -223,6 +464,15 @@
       <button class="qbtn" onclick="setRange('all')">All Time</button>
     </div>
     <button class="btn btn-primary" onclick="loadReport()">Generate</button>
+
+    <div style="display:flex;gap:.5rem;margin-left:auto;flex-wrap:wrap;">
+      <button class="btn" type="button" onclick="exportReport('csv')">
+        ⬇ CSV
+      </button>
+      <button class="btn" type="button" onclick="exportReport('pdf')">
+        📄 PDF
+      </button>
+    </div>
   </div>
 
   <!-- SUMMARY CARDS -->
@@ -237,6 +487,18 @@
       <div class="stat-value" id="s-total" style="color:var(--yellow)">—</div>
       <div class="stat-sub" id="s-total-min"></div>
     </div>
+    <div class="stat-card">
+      <div class="stat-label">GEN-1 Runtime</div>
+      <div class="stat-value" id="s-gen1" style="color:var(--green)">—</div>
+      <div class="stat-sub">selected period</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">GEN-2 Runtime</div>
+      <div class="stat-value" id="s-gen2" style="color:var(--blue)">—</div>
+      <div class="stat-sub">selected period</div>
+    </div>
+
     <div class="stat-card">
       <div class="stat-label">Daily Average</div>
       <div class="stat-value" id="s-avg" style="color:var(--blue)">—</div>
@@ -268,6 +530,71 @@
       </div>
     </div>
   </div>
+
+  <!-- MONTHLY GENERATOR RUNTIME ANALYSIS -->
+  <div class="chart-panel runtime-analysis-panel" id="runtime-analysis-panel">
+
+    <div class="runtime-analysis-header">
+      <div>
+        <div class="runtime-analysis-title">
+          ⚙️ Monthly Generator Runtime Comparison
+        </div>
+
+        <div
+          class="runtime-analysis-subtitle"
+          id="runtime-analysis-subtitle"
+        >
+          GEN-1 and GEN-2 usage across the selected period
+        </div>
+      </div>
+
+      <div class="runtime-actions">
+        <div class="runtime-legend">
+          <span class="runtime-legend-item">
+            <span class="runtime-dot gen1"></span>
+            GEN-1
+          </span>
+
+          <span class="runtime-legend-item">
+            <span class="runtime-dot gen2"></span>
+            GEN-2
+          </span>
+        </div>
+
+        <button
+          class="runtime-download"
+          type="button"
+          onclick="downloadRuntimeAnalysis()"
+        >
+          ⬇ Download PNG
+        </button>
+      </div>
+    </div>
+
+    <div class="runtime-summary-strip">
+      <div class="runtime-mini-card">
+        <div class="runtime-mini-label">GEN-1 Total</div>
+        <div class="runtime-mini-value" id="runtime-total-gen1">—</div>
+      </div>
+
+      <div class="runtime-mini-card">
+        <div class="runtime-mini-label">GEN-2 Total</div>
+        <div class="runtime-mini-value" id="runtime-total-gen2">—</div>
+      </div>
+
+      <div class="runtime-mini-card">
+        <div class="runtime-mini-label">Combined Runtime</div>
+        <div class="runtime-mini-value" id="runtime-total-combined">—</div>
+      </div>
+    </div>
+
+    <div class="runtime-months" id="runtime-months">
+      <div class="runtime-empty">Loading generator runtime…</div>
+    </div>
+
+  </div>
+
+
 
   <!-- OUTAGE TABLE -->
   <div class="table-panel">
@@ -306,6 +633,8 @@
           <th>Month</th>
           <th>Outage Count</th>
           <th>Total Duration</th>
+          <th>GEN-1 Runtime</th>
+          <th>GEN-2 Runtime</th>
           <th>Daily Average</th>
           <th>Longest Single</th>
         </tr>
@@ -423,6 +752,21 @@ function loadReport() {
     });
 }
 
+// ── Export selected report range ─────────────────────────────────────────────
+function exportReport(format) {
+  const from = document.getElementById('date-from').value;
+  const to   = document.getElementById('date-to').value;
+
+  const params = [];
+  if (from) params.push('from=' + encodeURIComponent(from));
+  if (to)   params.push('to=' + encodeURIComponent(to));
+
+  let url = `{{ base_path }}/report/export/${format}/`;
+  if (params.length) url += '?' + params.join('&');
+
+  window.location.href = url;
+}
+
 // ── Render report ─────────────────────────────────────────────────────────────
 function renderReport(data) {
   // Subtitle
@@ -436,6 +780,10 @@ function renderReport(data) {
   document.getElementById('s-total').textContent = fmtDuration(data.summary.total_mins);
   document.getElementById('s-total-min').textContent =
     data.summary.total_mins ? `${data.summary.total_mins} min total` : '';
+  document.getElementById('s-gen1').textContent =
+    data.summary.gen1_runtime || '0m 00s';
+  document.getElementById('s-gen2').textContent =
+    data.summary.gen2_runtime || '0m 00s';
   document.getElementById('s-avg').textContent =
     data.summary.avg_per_day ? Math.round(data.summary.avg_per_day) : '—';
   document.getElementById('s-max').textContent =
@@ -448,8 +796,11 @@ function renderReport(data) {
     data.summary.min_date ? fmtDate(data.summary.min_date) : '';
   document.getElementById('s-days').textContent = data.summary.days_with_outages || 0;
 
-  // Bar chart
+  // Daily outage chart
   renderChart(data.daily);
+
+  // Monthly generator runtime chart
+  renderMonthlyGeneratorChart(data.monthly || [], data.date_range || 'All time');
 
   // Table
   const tbody = document.getElementById('report-tbody');
@@ -487,6 +838,8 @@ function renderReport(data) {
         <td style="color:var(--text);font-weight:600">${m.month}</td>
         <td style="color:var(--red)">${m.count}</td>
         <td class="dur">${fmtDuration(m.total_mins)} <span style="color:var(--faint);font-weight:400">(${m.total_mins} min)</span></td>
+        <td class="dur">${m.gen1_secs ? m.gen1_runtime : '—'}</td>
+        <td class="dur">${m.gen2_secs ? m.gen2_runtime : '—'}</td>
         <td style="color:var(--blue)">${Math.round(m.avg_per_day)} min/day</td>
         <td style="color:var(--orange)">${fmtDuration(m.max_mins)}</td>
       </tr>
@@ -524,6 +877,321 @@ function renderChart(daily) {
       </div>
     `;
   }).join('');
+}
+
+
+// ── Monthly Generator Runtime Analysis ──────────────────────────────────────
+
+let runtimeAnalysisData = [];
+let runtimeAnalysisRange = 'All time';
+
+function runtimeExact(seconds) {
+  seconds = Math.max(0, Math.round(Number(seconds) || 0));
+
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+
+  if (h) return `${h}h ${m}m`;
+  if (m) return `${m}m`;
+  return `${s}s`;
+}
+
+function renderMonthlyGeneratorChart(monthly, dateRange) {
+  runtimeAnalysisData = Array.isArray(monthly) ? monthly : [];
+  runtimeAnalysisRange = dateRange || 'All time';
+
+  const container = document.getElementById('runtime-months');
+
+  document.getElementById('runtime-analysis-subtitle').textContent =
+    `GEN-1 and GEN-2 usage • ${runtimeAnalysisRange}`;
+
+  if (!runtimeAnalysisData.length) {
+    document.getElementById('runtime-total-gen1').textContent = '—';
+    document.getElementById('runtime-total-gen2').textContent = '—';
+    document.getElementById('runtime-total-combined').textContent = '—';
+
+    container.innerHTML =
+      '<div class="runtime-empty">No generator runtime data for this period.</div>';
+
+    return;
+  }
+
+  const gen1Total = runtimeAnalysisData.reduce(
+    (sum, m) => sum + (Number(m.gen1_secs) || 0),
+    0
+  );
+
+  const gen2Total = runtimeAnalysisData.reduce(
+    (sum, m) => sum + (Number(m.gen2_secs) || 0),
+    0
+  );
+
+  document.getElementById('runtime-total-gen1').textContent =
+    runtimeExact(gen1Total);
+
+  document.getElementById('runtime-total-gen2').textContent =
+    runtimeExact(gen2Total);
+
+  document.getElementById('runtime-total-combined').textContent =
+    runtimeExact(gen1Total + gen2Total);
+
+  const maxSeconds = Math.max(
+    1,
+    ...runtimeAnalysisData.flatMap(m => [
+      Number(m.gen1_secs) || 0,
+      Number(m.gen2_secs) || 0
+    ])
+  );
+
+  container.innerHTML = runtimeAnalysisData.map(m => {
+    const g1 = Number(m.gen1_secs) || 0;
+    const g2 = Number(m.gen2_secs) || 0;
+
+    const g1Width = g1 > 0
+      ? Math.max(1.5, (g1 / maxSeconds) * 100)
+      : 0;
+
+    const g2Width = g2 > 0
+      ? Math.max(1.5, (g2 / maxSeconds) * 100)
+      : 0;
+
+    return `
+      <div class="runtime-month-row">
+
+        <div class="runtime-month-name">
+          ${m.month || ''}
+        </div>
+
+        <div class="runtime-bars">
+
+          <div class="runtime-bar-line">
+            <div class="runtime-bar-label">GEN-1</div>
+
+            <div class="runtime-track">
+              <div
+                class="runtime-fill gen1"
+                style="width:${g1Width}%"
+              ></div>
+            </div>
+          </div>
+
+          <div class="runtime-bar-line">
+            <div class="runtime-bar-label">GEN-2</div>
+
+            <div class="runtime-track">
+              <div
+                class="runtime-fill gen2"
+                style="width:${g2Width}%"
+              ></div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="runtime-values">
+          <div class="g1">${g1 ? runtimeExact(g1) : '—'}</div>
+          <div class="g2">${g2 ? runtimeExact(g2) : '—'}</div>
+        </div>
+
+      </div>
+    `;
+  }).join('');
+}
+
+
+/*
+ * PNG export.
+ * We temporarily draw a clean high-resolution report image from the
+ * same data instead of screenshotting browser HTML.
+ */
+function downloadRuntimeAnalysis() {
+  if (!runtimeAnalysisData.length) {
+    alert('No generator runtime data is available to download.');
+    return;
+  }
+
+  const scale = 2;
+  const width = 1200;
+  const rowHeight = 88;
+  const topArea = 185;
+  const bottomArea = 55;
+
+  const height =
+    topArea +
+    (runtimeAnalysisData.length * rowHeight) +
+    bottomArea;
+
+  const canvas = document.createElement('canvas');
+
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+
+  const colors = {
+    bg: '#0f172a',
+    surface: '#111827',
+    border: '#334155',
+    text: '#e5e7eb',
+    muted: '#94a3b8',
+    track: '#263244',
+    gen1: '#34d399',
+    gen2: '#60a5fa'
+  };
+
+  ctx.fillStyle = colors.bg;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = colors.text;
+  ctx.font = '700 24px Arial';
+  ctx.fillText('Monthly Generator Runtime Comparison', 42, 48);
+
+  ctx.fillStyle = colors.muted;
+  ctx.font = '14px Arial';
+  ctx.fillText(runtimeAnalysisRange, 42, 76);
+
+  const gen1Total = runtimeAnalysisData.reduce(
+    (sum, m) => sum + (Number(m.gen1_secs) || 0),
+    0
+  );
+
+  const gen2Total = runtimeAnalysisData.reduce(
+    (sum, m) => sum + (Number(m.gen2_secs) || 0),
+    0
+  );
+
+  ctx.font = '600 15px Arial';
+
+  ctx.fillStyle = colors.gen1;
+  ctx.fillText(
+    `GEN-1 Total: ${runtimeExact(gen1Total)}`,
+    42,
+    120
+  );
+
+  ctx.fillStyle = colors.gen2;
+  ctx.fillText(
+    `GEN-2 Total: ${runtimeExact(gen2Total)}`,
+    330,
+    120
+  );
+
+  ctx.fillStyle = colors.text;
+  ctx.fillText(
+    `Combined: ${runtimeExact(gen1Total + gen2Total)}`,
+    615,
+    120
+  );
+
+  const maxSeconds = Math.max(
+    1,
+    ...runtimeAnalysisData.flatMap(m => [
+      Number(m.gen1_secs) || 0,
+      Number(m.gen2_secs) || 0
+    ])
+  );
+
+  const labelX = 42;
+  const barX = 220;
+  const barWidth = 700;
+  const valueX = 950;
+
+  runtimeAnalysisData.forEach((m, index) => {
+    const y = topArea + index * rowHeight;
+
+    const g1 = Number(m.gen1_secs) || 0;
+    const g2 = Number(m.gen2_secs) || 0;
+
+    ctx.strokeStyle = colors.border;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(42, y - 16);
+    ctx.lineTo(width - 42, y - 16);
+    ctx.stroke();
+
+    ctx.fillStyle = colors.text;
+    ctx.font = '700 14px Arial';
+    ctx.fillText(m.month || '', labelX, y + 19);
+
+    // GEN-1 label.
+    ctx.fillStyle = colors.muted;
+    ctx.font = '11px Arial';
+    ctx.fillText('GEN-1', barX - 52, y + 3);
+
+    // GEN-1 track.
+    ctx.fillStyle = colors.track;
+    ctx.fillRect(barX, y - 8, barWidth, 11);
+
+    if (g1 > 0) {
+      ctx.fillStyle = colors.gen1;
+      ctx.fillRect(
+        barX,
+        y - 8,
+        Math.max(3, (g1 / maxSeconds) * barWidth),
+        11
+      );
+    }
+
+    // GEN-2 label.
+    ctx.fillStyle = colors.muted;
+    ctx.fillText('GEN-2', barX - 52, y + 29);
+
+    // GEN-2 track.
+    ctx.fillStyle = colors.track;
+    ctx.fillRect(barX, y + 18, barWidth, 11);
+
+    if (g2 > 0) {
+      ctx.fillStyle = colors.gen2;
+      ctx.fillRect(
+        barX,
+        y + 18,
+        Math.max(3, (g2 / maxSeconds) * barWidth),
+        11
+      );
+    }
+
+    ctx.font = '600 12px Arial';
+
+    ctx.fillStyle = colors.gen1;
+    ctx.fillText(
+      g1 ? runtimeExact(g1) : '—',
+      valueX,
+      y + 2
+    );
+
+    ctx.fillStyle = colors.gen2;
+    ctx.fillText(
+      g2 ? runtimeExact(g2) : '—',
+      valueX,
+      y + 28
+    );
+  });
+
+  ctx.fillStyle = colors.muted;
+  ctx.font = '11px Arial';
+  ctx.fillText(
+    'SysMonitor • PDB Outage Report',
+    42,
+    height - 24
+  );
+
+  const safeRange = String(runtimeAnalysisRange || 'all-time')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+
+  const link = document.createElement('a');
+
+  link.download =
+    `generator-runtime-comparison-${safeRange || 'all-time'}.png`;
+
+  link.href = canvas.toDataURL('image/png');
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 }
 
 // ── Init — default to this month ──────────────────────────────────────────────

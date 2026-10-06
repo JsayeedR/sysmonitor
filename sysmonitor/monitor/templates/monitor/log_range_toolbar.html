@@ -1,0 +1,152 @@
+<style>
+  .log-range-toolbar {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:.75rem;
+    flex-wrap:wrap;
+    margin:0 0 1rem 0;
+    padding:.75rem;
+    background:#111827;
+    border:1px solid #334155;
+    border-radius:10px;
+  }
+
+  .log-range-buttons,
+  .log-export-buttons {
+    display:flex;
+    gap:.4rem;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+
+  .log-range-btn {
+    border:1px solid #334155;
+    background:#0f172a;
+    color:#cbd5e1;
+    border-radius:7px;
+    padding:.42rem .7rem;
+    font-size:.74rem;
+    font-weight:600;
+    cursor:pointer;
+    text-decoration:none;
+    transition:.15s ease;
+  }
+
+  .log-range-btn:hover {
+    border-color:#3b82f6;
+    color:#fff;
+  }
+
+  .log-range-btn.active {
+    background:#2563eb;
+    border-color:#3b82f6;
+    color:white;
+  }
+
+  .log-export-btn {
+    border:1px solid #334155;
+    background:#1e293b;
+    color:#e2e8f0;
+    border-radius:7px;
+    padding:.42rem .72rem;
+    font-size:.74rem;
+    font-weight:600;
+    cursor:pointer;
+  }
+
+  .log-export-btn:hover {
+    border-color:#60a5fa;
+  }
+
+  .log-range-label {
+    width:100%;
+    font-size:.7rem;
+    color:#64748b;
+    margin-top:.1rem;
+  }
+
+  @media(max-width:700px) {
+    .log-range-toolbar {
+      align-items:flex-start;
+    }
+  }
+</style>
+
+<div class="log-range-toolbar">
+  <div class="log-range-buttons">
+    <button class="log-range-btn {% if filter_range == 'this_week' %}active{% endif %}"
+            onclick="setCommonLogRange('this_week')">
+      This Week
+    </button>
+
+    <button class="log-range-btn {% if filter_range == 'last_week' %}active{% endif %}"
+            onclick="setCommonLogRange('last_week')">
+      Last Week
+    </button>
+
+    <button class="log-range-btn {% if filter_range == 'this_month' %}active{% endif %}"
+            onclick="setCommonLogRange('this_month')">
+      This Month
+    </button>
+
+    <button class="log-range-btn {% if filter_range == 'last_month' %}active{% endif %}"
+            onclick="setCommonLogRange('last_month')">
+      Last Month
+    </button>
+
+    <button class="log-range-btn {% if filter_range == 'this_year' %}active{% endif %}"
+            onclick="setCommonLogRange('this_year')">
+      This Year
+    </button>
+
+    <button class="log-range-btn {% if filter_range == 'all' %}active{% endif %}"
+            onclick="setCommonLogRange('all')">
+      All Time
+    </button>
+  </div>
+
+  <div class="log-export-buttons">
+    <button class="log-export-btn" onclick="exportCommonLog('csv')">
+      ⬇ CSV
+    </button>
+
+    <button class="log-export-btn" onclick="exportCommonLog('pdf')">
+      📄 PDF
+    </button>
+  </div>
+
+  {% if range_label %}
+  <div class="log-range-label">
+    Showing: {{ range_label }}
+    {% if range_count != None %}
+      &nbsp;•&nbsp;
+      <strong>{{ range_count }}</strong>
+      entr{{ range_count|pluralize:"y,ies" }}
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function setCommonLogRange(range) {
+  const url = new URL(window.location.href);
+
+  url.searchParams.set('range', range);
+
+  // A quick-range selection replaces an exact single-date filter.
+  url.searchParams.delete('date');
+
+  url.searchParams.delete('export');
+
+  window.location.href = url.toString();
+}
+
+function exportCommonLog(format) {
+  const url = new URL(window.location.href);
+
+  url.searchParams.set('export', format);
+
+  window.location.href = url.toString();
+}
+</script>

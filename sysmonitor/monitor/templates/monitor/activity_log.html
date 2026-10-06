@@ -69,7 +69,7 @@
     }
     .ip-text { font-family:monospace; font-size:.78rem; color:#475569; }
     .empty { color:#64748b; text-align:center; padding:4rem; }
-  
+
 
     @media (max-width: 768px) {
       .links {
@@ -91,7 +91,7 @@
     <div>
       <h1>🕵️ User Activity Log</h1>
       <div style="font-size:.85rem;color:#64748b;margin-top:.25rem">
-        Showing {{ logs|length }} record(s)
+
       </div>
     </div>
     {% if filter_user or filter_action or filter_date %}
@@ -99,7 +99,9 @@
     {% endif %}
   </div>
 
-  <!-- FILTER BAR -->
+  {% include "monitor/log_range_toolbar.html" %}
+
+<!-- FILTER BAR -->
   <form method="get" action="{{ base_path }}/activity/">
     <div class="filter-bar">
       <div class="filter-group">
