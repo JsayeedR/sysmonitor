@@ -246,7 +246,15 @@ def _live_push():
 
 def full_push():
     with push_lock():
-        return _full_push()
+        ok = _full_push()
+        if ok:
+            from monitor.models import Event
+            Event.objects.create(
+                device=None,
+                level='INFO',
+                message='Remote mirror full sync completed successfully'
+            )
+        return ok
 
 
 def _full_push():
