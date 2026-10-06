@@ -2,8 +2,8 @@
 Description=SysMonitor nightly full push at 00:30 BDT
 
 [Timer]
-# 18:30 UTC = 00:30 BDT (the daily backup runs at 00:01 BDT)
-OnCalendar=*-*-* 18:30:00
+# Run at 00:30 local server time (BDT)
+OnCalendar=*-*-* 00:30:00
 AccuracySec=30s
 Persistent=true
 
