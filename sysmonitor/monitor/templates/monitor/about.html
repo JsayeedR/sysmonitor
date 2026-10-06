@@ -54,20 +54,88 @@
     .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); }
     .btn-outline:hover { border-color:var(--blue); color:var(--blue); }
 
-    /* LIVE STATS STRIP */
+    /* LIVE SYSTEM STATISTICS */
+    .stats-area {
+      max-width:920px;
+      margin:0 auto;
+      padding:0 1.5rem 2.5rem;
+    }
+
+    .stats-group {
+      margin-bottom:1.35rem;
+    }
+
+    .stats-group:last-child {
+      margin-bottom:0;
+    }
+
+    .stats-group-title {
+      display:flex;
+      align-items:center;
+      gap:.5rem;
+      margin:0 0 .65rem .15rem;
+      color:#fbbf24;
+      font-size:.69rem;
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:.09em;
+    }
+
     .stats-strip {
-      max-width:920px; margin:0 auto; padding:0 1.5rem 2.5rem;
-      display:grid; grid-template-columns:repeat(5,1fr); gap:.9rem;
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:.8rem;
     }
+
     .stat-card {
-      background:var(--surface); border:1px solid var(--border); border-radius:14px;
-      padding:1.1rem 1rem; text-align:center;
+      position:relative;
+      min-width:0;
+      overflow:hidden;
+      background:linear-gradient(145deg,var(--surface),var(--surface2));
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:1rem .8rem;
+      text-align:center;
     }
+
+    .stat-card::before {
+      content:'';
+      position:absolute;
+      left:0;
+      right:0;
+      top:0;
+      height:2px;
+      background:linear-gradient(90deg,transparent,var(--blue),transparent);
+      opacity:.55;
+    }
+
     .stat-num {
-      font-size:1.6rem; font-weight:800; color:var(--cyan); letter-spacing:-.5px;
+      font-size:1.45rem;
+      font-weight:800;
+      color:var(--cyan);
+      letter-spacing:-.4px;
+      line-height:1.25;
       font-variant-numeric:tabular-nums;
+      overflow-wrap:anywhere;
     }
-    .stat-label { font-size:.72rem; color:var(--muted); margin-top:.25rem; text-transform:uppercase; letter-spacing:.04em; }
+
+    .stat-label {
+      font-size:.68rem;
+      color:#f59e0b;
+      margin-top:.38rem;
+      text-transform:uppercase;
+      letter-spacing:.055em;
+      line-height:1.35;
+      font-weight:750;
+    }
+
+    .stat-sub {
+      color:#7f8da3;
+      font-size:.61rem;
+      line-height:1.35;
+      margin-top:.22rem;
+      font-weight:450;
+    }
 
     .main { max-width:920px; margin:0 auto; padding:1rem 1.5rem 4rem; }
 
@@ -242,6 +310,8 @@
       .toc ul { grid-template-columns:1fr; }
       .apk-box { flex-direction:column; align-items:flex-start; }
       .stats-strip { grid-template-columns:1fr 1fr; }
+      .stat-num { font-size:1.25rem; }
+      .stats-area { padding-left:1rem; padding-right:1rem; }
     }
   </style>
 </head>
@@ -272,28 +342,118 @@
   </div>
 </div>
 
-<!-- LIVE STATS -->
-<div class="stats-strip">
-  <div class="stat-card">
-    <div class="stat-num">{{ device_count }}</div>
-    <div class="stat-label">Devices Monitored</div>
+<!-- LIVE SYSTEM STATISTICS -->
+<div class="stats-area">
+
+  <!-- Operational Summary -->
+  <div class="stats-group">
+    <div class="stats-group-title">
+      ⚡ Operational Summary
+    </div>
+
+    <div class="stats-strip">
+      <div class="stat-card">
+        <div class="stat-num">{{ days_monitoring|default:0 }}</div>
+        <div class="stat-label">Days Monitoring</div>
+        <div class="stat-sub">Since first recorded event</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-num">{{ total_cycles|default:0 }}</div>
+        <div class="stat-label">Completed Cycles</div>
+        <div class="stat-sub">Completed outage cycles</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-num">{{ total_events|default:0 }}</div>
+        <div class="stat-label">Events Logged</div>
+        <div class="stat-sub">Operational system events</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-num">
+          {{ total_outage_hours|floatformat:1 }} h
+        </div>
+        <div class="stat-label">Total Power Outage</div>
+        <div class="stat-sub">Completed cycles only</div>
+      </div>
+    </div>
   </div>
-  <div class="stat-card">
-    <div class="stat-num">{{ total_events }}</div>
-    <div class="stat-label">Events Logged</div>
+
+
+  <!-- Monitoring Coverage -->
+  <div class="stats-group">
+    <div class="stats-group-title">
+      📡 Monitoring Coverage
+    </div>
+
+    <div class="stats-strip">
+      <div class="stat-card">
+        <div class="stat-num">{{ device_count|default:0 }}</div>
+        <div class="stat-label">Main Devices</div>
+        <div class="stat-sub">Active monitored devices</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-num">
+          {{ environmental_days|floatformat:1 }} d
+        </div>
+        <div class="stat-label">Environmental Monitoring</div>
+        <div class="stat-sub">Colocation temperature &amp; humidity</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-num">
+          {{ total_fuel_used|floatformat:1 }} L
+        </div>
+        <div class="stat-label">Generator Fuel Used</div>
+        <div class="stat-sub">Calculated recorded consumption</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-num">{{ sensor_count|default:0 }}</div>
+        <div class="stat-label">Environmental Readings</div>
+        <div class="stat-sub">Stored colocation sensor samples</div>
+      </div>
+    </div>
   </div>
-  <div class="stat-card">
-    <div class="stat-num">{{ total_cycles }}</div>
-    <div class="stat-label">Completed Cycles</div>
+
+
+  <!-- Platform Activity -->
+  <div class="stats-group">
+    <div class="stats-group-title">
+      📊 Platform Activity
+    </div>
+
+    <div class="stats-strip">
+      <div class="stat-card">
+        <div class="stat-num">{{ page_view_count|default:0 }}</div>
+        <div class="stat-label">Page Views</div>
+        <div class="stat-sub">MASTER + REMOTE views</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-num">
+          {{ total_usage_hours|floatformat:1 }} h
+        </div>
+        <div class="stat-label">Total User Usage</div>
+        <div class="stat-sub">Accumulated active user time</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-num">{{ notifications_sent|default:0 }}</div>
+        <div class="stat-label">Notifications Sent</div>
+        <div class="stat-sub">Successful logged deliveries</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-num">{{ activity_count|default:0 }}</div>
+        <div class="stat-label">User Actions Logged</div>
+        <div class="stat-sub">Activity Log entries</div>
+      </div>
+    </div>
   </div>
-  <div class="stat-card">
-    <div class="stat-num">{{ days_monitoring }}</div>
-    <div class="stat-label">Days Monitoring</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-num">{{ page_view_count }}</div>
-    <div class="stat-label">Page Views</div>
-  </div>
+
 </div>
 
 <div class="main">

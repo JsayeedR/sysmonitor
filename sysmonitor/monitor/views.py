@@ -94,23 +94,136 @@ def role_required(*roles):
 # credentials, access URLs, tokens, or any other secret.
 
 def about_view(request):
+    """
+    Public About / Documentation page.
+
+    KPI values shown here are read-only summaries calculated from existing
+    SysMonitor data. No monitoring state is changed by visiting this page.
+    """
+    from decimal import Decimal
+
+    from django.db.models import Sum
     from django.utils import timezone
 
-    device_count  = Device.objects.filter(is_active=True).count()
-    total_events  = Event.objects.count()
-    total_cycles  = OutageCycle.objects.filter(is_complete=True).count()
+    from .models import (
+        ActivityLog,
+        GeneratorFuelLog,
+        NotificationLog,
+        SensorReading,
+    )
+
+    # ------------------------------------------------------------------
+    # Operational summary
+    # ------------------------------------------------------------------
+    device_count = Device.objects.filter(is_active=True).count()
+    total_events = Event.objects.count()
+    total_cycles = OutageCycle.objects.filter(is_complete=True).count()
 
     first_event = Event.objects.order_by('created_at').first()
     if first_event:
-        days_monitoring = max((timezone.now() - first_event.created_at).days, 0)
+        days_monitoring = max(
+            (timezone.now() - first_event.created_at).days,
+            0,
+        )
     else:
         days_monitoring = 0
 
+    total_outage_seconds = (
+        OutageCycle.objects
+        .filter(is_complete=True)
+        .aggregate(total=Sum('pdb_duration_sec'))
+        .get('total')
+        or 0
+    )
+    total_outage_hours = total_outage_seconds / 3600
+
+    # ------------------------------------------------------------------
+    # Platform activity
+    # ------------------------------------------------------------------
+    total_usage_seconds = (
+        UserProfile.objects
+        .aggregate(total=Sum('total_usage_seconds'))
+        .get('total')
+        or 0
+    )
+    total_usage_hours = total_usage_seconds / 3600
+
+    notifications_sent = NotificationLog.objects.filter(
+        status__iexact='SENT'
+    ).count()
+
+    activity_count = ActivityLog.objects.count()
+
+    # ------------------------------------------------------------------
+    # Environmental monitoring
+    # ------------------------------------------------------------------
+    sensor_count = SensorReading.objects.count()
+    first_sensor = SensorReading.objects.order_by('recorded_at').first()
+    last_sensor = SensorReading.objects.order_by('-recorded_at').first()
+
+    if first_sensor and last_sensor:
+        environmental_seconds = max(
+            int(
+                (
+                    last_sensor.recorded_at -
+                    first_sensor.recorded_at
+                ).total_seconds()
+            ),
+            0,
+        )
+        environmental_days = environmental_seconds / 86400
+    else:
+        environmental_days = 0
+
+    # ------------------------------------------------------------------
+    # Generator fuel consumption
+    #
+    # Same register logic used by the Generator Fuel page:
+    # for each generator, fuel consumed between two fuel entries is:
+    #
+    # previous AFTER reading - current BEFORE reading
+    #
+    # Negative intervals are ignored because they represent incomplete /
+    # inconsistent historical intervals rather than valid consumption.
+    # ------------------------------------------------------------------
+    total_fuel_used = Decimal('0.00')
+
+    for generator in ('Gen-01', 'Gen-02'):
+        fuel_entries = list(
+            GeneratorFuelLog.objects
+            .filter(generator=generator)
+            .order_by('reading_at', 'id')
+        )
+
+        previous = None
+
+        for entry in fuel_entries:
+            if previous is not None:
+                used = (
+                    previous.fuel_after_l -
+                    entry.fuel_before_l
+                )
+
+                if used >= 0:
+                    total_fuel_used += used
+
+            previous = entry
+
     return render(request, 'monitor/about.html', {
-        'device_count':    device_count,
-        'total_events':    total_events,
-        'total_cycles':    total_cycles,
+        'device_count': device_count,
+        'total_events': total_events,
+        'total_cycles': total_cycles,
         'days_monitoring': days_monitoring,
+
+        'total_outage_hours': total_outage_hours,
+        'total_usage_hours': total_usage_hours,
+        'notifications_sent': notifications_sent,
+        'activity_count': activity_count,
+
+        'environmental_days': environmental_days,
+        'sensor_count': sensor_count,
+        'total_fuel_used': total_fuel_used,
+
         'role': get_role(request.user),
     })
 
