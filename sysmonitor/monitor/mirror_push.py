@@ -27,7 +27,7 @@ and one "recovered" Event when it works again.
 Configuration (.env on the LOCAL server) — if MIRROR_HOST is not set this
 script does nothing:
     MIRROR_HOST=app.bsccl.com        MIRROR_USER=app-admin
-    MIRROR_PORT=3048                  MIRROR_PATH=/home/app-admin/sysmonitor-repo/sysmonitor
+    MIRROR_PORT=3048                  MIRROR_PATH=/home/app-admin/sysmonitor/repo/sysmonitor
     MIRROR_SSH_KEY=/home/nanolab/.ssh/sysmonitor_ed25519
 """
 import fcntl
@@ -57,7 +57,7 @@ STATE_PATH = BASE_DIR / '.mirror_state.json'
 HOST = os.environ.get('MIRROR_HOST', '').strip()
 USER = os.environ.get('MIRROR_USER', '').strip()
 PORT = os.environ.get('MIRROR_PORT', '3048').strip()
-RPATH = os.environ.get('MIRROR_PATH', '/home/app-admin/sysmonitor-repo/sysmonitor').strip().rstrip('/')
+RPATH = os.environ.get('MIRROR_PATH', '/home/app-admin/sysmonitor/repo/sysmonitor').strip().rstrip('/')
 KEY = os.environ.get('MIRROR_SSH_KEY', '').strip()
 # 'git'   → code reaches the remote through GitHub (deploy/remote-update.sh);
 #           the nightly job then only re-sends media.

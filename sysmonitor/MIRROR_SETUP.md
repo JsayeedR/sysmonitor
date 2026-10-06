@@ -104,14 +104,14 @@ sudo cp -a /etc/nginx ~/nginx_backup_before_sysmonitor
 # 3b. Tools (git, venv, rsync are probably there already; this only adds what is missing)
 sudo apt install -y git python3-venv rsync
 # 3c. The code (public repo, no password needed) and its own Python environment
-git clone https://github.com/JsayeedR/sysmonitor /home/app-admin/sysmonitor-repo
-python3 -m venv /home/app-admin/sysmonitor-venv
-/home/app-admin/sysmonitor-venv/bin/pip install -r /home/app-admin/sysmonitor-repo/sysmonitor/requirements-mirror.txt
+git clone https://github.com/JsayeedR/sysmonitor /home/app-admin/sysmonitor/repo
+python3 -m venv /home/app-admin/sysmonitor/venv
+/home/app-admin/sysmonitor/venv/bin/pip install -r /home/app-admin/sysmonitor/repo/sysmonitor/requirements-mirror.txt
 # 3d. Let ONLY the update job restart ONLY our website (no password prompt)
 echo 'app-admin ALL=(root) NOPASSWD: /usr/bin/systemctl restart sysmonitor-remote-web' | sudo tee /etc/sudoers.d/sysmonitor-restart
 sudo chmod 440 /etc/sudoers.d/sysmonitor-restart && sudo visudo -c
 ```
-✅ **Check:** `ls /home/app-admin/sysmonitor-repo/sysmonitor/manage.py` shows the file; `/home/app-admin/sysmonitor-venv/bin/python -c "import django;print(django.__version__)"` prints `5.2.14`; `sudo visudo -c` says `parsed OK`.
+✅ **Check:** `ls /home/app-admin/sysmonitor/repo/sysmonitor/manage.py` shows the file; `/home/app-admin/sysmonitor/venv/bin/python -c "import django;print(django.__version__)"` prints `5.2.14`; `sudo visudo -c` says `parsed OK`.
 
 ---
 ## STEP 4 — Let the master log in to the remote (key, no password)
@@ -135,13 +135,13 @@ cd /home/nanolab/Desktop/sysmonitor && source venv/bin/activate
 python monitor/mirror_push.py
 python monitor/mirror_push.py --full      # sends profile pictures (code comes from GitHub)
 ```
-✅ **Check [REMOTE]:** `ls /home/app-admin/sysmonitor-repo/sysmonitor` shows `mirror-xxxxxxxxxxxxxxxx.sqlite3`, `mirror_current`, `mirror_meta.json`, and `media/`.
+✅ **Check [REMOTE]:** `ls /home/app-admin/sysmonitor/repo/sysmonitor` shows `mirror-xxxxxxxxxxxxxxxx.sqlite3`, `mirror_current`, `mirror_meta.json`, and `media/`.
 
 ---
 ## STEP 6 — [REMOTE] Start the website
 **6a. Settings file**
 ```bash
-cd /home/app-admin/sysmonitor-repo/sysmonitor
+cd /home/app-admin/sysmonitor/repo/sysmonitor
 cp .env.mirror-remote.example .env
 nano .env
 chmod 600 .env
@@ -150,7 +150,7 @@ Replace the two `<…>` placeholders: a **new** secret key (`python3 -c "import 
 
 **6b. Start**
 ```bash
-sudo cp /home/app-admin/sysmonitor-repo/sysmonitor/systemd/sysmonitor-remote-web.service /etc/systemd/system/
+sudo cp /home/app-admin/sysmonitor/repo/sysmonitor/systemd/sysmonitor-remote-web.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now sysmonitor-remote-web
 curl -s -o /dev/null -w "%{http_code}\n" -H "SCRIPT_NAME: /sysmonitor" http://127.0.0.1:8020/sysmonitor/login/
 ```
@@ -189,7 +189,7 @@ systemctl list-timers 'sysmonitor-mirror*' --no-pager
 ```
 **[REMOTE]**
 ```bash
-sudo cp /home/app-admin/sysmonitor-repo/sysmonitor/systemd/sysmonitor-remote-update.* /etc/systemd/system/
+sudo cp /home/app-admin/sysmonitor/repo/sysmonitor/systemd/sysmonitor-remote-update.* /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now sysmonitor-remote-update.timer
 ```
 ✅ **Check:** on the master, change something on the master site (e.g. add a generator log entry): it appears on the remote within ~1 minute; the banner says "data is 12s old". Add a harmless comment line to any `.py` file, run `./deploy/publish.sh` (answer `y`): a new commit appears on GitHub, and ≤5 min later `journalctl -u sysmonitor-remote-update -n 3` on the remote says `updated …`.
@@ -198,7 +198,7 @@ sudo systemctl daemon-reload && sudo systemctl enable --now sysmonitor-remote-up
 
 ---
 ## Everyday use
-- **Update the code:** edit and test on the master as usual. When you are happy with it: `./deploy/publish.sh` (answer `y`). Within 5 minutes it is live on the remote. To go faster: run `/home/app-admin/sysmonitor-repo/sysmonitor/deploy/remote-update.sh` on the remote. Half-finished work is never published by itself.
+- **Update the code:** edit and test on the master as usual. When you are happy with it: `./deploy/publish.sh` (answer `y`). Within 5 minutes it is live on the remote. To go faster: run `/home/app-admin/sysmonitor/repo/sysmonitor/deploy/remote-update.sh` on the remote. Half-finished work is never published by itself.
 - **Is it healthy?** The banner on the remote shows how old the data is (red = master/tunnel problem).
 - **Changed `requirements-mirror.txt`?** The remote installs it automatically.
 - **Camera / other new features** later: just edit on the master — same path.

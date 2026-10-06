@@ -5,8 +5,8 @@
 # If new code fails `manage.py check` it is rolled back and not retried until
 # GitHub has a newer commit.
 set -u
-REPO_DIR="${REPO_DIR:-/home/app-admin/sysmonitor-repo}"
-VENV="${VENV:-/home/app-admin/sysmonitor-venv}"
+REPO_DIR="${REPO_DIR:-/home/app-admin/sysmonitor/repo}"
+VENV="${VENV:-/home/app-admin/sysmonitor/venv}"
 BRANCH="${GIT_BRANCH:-main}"
 cd "$REPO_DIR" || exit 1
 

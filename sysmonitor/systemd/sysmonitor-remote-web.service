@@ -7,9 +7,9 @@ After=network.target
 [Service]
 Type=simple
 User=app-admin
-WorkingDirectory=/home/app-admin/sysmonitor-repo/sysmonitor
-EnvironmentFile=/home/app-admin/sysmonitor-repo/sysmonitor/.env
-ExecStart=/home/app-admin/sysmonitor-venv/bin/gunicorn sysmonitor.wsgi:application --bind 127.0.0.1:8020 --workers 2 --timeout 120
+WorkingDirectory=/home/app-admin/sysmonitor/repo/sysmonitor
+EnvironmentFile=/home/app-admin/sysmonitor/repo/sysmonitor/.env
+ExecStart=/home/app-admin/sysmonitor/venv/bin/gunicorn sysmonitor.wsgi:application --bind 127.0.0.1:8020 --workers 2 --timeout 120
 Restart=always
 RestartSec=5
 
