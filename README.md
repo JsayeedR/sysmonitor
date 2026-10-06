@@ -162,3 +162,91 @@ Designed, built, and maintains SysMonitor end-to-end — the Django backend, out
 ---
 
 © 2026 COXCLS NOC, BSCPLC. All rights reserved.
+
+---
+
+## Current Platform — October 2026
+
+SysMonitor has expanded from its original outage-monitoring role into an
+integrated NOC operations platform while retaining the same passive monitoring
+principle.
+
+### Generator Data
+
+The Generator Data menu now includes:
+
+- Generator Shifting Entry
+- Generator Fuel Entry
+- Generator Manual Cycle Entry
+- Generator Fuel Report
+- Generator Runtime
+
+Manual cycle entry includes generator selection, duplicate protection, audit
+logging and administrative edit/delete controls.
+
+### Reporting
+
+Current reporting includes:
+
+- total outages
+- total outage duration
+- Generator-01 runtime
+- Generator-02 runtime
+- daily and monthly analysis
+- monthly generator comparison
+- selectable date ranges
+- CSV export
+- PDF export
+
+Quick date ranges and exports are also used across important operational logs.
+
+### Colocation monitoring
+
+The Tuya-based environmental subsystem records:
+
+- temperature
+- relative humidity
+- sensor history
+- monitoring period
+- alarm thresholds
+- scheduled status messages
+- threshold-crossing alarms
+
+### Notifications
+
+Notification channels:
+
+- WhatsApp
+- Telegram
+- Email
+
+Recipients can opt into supported event categories, and successful or failed
+delivery attempts are retained in the Notification Log.
+
+### MASTER + REMOTE
+
+The on-site MASTER remains authoritative for monitoring, database writes and
+background services.
+
+The remote SysMonitor instance receives safe SQLite mirror snapshots. Supported
+writes from the remote instance are forwarded back to the MASTER rather than
+being written directly into the mirror database.
+
+### Reliability
+
+The system uses independent systemd services/timers for web serving, monitoring,
+PAC status, environmental polling, backups, synchronization, mirror transport
+and remote updating.
+
+Normal daily database and project backups use rolling retention rather than
+growing indefinitely.
+
+### Audit and analytics
+
+SysMonitor separates:
+
+- Event Log — operational/system events
+- Activity Log — human/user actions
+
+The platform also tracks aggregate page views and accumulated active usage time
+for authenticated users.
