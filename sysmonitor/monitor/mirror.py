@@ -46,6 +46,7 @@ LOCAL_POST_PATHS = ('/login/', '/logout/')
 # GET pages that need the master machine (live services / local hardware).
 PASS_THROUGH_GET_PREFIXES = (
     '/system/', '/uptime/', '/smw6pac/',
+    '/generator-cycle-audit/data/',
     '/notifications/whatsapp-health/', '/notifications/gateway/telegram-chats/',
 )
 # Not available on the remote at all (Django admin → use the master).

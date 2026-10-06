@@ -1946,9 +1946,9 @@ def generator_fuel(request):
     )
 
 
-@role_required('user', 'admin', 'viewer')
+@role_required('user', 'admin')
 def generator_cycle_audit(request):
-    """Generator Cycle Audit — currently under maintenance."""
+    """Manual/audited generator cycle entry and audit history."""
     return render(
         request,
         "monitor/generator_cycle_audit.html",
@@ -2500,7 +2500,8 @@ def system_cycle_action(request, cid):
     return JsonResponse({'ok': True})
 
 
-@role_required('admin')
+@role_required('user', 'admin')
+@transaction.atomic
 def system_manual_cycle_add(request):
     """
     Admin-only: manually log an audited outage cycle that the automatic
@@ -2540,8 +2541,11 @@ def system_manual_cycle_add(request):
     if not (start_date and start_time and end_date and end_time):
         return JsonResponse({'ok': False, 'error': 'Start and end date/time are required'})
 
-    if generator not in ('', 'Gen-01', 'Gen-02'):
-        return JsonResponse({'ok': False, 'error': 'Generator must be Gen-01, Gen-02, or left unassigned'})
+    if generator not in ('Gen-01', 'Gen-02'):
+        return JsonResponse({
+            'ok': False,
+            'error': 'Generator is required. Please select Gen-01 or Gen-02.'
+        })
 
     try:
         naive_start = dt_class.strptime(f'{start_date} {start_time}', '%Y-%m-%d %H:%M')
@@ -2557,26 +2561,80 @@ def system_manual_cycle_add(request):
 
     duration_sec = int((end_dt - start_dt).total_seconds())
 
-    cycle = OutageCycle.objects.create(
-        outage_start=start_dt,
-        pdb_restored=end_dt,
-        cycle_end=end_dt,
-        pdb_duration_sec=duration_sec,
-        gen_runtime_sec=0,
-        cycle_type='MANUAL',
-        is_complete=True,
+    existing = OutageCycle.objects.filter(
         is_manual=True,
-        manual_generator=generator,
-        alarm_reason=note,
-        added_by=request.user.username,
+        outage_start=start_dt,
+        cycle_end=end_dt,
+    ).first()
+
+    if existing:
+        return JsonResponse({
+            'ok': False,
+            'duplicate': True,
+            'cycle_id': existing.id,
+            'error': (
+                f'Manual cycle ID:{existing.id} already exists '
+                'with the same start and end time.'
+            ),
+        })
+
+    from django.db import IntegrityError
+
+    try:
+        # Nested atomic block gives this INSERT its own savepoint. If two
+        # submissions race, the unique constraint can fail safely without
+        # breaking the outer request transaction.
+        with transaction.atomic():
+            cycle = OutageCycle.objects.create(
+                outage_start=start_dt,
+                pdb_restored=end_dt,
+                cycle_end=end_dt,
+                pdb_duration_sec=duration_sec,
+                gen_runtime_sec=0,
+                cycle_type='MANUAL',
+                is_complete=True,
+                is_manual=True,
+                manual_generator=generator,
+                alarm_reason=note,
+                added_by=request.user.username,
+            )
+    except IntegrityError:
+        existing = OutageCycle.objects.filter(
+            is_manual=True,
+            outage_start=start_dt,
+            cycle_end=end_dt,
+        ).first()
+        return JsonResponse({
+            'ok': False,
+            'duplicate': True,
+            'cycle_id': existing.id if existing else None,
+            'error': (
+                f'Manual cycle ID:{existing.id} already exists '
+                'with the same start and end time.'
+                if existing
+                else 'This manual cycle already exists.'
+            ),
+        })
+
+    detail = (
+        f'Manual cycle added: ID:{cycle.id}, '
+        f'{generator}, '
+        f'{start_dt.strftime("%d/%m/%Y %I:%M:%S %p")} -> '
+        f'{end_dt.strftime("%d/%m/%Y %I:%M:%S %p")}, '
+        f'by={request.user.username}'
     )
 
     log_activity(
-        request.user, 'CYCLE_MANUAL_ADD',
-        f'Manually added audited cycle ID:{cycle.id} '
-        f'({start_dt.strftime("%d/%m/%Y %I:%M:%S %p")} → {end_dt.strftime("%d/%m/%Y %I:%M:%S %p")}, '
-        f'{generator or "unassigned"})',
+        request.user,
+        'CYCLE_MANUAL_ADD',
+        detail,
         get_ip(request)
+    )
+
+    Event.objects.create(
+        device=None,
+        level='NOTICE',
+        message=detail
     )
 
     try:
@@ -2590,6 +2648,279 @@ def system_manual_cycle_add(request):
         'cycle_id': cycle.id,
         'duration_str': fmt_duration(duration_sec),
     })
+
+
+
+@role_required('user', 'admin')
+def generator_cycle_audit_data(request):
+    """Manual-cycle summary for the Cycle Audit page."""
+    if request.method != 'GET':
+        return JsonResponse({'ok': False, 'error': 'GET required'})
+
+    import pytz
+    bdt = pytz.timezone('Asia/Dhaka')
+
+    raw_limit = (request.GET.get('limit') or '10').strip().lower()
+
+    if raw_limit == 'all':
+        cycles = (
+            OutageCycle.objects
+            .filter(is_manual=True)
+            .order_by('-outage_start', '-id')
+        )
+    else:
+        try:
+            limit = int(raw_limit)
+        except (TypeError, ValueError):
+            limit = 10
+
+        if limit not in (5, 10, 50, 100):
+            limit = 10
+
+        cycles = (
+            OutageCycle.objects
+            .filter(is_manual=True)
+            .order_by('-outage_start', '-id')[:limit]
+        )
+
+    data = []
+    for c in cycles:
+        start = c.outage_start
+        end = c.cycle_end or c.pdb_restored
+        seconds = c.pdb_duration_sec or 0
+        h, rem = divmod(seconds, 3600)
+        m, s = divmod(rem, 60)
+
+        if h:
+            duration = f'{h}h {m:02d}m'
+        elif m:
+            duration = f'{m}m {s:02d}s'
+        else:
+            duration = f'{s}s'
+
+        data.append({
+            'id': c.id,
+            'start': start.astimezone(bdt).strftime('%d/%m/%Y %I:%M %p') if start else '—',
+            'end': end.astimezone(bdt).strftime('%d/%m/%Y %I:%M %p') if end else '—',
+            'start_date': start.astimezone(bdt).strftime('%Y-%m-%d') if start else '',
+            'start_time': start.astimezone(bdt).strftime('%H:%M') if start else '',
+            'end_date': end.astimezone(bdt).strftime('%Y-%m-%d') if end else '',
+            'end_time': end.astimezone(bdt).strftime('%H:%M') if end else '',
+            'duration': duration,
+            'generator': c.manual_generator,
+            'added_by': c.added_by or '—',
+            'note': c.alarm_reason or '',
+            'created_at': (
+                c.created_at.astimezone(bdt).strftime('%d/%m/%Y %I:%M %p')
+                if c.created_at else '—'
+            ),
+        })
+
+    return JsonResponse({
+        'ok': True,
+        'cycles': data,
+        'role': get_role(request.user),
+    })
+
+
+@role_required('admin')
+@transaction.atomic
+def generator_cycle_audit_edit(request, cid):
+    """Admin-only edit of a manual/audited cycle."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'POST required'})
+
+    import json as _json
+    import pytz
+    from datetime import datetime as dt_class
+
+    try:
+        cycle = OutageCycle.objects.get(id=cid, is_manual=True)
+    except OutageCycle.DoesNotExist:
+        return JsonResponse({
+            'ok': False,
+            'error': 'Manual cycle not found.'
+        })
+
+    try:
+        d = _json.loads(request.body)
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'Invalid request body'})
+
+    start_date = (d.get('start_date') or '').strip()
+    start_time = (d.get('start_time') or '').strip()
+    end_date = (d.get('end_date') or '').strip()
+    end_time = (d.get('end_time') or '').strip()
+    generator = (d.get('generator') or '').strip()
+    note = (d.get('note') or '').strip()
+
+    if not (start_date and start_time and end_date and end_time):
+        return JsonResponse({
+            'ok': False,
+            'error': 'Start and end date/time are required.'
+        })
+
+    if generator not in ('Gen-01', 'Gen-02'):
+        return JsonResponse({
+            'ok': False,
+            'error': 'Generator is required. Please select Gen-01 or Gen-02.'
+        })
+
+    bdt = pytz.timezone('Asia/Dhaka')
+
+    try:
+        naive_start = dt_class.strptime(
+            f'{start_date} {start_time}',
+            '%Y-%m-%d %H:%M'
+        )
+        naive_end = dt_class.strptime(
+            f'{end_date} {end_time}',
+            '%Y-%m-%d %H:%M'
+        )
+    except ValueError:
+        return JsonResponse({
+            'ok': False,
+            'error': 'Invalid date/time format.'
+        })
+
+    start_dt = bdt.localize(naive_start)
+    end_dt = bdt.localize(naive_end)
+
+    if end_dt <= start_dt:
+        return JsonResponse({
+            'ok': False,
+            'error': 'End time must be after start time.'
+        })
+
+    duplicate = (
+        OutageCycle.objects
+        .filter(
+            is_manual=True,
+            outage_start=start_dt,
+            cycle_end=end_dt,
+        )
+        .exclude(id=cycle.id)
+        .first()
+    )
+
+    if duplicate:
+        return JsonResponse({
+            'ok': False,
+            'duplicate': True,
+            'cycle_id': duplicate.id,
+            'error': (
+                f'Manual cycle ID:{duplicate.id} already exists '
+                'with the same start and end time.'
+            ),
+        })
+
+    old_generator = cycle.manual_generator
+    old_start = cycle.outage_start
+    old_end = cycle.cycle_end or cycle.pdb_restored
+
+    cycle.outage_start = start_dt
+    cycle.pdb_restored = end_dt
+    cycle.cycle_end = end_dt
+    cycle.pdb_duration_sec = int((end_dt - start_dt).total_seconds())
+    cycle.cycle_type = 'MANUAL'
+    cycle.is_complete = True
+    cycle.is_manual = True
+    cycle.manual_generator = generator
+    cycle.alarm_reason = note
+
+    from django.db import IntegrityError
+
+    try:
+        with transaction.atomic():
+            cycle.save()
+    except IntegrityError:
+        duplicate = (
+            OutageCycle.objects
+            .filter(
+                is_manual=True,
+                outage_start=start_dt,
+                cycle_end=end_dt,
+            )
+            .exclude(id=cycle.id)
+            .first()
+        )
+        return JsonResponse({
+            'ok': False,
+            'duplicate': True,
+            'cycle_id': duplicate.id if duplicate else None,
+            'error': (
+                f'Manual cycle ID:{duplicate.id} already exists '
+                'with the same start and end time.'
+                if duplicate
+                else 'An identical manual cycle already exists.'
+            ),
+        })
+
+    detail = (
+        f'Manual cycle edited: ID:{cycle.id}, '
+        f'{old_generator} {old_start} -> {old_end}; '
+        f'now {generator} {start_dt} -> {end_dt}; '
+        f'by={request.user.username}'
+    )
+
+    log_activity(
+        request.user,
+        'CYCLE_MANUAL_EDIT',
+        detail[:300],
+        get_ip(request)
+    )
+
+    Event.objects.create(
+        device=None,
+        level='NOTICE',
+        message=detail
+    )
+
+    return JsonResponse({
+        'ok': True,
+        'cycle_id': cycle.id,
+    })
+
+
+@role_required('admin')
+@transaction.atomic
+def generator_cycle_audit_delete(request, cid):
+    """Admin-only deletion of a manual/audited cycle."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'POST required'})
+
+    try:
+        cycle = OutageCycle.objects.get(id=cid, is_manual=True)
+    except OutageCycle.DoesNotExist:
+        return JsonResponse({
+            'ok': False,
+            'error': 'Manual cycle not found.'
+        })
+
+    detail = (
+        f'Manual cycle deleted: ID:{cycle.id}, '
+        f'{cycle.manual_generator}, '
+        f'{cycle.outage_start} -> {cycle.cycle_end or cycle.pdb_restored}, '
+        f'originally added by={cycle.added_by or "unknown"}, '
+        f'deleted by={request.user.username}'
+    )
+
+    cycle.delete()
+
+    log_activity(
+        request.user,
+        'CYCLE_MANUAL_DELETE',
+        detail[:300],
+        get_ip(request)
+    )
+
+    Event.objects.create(
+        device=None,
+        level='NOTICE',
+        message=detail
+    )
+
+    return JsonResponse({'ok': True})
 
 
 @role_required('admin')

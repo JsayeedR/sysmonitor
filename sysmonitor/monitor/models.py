@@ -203,6 +203,13 @@ class OutageCycle(models.Model):
 
     class Meta:
         ordering = ['-outage_start']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['outage_start', 'cycle_end'],
+                condition=models.Q(is_manual=True),
+                name='unique_manual_cycle_start_end',
+            ),
+        ]
 
     def pdb_duration_fmt(self):
         s = self.pdb_duration_sec

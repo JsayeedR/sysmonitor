@@ -5,91 +5,727 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Generator Cycle Audit — SysMonitor</title>
+
   <style>
     :root {
-      --bg: #0b1120;
-      --surface: #111827;
-      --border: #1f2937;
-      --text: #e5e7eb;
-      --muted: #9ca3af;
-      --faint: #6b7280;
-      --yellow: #fbbf24;
+      --bg:#0b1120;
+      --surface:#111827;
+      --surface2:#0f172a;
+      --border:#263244;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --faint:#6b7280;
+      --green:#34d399;
+      --red:#f87171;
+      --yellow:#fbbf24;
+      --blue:#60a5fa;
     }
-    * { box-sizing: border-box; }
+
+    * { box-sizing:border-box; }
+
     body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: Arial, sans-serif;
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:Arial,sans-serif;
     }
+
     .page {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 2rem;
+      max-width:1250px;
+      margin:0 auto;
+      padding:2rem;
     }
+
     .page-header {
-      margin-bottom: 1.5rem;
+      margin-bottom:1.4rem;
     }
+
     .page-header h1 {
-      margin: 0 0 .4rem;
-      font-size: 1.5rem;
+      margin:0 0 .4rem;
+      font-size:1.55rem;
     }
+
     .page-header p {
-      margin: 0;
-      color: var(--muted);
-      font-size: .9rem;
+      margin:0;
+      color:var(--muted);
+      font-size:.9rem;
     }
-    .maintenance-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 3rem 2rem;
-      text-align: center;
+
+    .card {
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:1.15rem;
+      margin-bottom:1rem;
     }
-    .maintenance-icon {
-      font-size: 3rem;
-      margin-bottom: 1rem;
+
+    .card-title {
+      font-size:1rem;
+      font-weight:700;
+      margin-bottom:.35rem;
     }
-    .maintenance-card h2 {
-      margin: 0 0 .7rem;
-      font-size: 1.2rem;
+
+    .card-sub {
+      color:var(--muted);
+      font-size:.78rem;
+      line-height:1.5;
+      margin-bottom:1rem;
     }
-    .maintenance-card p {
-      margin: 0 auto 1.2rem;
-      max-width: 600px;
-      color: var(--muted);
-      line-height: 1.6;
+
+    .form-grid {
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:.8rem;
     }
-    .badge {
-      display: inline-block;
-      padding: .35rem .75rem;
-      border-radius: 20px;
-      background: rgba(251,191,36,.12);
-      color: var(--yellow);
-      font-size: .75rem;
-      font-weight: 700;
-      letter-spacing: .04em;
+
+    .field.full {
+      grid-column:1/-1;
+    }
+
+    label {
+      display:block;
+      color:var(--muted);
+      font-size:.74rem;
+      margin-bottom:.3rem;
+    }
+
+    input, select {
+      width:100%;
+      background:var(--surface2);
+      border:1px solid var(--border);
+      color:var(--text);
+      border-radius:8px;
+      padding:.58rem .7rem;
+      font-size:.86rem;
+      outline:none;
+    }
+
+    input:focus, select:focus {
+      border-color:var(--blue);
+    }
+
+    .required {
+      color:var(--red);
+    }
+
+    .actions {
+      display:flex;
+      gap:.6rem;
+      align-items:center;
+      flex-wrap:wrap;
+      margin-top:1rem;
+    }
+
+    .btn {
+      border:0;
+      border-radius:8px;
+      padding:.55rem .85rem;
+      font-size:.82rem;
+      font-weight:700;
+      cursor:pointer;
+    }
+
+    .btn:disabled {
+      opacity:.55;
+      cursor:not-allowed;
+    }
+
+    .btn-primary {
+      background:#2563eb;
+      color:white;
+    }
+
+    .btn-secondary {
+      background:#374151;
+      color:white;
+    }
+
+    .btn-edit {
+      background:#92400e;
+      color:#fff;
+      padding:.38rem .6rem;
+      font-size:.72rem;
+    }
+
+    .btn-delete {
+      background:#991b1b;
+      color:#fff;
+      padding:.38rem .6rem;
+      font-size:.72rem;
+    }
+
+    .msg {
+      margin-top:.7rem;
+      min-height:1.1rem;
+      font-size:.8rem;
+    }
+
+    .msg-ok { color:var(--green); }
+    .msg-err { color:var(--red); }
+
+    .summary-head {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:.75rem;
+      flex-wrap:wrap;
+      margin-bottom:.8rem;
+    }
+
+    .table-wrap {
+      overflow-x:auto;
+    }
+
+    table {
+      width:100%;
+      border-collapse:collapse;
+      font-size:.77rem;
+      min-width:1000px;
+    }
+
+    th, td {
+      border-bottom:1px solid var(--border);
+      text-align:left;
+      padding:.58rem .55rem;
+      vertical-align:top;
+    }
+
+    th {
+      color:var(--muted);
+      font-weight:600;
+      white-space:nowrap;
+    }
+
+    .cycle-id {
+      font-weight:700;
+      color:var(--blue);
+      white-space:nowrap;
+    }
+
+    .generator {
+      font-weight:700;
+      color:var(--yellow);
+      white-space:nowrap;
+    }
+
+    .note-cell {
+      max-width:260px;
+      white-space:normal;
+      word-break:break-word;
+    }
+
+    .row-actions {
+      display:flex;
+      gap:.35rem;
+      white-space:nowrap;
+    }
+
+    .loading, .empty {
+      color:var(--muted);
+      padding:1rem 0;
+      font-size:.82rem;
+    }
+
+    .edit-banner {
+      display:none;
+      background:rgba(251,191,36,.09);
+      border:1px solid rgba(251,191,36,.35);
+      color:var(--yellow);
+      border-radius:8px;
+      padding:.6rem .75rem;
+      margin-bottom:.9rem;
+      font-size:.8rem;
+    }
+
+    @media(max-width:700px) {
+      .page { padding:1rem; }
+      .form-grid { grid-template-columns:1fr; }
+      .field.full { grid-column:auto; }
     }
   </style>
 </head>
-<body>
-  {% include "monitor/navbar.html" %}
 
-  <main class="page">
-    <div class="page-header">
-      <h1>🕵️ Generator Cycle Audit</h1>
-      <p>Generator cycle verification, audit history and consistency checks</p>
+<body>
+
+{% include "monitor/navbar.html" %}
+
+<main class="page">
+
+  <div class="page-header">
+    <h1>🕵️ Generator Cycle Audit</h1>
+    <p>Manual / audited generator-cycle entry and audit history.</p>
+  </div>
+
+  <section class="card">
+    <div class="card-title">➕ Add Manual / Audited Cycle</div>
+
+    <div class="card-sub">
+      Use this when an outage cycle was missed by automatic monitoring or when
+      a verified audited cycle needs to be entered manually.
+      Generator assignment is mandatory.
     </div>
 
-    <section class="maintenance-card">
-      <div class="maintenance-icon">🚧</div>
-      <h2>Generator Cycle Audit is currently under maintenance</h2>
-      <p>
-        This page will provide generator cycle verification, audit records
-        and related consistency checks.
-      </p>
-      <span class="badge">UNDER MAINTENANCE</span>
-    </section>
-  </main>
+    <div id="edit-banner" class="edit-banner"></div>
+
+    <div class="form-grid">
+
+      <div class="field">
+        <label>Start Date <span class="required">*</span></label>
+        <input id="manual-start-date" type="date">
+      </div>
+
+      <div class="field">
+        <label>Start Time <span class="required">*</span></label>
+        <input id="manual-start-time" type="time">
+      </div>
+
+      <div class="field">
+        <label>End Date <span class="required">*</span></label>
+        <input id="manual-end-date" type="date">
+      </div>
+
+      <div class="field">
+        <label>End Time <span class="required">*</span></label>
+        <input id="manual-end-time" type="time">
+      </div>
+
+      <div class="field">
+        <label>Generator <span class="required">*</span></label>
+        <select id="manual-generator">
+          <option value="">— Select Generator —</option>
+          <option value="Gen-01">Gen-01</option>
+          <option value="Gen-02">Gen-02</option>
+        </select>
+      </div>
+
+      <div class="field full">
+        <label>Note (optional)</label>
+        <input
+          id="manual-note"
+          type="text"
+          maxlength="300"
+          placeholder="e.g. Confirmed from field report"
+        >
+      </div>
+
+    </div>
+
+    <div class="actions">
+      <button
+        id="manual-submit-btn"
+        class="btn btn-primary"
+        type="button"
+        onclick="submitManualCycle()"
+      >
+        ➕ Add Cycle
+      </button>
+
+      <button
+        id="manual-cancel-edit-btn"
+        class="btn btn-secondary"
+        type="button"
+        onclick="cancelEdit()"
+        style="display:none;"
+      >
+        Cancel Edit
+      </button>
+    </div>
+
+    <div id="manual-cycle-msg" class="msg"></div>
+  </section>
+
+
+  <section class="card">
+
+    <div class="summary-head">
+      <div>
+        <div class="card-title">📊 Manual Cycle Summary</div>
+        <div class="card-sub" style="margin:0;">
+          Manual / audited cycles only. Automatic monitoring cycles are not shown here.
+        </div>
+      </div>
+
+      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+        <select
+          id="manual-cycle-limit"
+          onchange="loadManualCycles()"
+          style="width:auto;min-width:120px;"
+        >
+          <option value="5">Last 5</option>
+          <option value="10" selected>Last 10</option>
+          <option value="50">Last 50</option>
+          <option value="100">Last 100</option>
+          <option value="all">All</option>
+        </select>
+
+        <button
+          class="btn btn-secondary"
+          type="button"
+          onclick="loadManualCycles()"
+        >
+          🔄 Refresh
+        </button>
+      </div>
+    </div>
+
+    <div id="manual-summary">
+      <div class="loading">Loading manual cycles…</div>
+    </div>
+
+  </section>
+
+</main>
+
+{% include "monitor/footer.html" %}
+
+
+<script>
+const CSRF = '{{ csrf_token }}';
+const BASE_PATH = '{{ base_path }}';
+const USER_ROLE = '{{ role|escapejs }}';
+
+let editCycleId = null;
+let requestInProgress = false;
+let cycleCache = {};
+
+
+function escHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+
+function setMessage(text, ok=false) {
+  const el = document.getElementById('manual-cycle-msg');
+  el.className = 'msg ' + (ok ? 'msg-ok' : 'msg-err');
+  el.textContent = text || '';
+}
+
+
+function cyclePayload() {
+  return {
+    start_date: document.getElementById('manual-start-date').value,
+    start_time: document.getElementById('manual-start-time').value,
+    end_date: document.getElementById('manual-end-date').value,
+    end_time: document.getElementById('manual-end-time').value,
+    generator: document.getElementById('manual-generator').value,
+    note: document.getElementById('manual-note').value.trim(),
+  };
+}
+
+
+function validatePayload(data) {
+  if (!data.start_date || !data.start_time ||
+      !data.end_date || !data.end_time) {
+    return 'Please complete start and end date/time.';
+  }
+
+  if (data.generator !== 'Gen-01' && data.generator !== 'Gen-02') {
+    return 'Please select Gen-01 or Gen-02.';
+  }
+
+  const start = new Date(`${data.start_date}T${data.start_time}`);
+  const end = new Date(`${data.end_date}T${data.end_time}`);
+
+  if (end <= start) {
+    return 'End time must be after start time.';
+  }
+
+  return '';
+}
+
+
+function setProcessing(processing) {
+  requestInProgress = processing;
+
+  const btn = document.getElementById('manual-submit-btn');
+
+  btn.disabled = processing;
+
+  if (processing) {
+    btn.textContent = '⏳ Processing…';
+  } else if (editCycleId) {
+    btn.textContent = '💾 Save Changes';
+  } else {
+    btn.textContent = '➕ Add Cycle';
+  }
+}
+
+
+async function submitManualCycle() {
+  if (requestInProgress) return;
+
+  const data = cyclePayload();
+  const validationError = validatePayload(data);
+
+  if (validationError) {
+    setMessage('❌ ' + validationError, false);
+    return;
+  }
+
+  setMessage('', false);
+  setProcessing(true);
+
+  const url = editCycleId
+    ? `${BASE_PATH}/generator-cycle-audit/${editCycleId}/edit/`
+    : `${BASE_PATH}/generator-cycle-audit/add/`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': CSRF,
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+
+    if (!result.ok) {
+      setMessage('❌ ' + (result.error || 'Unable to save cycle.'), false);
+      return;
+    }
+
+    if (editCycleId) {
+      setMessage(`✅ Cycle ID:${result.cycle_id} updated successfully.`, true);
+    } else {
+      setMessage(
+        `✅ Cycle ID:${result.cycle_id} added successfully — ${result.duration_str}.`,
+        true
+      );
+    }
+
+    clearForm();
+    await loadManualCycles();
+
+  } catch (error) {
+    setMessage('❌ Request failed. Please try again.', false);
+
+  } finally {
+    setProcessing(false);
+  }
+}
+
+
+function clearForm() {
+  editCycleId = null;
+
+  document.getElementById('manual-start-date').value = '';
+  document.getElementById('manual-start-time').value = '';
+  document.getElementById('manual-end-date').value = '';
+  document.getElementById('manual-end-time').value = '';
+  document.getElementById('manual-generator').value = '';
+  document.getElementById('manual-note').value = '';
+
+  document.getElementById('edit-banner').style.display = 'none';
+  document.getElementById('manual-cancel-edit-btn').style.display = 'none';
+
+  if (!requestInProgress) {
+    document.getElementById('manual-submit-btn').textContent = '➕ Add Cycle';
+  }
+}
+
+
+function cancelEdit() {
+  clearForm();
+  setMessage('Edit cancelled.', true);
+}
+
+
+function startEdit(id) {
+  if (USER_ROLE !== 'admin') return;
+
+  const c = cycleCache[id];
+  if (!c) {
+    setMessage('❌ Cycle data is no longer available. Refresh and try again.', false);
+    return;
+  }
+
+  editCycleId = id;
+
+  document.getElementById('manual-start-date').value = c.start_date;
+  document.getElementById('manual-start-time').value = c.start_time;
+  document.getElementById('manual-end-date').value = c.end_date;
+  document.getElementById('manual-end-time').value = c.end_time;
+  document.getElementById('manual-generator').value = c.generator;
+  document.getElementById('manual-note').value = c.note || '';
+
+  const banner = document.getElementById('edit-banner');
+  banner.textContent = `✏️ Editing Manual Cycle ID:${id}`;
+  banner.style.display = 'block';
+
+  document.getElementById('manual-submit-btn').textContent = '💾 Save Changes';
+  document.getElementById('manual-cancel-edit-btn').style.display = 'inline-block';
+
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+
+async function deleteCycle(id, button) {
+  if (USER_ROLE !== 'admin') return;
+
+  if (!confirm(
+    `Delete Manual Cycle ID:${id}?\n\n` +
+    `This action is permanent and will be recorded in the Activity Log and Recent Events.`
+  )) {
+    return;
+  }
+
+  button.disabled = true;
+  const oldText = button.textContent;
+  button.textContent = '⏳ Deleting…';
+
+  try {
+    const response = await fetch(
+      `${BASE_PATH}/generator-cycle-audit/${id}/delete/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type':'application/json',
+          'X-CSRFToken':CSRF,
+          'X-Requested-With':'XMLHttpRequest',
+        },
+        body: JSON.stringify({}),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!result.ok) {
+      alert('❌ ' + (result.error || 'Delete failed.'));
+      button.disabled = false;
+      button.textContent = oldText;
+      return;
+    }
+
+    if (editCycleId === id) {
+      clearForm();
+    }
+
+    await loadManualCycles();
+
+  } catch (error) {
+    alert('❌ Delete request failed. Please try again.');
+    button.disabled = false;
+    button.textContent = oldText;
+  }
+}
+
+
+async function loadManualCycles() {
+  const panel = document.getElementById('manual-summary');
+  panel.innerHTML = '<div class="loading">Loading manual cycles…</div>';
+
+  try {
+    const limit = document.getElementById('manual-cycle-limit').value;
+
+    const response = await fetch(
+      `${BASE_PATH}/generator-cycle-audit/data/?limit=${encodeURIComponent(limit)}`,
+      {
+        headers: {
+          'Accept':'application/json',
+          'X-Requested-With':'XMLHttpRequest',
+        },
+      }
+    );
+
+    const data = await response.json();
+
+    if (!data.ok) {
+      panel.innerHTML =
+        '<div class="empty">Unable to load manual-cycle history.</div>';
+      return;
+    }
+
+    if (!data.cycles || !data.cycles.length) {
+      cycleCache = {};
+      panel.innerHTML =
+        '<div class="empty">No manual cycles have been recorded.</div>';
+      return;
+    }
+
+    cycleCache = {};
+
+    data.cycles.forEach(c => {
+      cycleCache[c.id] = c;
+    });
+
+    const adminColumn = USER_ROLE === 'admin'
+      ? '<th>Actions</th>'
+      : '';
+
+    const rows = data.cycles.map(c => {
+      const adminActions = USER_ROLE === 'admin'
+        ? `
+          <td>
+            <div class="row-actions">
+              <button
+                class="btn btn-edit"
+                type="button"
+                onclick="startEdit(${c.id})"
+              >✏️ Edit</button>
+
+              <button
+                class="btn btn-delete"
+                type="button"
+                onclick="deleteCycle(${c.id}, this)"
+              >🗑️ Delete</button>
+            </div>
+          </td>
+        `
+        : '';
+
+      return `
+        <tr>
+          <td><span class="cycle-id">#${c.id}</span></td>
+          <td>${escHtml(c.start)}</td>
+          <td>${escHtml(c.end)}</td>
+          <td>${escHtml(c.duration)}</td>
+          <td><span class="generator">${escHtml(c.generator)}</span></td>
+          <td>${escHtml(c.added_by)}</td>
+          <td>${escHtml(c.created_at)}</td>
+          <td class="note-cell">${escHtml(c.note || '—')}</td>
+          ${adminActions}
+        </tr>
+      `;
+    }).join('');
+
+    panel.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cycle ID</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Duration</th>
+              <th>Generator</th>
+              <th>Added By</th>
+              <th>Added At</th>
+              <th>Note</th>
+              ${adminColumn}
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+
+  } catch (error) {
+    panel.innerHTML =
+      '<div class="empty">Unable to load manual-cycle history.</div>';
+  }
+}
+
+
+loadManualCycles();
+</script>
+
 </body>
 </html>
