@@ -144,11 +144,17 @@
     <button class="tab-btn" onclick="switchTab('recipients')">👥 Recipients</button>
     <button class="tab-btn" onclick="switchTab('log')">📋 Log</button>
     <button class="tab-btn" onclick="switchTab('guide')">📖 Setup Guide</button>
-    <a class="tab-btn" href="/notifications/templates/" style="text-decoration:none;">✍️ Message Formats</a>
+    <a class="tab-btn" href="{{ base_path }}/notifications/templates/" style="text-decoration:none;">✍️ Message Formats</a>
   </div>
 
   <!-- ── TAB: GATEWAYS ─────────────────────────────────────────────────────── -->
   <div id="tab-gateways" class="tab-panel active">
+    {% if is_mirror %}
+    <div style="margin:0 0 1rem;padding:.8rem 1rem;border:1px solid #334155;border-radius:10px;background:#172033;color:#cbd5e1;font-size:.84rem;line-height:1.5;">
+      🔒 Gateway passwords/tokens are intentionally not stored on this remote mirror.
+      Leave a secret field blank to keep the value already saved on the master; enter a new value only when you want to replace it.
+    </div>
+    {% endif %}
 
     <!-- WhatsApp -->
     <div class="card">
@@ -562,7 +568,7 @@ function post(url, data) {
 function sendMonthlyReportNow() {
   const out = document.getElementById('monthly-report-result');
   out.textContent = '⏳ Sending…';
-  post('/notifications/monthly-report/send-now/', {}).then(r => {
+  post('{{ base_path }}/notifications/monthly-report/send-now/', {}).then(r => {
     if (r.ok) {
       out.textContent = `✅ ${r.label}: ${r.outage_count} event(s), ${r.total_downtime} — sent to ${r.sent_count} recipient(s)` +
         (r.failed && r.failed.length ? ` (${r.failed.length} failed: ${r.failed.join('; ')})` : '');
@@ -593,7 +599,7 @@ function saveGateway(ch) {
     data.email_password= document.getElementById('em-pass').value;
     data.email_from    = document.getElementById('em-from').value;
   }
-  post('/notifications/gateway/save/', data).then(r => {
+  post('{{ base_path }}/notifications/gateway/save/', data).then(r => {
     toast(r.ok ? '✅ Gateway saved successfully!' : '❌ ' + r.error, r.ok);
   });
 }
@@ -605,7 +611,7 @@ function testGateway(ch) {
   else contact = document.getElementById('em-test-addr').value;
   if (!contact) { toast('Enter a test contact first', false); return; }
   toast('⏳ Sending test message…');
-  post('/notifications/gateway/test/', { channel: ch, contact }).then(r => {
+  post('{{ base_path }}/notifications/gateway/test/', { channel: ch, contact }).then(r => {
     toast(r.ok ? '✅ Test message sent!' : '❌ Failed: ' + r.error, r.ok);
   });
 }
@@ -614,7 +620,7 @@ function fetchTelegramChats() {
   const box = document.getElementById('tg-chats-result');
   box.style.display = 'block';
   box.innerHTML = '<span style="color:var(--muted)">Fetching…</span>';
-  fetch('/notifications/gateway/telegram-chats/').then(r=>r.json()).then(r => {
+  fetch('{{ base_path }}/notifications/gateway/telegram-chats/').then(r=>r.json()).then(r => {
     if (!r.ok) { box.innerHTML = `<span style="color:var(--red)">❌ ${r.error}</span>`; return; }
     if (!r.chats.length) {
       box.innerHTML = '<span style="color:var(--muted)">No chats found yet. Send a message to your bot first, then try again.</span>';
@@ -651,7 +657,7 @@ function addRecipient() {
   const originalText = btn.textContent;
   btn.textContent = '⏳ Adding...';
 
-  post('/notifications/recipient/add/', {
+  post('{{ base_path }}/notifications/recipient/add/', {
     name, contact,
     channel:        document.getElementById('new-channel').value,
     alert_outage:   document.getElementById('new-outage').checked,
@@ -679,20 +685,20 @@ function addRecipient() {
 
 function deleteRecipient(id) {
   if (!confirm('Delete this recipient?')) return;
-  post(`/notifications/recipient/${id}/delete/`, {}).then(r => {
+  post(`{{ base_path }}/notifications/recipient/${id}/delete/`, {}).then(r => {
     if (r.ok) { document.getElementById('row-'+id).remove(); toast('Deleted'); }
   });
 }
 
 function testRecipient(id) {
   toast('⏳ Sending test…');
-  post(`/notifications/recipient/${id}/test/`, {}).then(r => {
+  post(`{{ base_path }}/notifications/recipient/${id}/test/`, {}).then(r => {
     toast(r.ok ? '✅ Test sent!' : '❌ ' + r.error, r.ok);
   });
 }
 
 function toggleRecipient(id) {
-  post(`/notifications/recipient/${id}/toggle/`, {}).then(r => {
+  post(`{{ base_path }}/notifications/recipient/${id}/toggle/`, {}).then(r => {
     if (r.ok) {
       const el = document.getElementById('status-'+id);
       el.textContent = r.is_active ? 'Active' : 'Paused';
@@ -724,7 +730,7 @@ function closeEdit() { document.getElementById('edit-modal').classList.remove('o
 
 function saveEdit() {
   const id = document.getElementById('edit-id').value;
-  post(`/notifications/recipient/${id}/edit/`, {
+  post(`{{ base_path }}/notifications/recipient/${id}/edit/`, {
     name:           document.getElementById('edit-name').value,
     channel:        document.getElementById('edit-channel').value,
     contact:        document.getElementById('edit-contact').value,
@@ -745,7 +751,7 @@ function saveEdit() {
 
 // Log
 function loadLog() {
-  fetch('/notifications/log/').then(r=>r.json()).then(r => {
+  fetch('{{ base_path }}/notifications/log/').then(r=>r.json()).then(r => {
     const tbody = document.getElementById('log-tbody');
     if (!r.logs.length) {
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem;">No notifications sent yet.</td></tr>';

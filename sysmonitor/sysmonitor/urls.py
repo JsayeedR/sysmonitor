@@ -75,6 +75,8 @@ urlpatterns += [
     path('system/cycle/<int:cid>/action/',   views.system_cycle_action,   name='system_cycle_action'),
     path('system/manual-cycle/add/',         views.system_manual_cycle_add, name='system_manual_cycle_add'),
     path('system/restart-ping/',             views.system_restart_ping,   name='system_restart_ping'),
+    path('mirror/activity/',                   views.mirror_activity,       name='mirror_activity'),
+    path('mirror/track/',                      views.mirror_track,          name='mirror_track'),
     path('system/recent-cycles/',              views.system_recent_cycles,  name='system_recent_cycles'),
 ]
 

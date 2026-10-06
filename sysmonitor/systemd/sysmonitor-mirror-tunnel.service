@@ -1,0 +1,20 @@
+# MASTER: private encrypted tunnel to the remote server. The remote reaches the
+# master's website at http://127.0.0.1:18000 (on the remote machine) through it;
+# nothing on the master is exposed to the internet. Settings come from .env.
+[Unit]
+Description=SysMonitor master-to-remote SSH tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=nanolab
+EnvironmentFile=/home/nanolab/Desktop/sysmonitor/.env
+ExecStart=/usr/bin/ssh -N -i ${MIRROR_SSH_KEY} -p ${MIRROR_PORT} \
+  -o BatchMode=yes -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=accept-new \
+  -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+  -R 127.0.0.1:18000:127.0.0.1:8000 ${MIRROR_USER}@${MIRROR_HOST}
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

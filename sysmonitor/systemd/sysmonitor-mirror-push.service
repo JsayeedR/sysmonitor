@@ -1,0 +1,11 @@
+[Unit]
+Description=SysMonitor live push to the remote mirror
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=nanolab
+WorkingDirectory=/home/nanolab/Desktop/sysmonitor
+ExecStart=/home/nanolab/Desktop/sysmonitor/venv/bin/python monitor/mirror_push.py
+StandardOutput=journal
+StandardError=journal

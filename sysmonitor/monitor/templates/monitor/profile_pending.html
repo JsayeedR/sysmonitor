@@ -71,7 +71,7 @@ function toast(msg) {
 }
 
 function review(id, action) {
-  fetch(`/profile/pending-changes/${id}/${action}/`, {
+  fetch(`{{ base_path }}/profile/pending-changes/${id}/${action}/`, {
     method: 'POST',
     headers: { 'X-CSRFToken': '{{ csrf_token }}' },
   }).then(r => r.json()).then(r => {

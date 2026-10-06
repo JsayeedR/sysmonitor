@@ -258,7 +258,7 @@ const STATUS_ICONS = {
 };
 
 function loadState() {
-  fetch('/system/state/').then(r=>r.json()).then(d => {
+  fetch('{{ base_path }}/system/state/').then(r=>r.json()).then(d => {
 
     // System state
     const icon = STATUS_ICONS[d.system_status] || '⚪';
@@ -312,7 +312,7 @@ function cycleAction(id, action) {
   const verb = action === 'close' ? 'mark complete as NORMAL' : 'permanently DELETE';
   if (!confirm(`Cycle ID:${id} — ${verb}?\n\nMake sure you checked the journal log first to confirm this is not a real ongoing outage.`)) return;
 
-  post(`/system/cycle/${id}/action/`, {action}).then(r => {
+  post(`{{ base_path }}/system/cycle/${id}/action/`, {action}).then(r => {
     if (r.ok) {
       toast(action === 'close' ? '✅ Cycle closed' : '🗑️ Cycle deleted');
       loadState();
@@ -327,7 +327,7 @@ function loadJournal() {
   const box = document.getElementById('journal-box');
   box.textContent = 'Loading…';
 
-  fetch(`/system/journal/?lines=${lines}`).then(r=>r.json()).then(r => {
+  fetch(`{{ base_path }}/system/journal/?lines=${lines}`).then(r=>r.json()).then(r => {
     if (!r.ok) { box.textContent = '❌ Failed: ' + r.error; return; }
     // Colorize key lines
     box.innerHTML = r.log.split('\n').map(line => {
@@ -371,7 +371,7 @@ function restartPing() {
   btn.textContent = '⏳ Restarting…';
   errEl.style.display = 'none';
 
-  post('/system/restart-ping/', {password}).then(r => {
+  post('{{ base_path }}/system/restart-ping/', {password}).then(r => {
     if (r.ok) {
       toast('✅ Service restarted successfully');
       btn.textContent = '✅ Restarted';
@@ -395,7 +395,7 @@ setInterval(loadState, 15000);
 // ── Recent Cycles ─────────────────────────────────────────────────────────────
 function loadRecentCycles() {
   const limit = document.getElementById('cycles-limit').value;
-  fetch(`/system/recent-cycles/?limit=${limit}`)
+  fetch(`{{ base_path }}/system/recent-cycles/?limit=${limit}`)
     .then(r => r.json())
     .then(data => {
       const panel = document.getElementById('recent-cycles-panel');
@@ -449,7 +449,7 @@ function deleteCycleById() {
 
 This is permanent. Only do this for confirmed fake cycles.`)) return;
 
-  post(`/system/cycle/${id}/action/`, {action: 'delete'}).then(r => {
+  post(`{{ base_path }}/system/cycle/${id}/action/`, {action: 'delete'}).then(r => {
     if (r.ok) {
       msg.style.color = 'var(--green)';
       msg.textContent = `✅ Cycle ID:${id} deleted.`;
@@ -478,7 +478,7 @@ function addManualCycle() {
     return;
   }
 
-  post('/system/manual-cycle/add/', {
+  post('{{ base_path }}/system/manual-cycle/add/', {
     start_date: startDate, start_time: startTime,
     end_date: endDate, end_time: endTime,
     generator: generator, note: note,

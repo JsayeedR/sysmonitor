@@ -95,12 +95,12 @@
       </div>
     </div>
     {% if filter_user or filter_action or filter_date %}
-    <a href="/activity/" class="btn btn-secondary">✕ Clear Filters</a>
+    <a href="{{ base_path }}/activity/" class="btn btn-secondary">✕ Clear Filters</a>
     {% endif %}
   </div>
 
   <!-- FILTER BAR -->
-  <form method="get" action="/activity/">
+  <form method="get" action="{{ base_path }}/activity/">
     <div class="filter-bar">
       <div class="filter-group">
         <label>User</label>

@@ -17,6 +17,7 @@ exact, we just batch several requests into one write.
 """
 
 from datetime import timedelta
+from django.conf import settings
 from django.utils import timezone
 
 USAGE_IDLE_TIMEOUT = timedelta(minutes=15)
@@ -29,6 +30,9 @@ class UsageTrackingMiddleware:
 
     def __call__(self, request):
         response = self.get_response(request)
+
+        if getattr(settings, "IS_MIRROR", False):
+            return response          # the remote never writes (usage is tracked on the master)
 
         user = getattr(request, "user", None)
         if user is not None and user.is_authenticated:
@@ -75,7 +79,7 @@ class ForcePasswordChangeMiddleware:
     def __call__(self, request):
         user = getattr(request, "user", None)
         if user is not None and user.is_authenticated:
-            if not any(request.path.startswith(p) for p in _PASSWORD_CHANGE_ALLOWED_PREFIXES):
+            if not any(request.path_info.startswith(p) for p in _PASSWORD_CHANGE_ALLOWED_PREFIXES):
                 try:
                     profile = user.userprofile
                 except Exception:

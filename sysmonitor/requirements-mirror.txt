@@ -1,0 +1,12 @@
+# Lean requirements for the REMOTE mirror (the main requirements.txt is a full
+# system "pip freeze" and should not be installed on a new server).
+Django==5.2.14
+gunicorn
+python-dotenv
+requests
+pytz
+Pillow
+openpyxl
+reportlab
+psutil
+uptime-kuma-api

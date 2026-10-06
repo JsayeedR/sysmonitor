@@ -82,7 +82,7 @@
       {% endif %}
 
       <div class="btn-row">
-        <a href="/devices/" class="btn btn-secondary">Cancel</a>
+        <a href="{{ base_path }}/devices/" class="btn btn-secondary">Cancel</a>
         <button type="submit" class="btn btn-primary">
           {% if action == "Add" %}Add Device{% else %}Save Changes{% endif %}
         </button>

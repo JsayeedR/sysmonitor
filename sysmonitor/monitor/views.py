@@ -3,6 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
+from django.conf import settings
 from django.http import JsonResponse
 from .models import Device, DeviceStatus, Event, SystemStatus, UserProfile, ActivityLog, OutageCycle, SensorAlarmConfig
 from django.http import JsonResponse
@@ -32,12 +33,44 @@ def get_ip(request):
 
 
 def log_activity(user, action, detail='', ip=None):
+    if settings.IS_MIRROR:
+        return    # remote: the master writes the log (login/logout are reported to it)
     ActivityLog.objects.create(
         user=user,
         action=action,
         detail=detail,
         ip_address=ip,
     )
+
+
+def mirror_activity(request):
+    """Remote server tells us about a login/logout there (signed, tunnel-only)."""
+    if not getattr(request, '_mirror_forwarded', False) or request.method != 'POST':
+        return JsonResponse({'ok': False}, status=403)
+    import json as _json
+    try:
+        d = _json.loads(request.body)
+    except ValueError:
+        return JsonResponse({'ok': False}, status=400)
+    if d.get('action') not in ('LOGIN', 'LOGOUT', 'LOGIN_FAILED'):
+        return JsonResponse({'ok': False}, status=400)
+    user = User.objects.filter(username=d.get('username', '')).first()
+    log_activity(user, d['action'], (d.get('detail') or '')[:280] + ' (via remote site)',
+                 ip=d.get('ip') or None)
+    return JsonResponse({'ok': True})
+
+
+def mirror_track(request):
+    """Remote site reports one page view (signed, tunnel-only). Counts it in the
+    master's page counter; the user's usage time is updated by the normal
+    UsageTrackingMiddleware because the request carries that user."""
+    if not getattr(request, '_mirror_forwarded', False) or request.method != 'POST':
+        return JsonResponse({'ok': False}, status=403)
+    from django.db.models import F
+    from .models import PageViewCounter
+    PageViewCounter.objects.get_or_create(id=1, defaults={'count': 789})
+    PageViewCounter.objects.filter(id=1).update(count=F('count') + 1)
+    return JsonResponse({'ok': True})
 
 
 def role_required(*roles):
@@ -94,12 +127,17 @@ def login_view(request):
             # valid for 30 minutes — if that window has passed, refuse the
             # login even though the password itself still matches, and make
             # them request a fresh reset.
-            profile, _ = UserProfile.objects.get_or_create(user=user)
-            if profile.must_change_password and profile.temp_password_expires_at:
+            if settings.IS_MIRROR:
+                # remote: read-only — never create a profile or change a password here
+                profile = UserProfile.objects.filter(user=user).first()
+            else:
+                profile, _ = UserProfile.objects.get_or_create(user=user)
+            if profile and profile.must_change_password and profile.temp_password_expires_at:
                 from django.utils import timezone
                 if timezone.now() > profile.temp_password_expires_at:
-                    user.set_unusable_password()
-                    user.save()
+                    if not settings.IS_MIRROR:      # the master invalidates it when it is used there
+                        user.set_unusable_password()
+                        user.save()
                     log_activity(user, 'LOGIN_FAILED',
                                  f'Temporary password for "{username}" had expired.',
                                  ip=get_ip(request))
@@ -166,7 +204,11 @@ def password_reset_request(request):
                 profile.save()
 
                 gw = NotificationGateway.objects.filter(channel='email', is_enabled=True).first()
-                login_url = request.build_absolute_uri('/login/')
+                if getattr(request, '_mirror_forwarded', False):
+                    # asked from the remote site → link to the remote login page
+                    login_url = settings.MIRROR_PUBLIC_URL + '/login/'
+                else:
+                    login_url = request.build_absolute_uri('/login/')
                 if gw:
                     send_password_reset_email(gw, target.email, target.username,
                                                temp_password, login_url)
@@ -1147,18 +1189,30 @@ def notif_gateway_save(request):
     gw, _ = NotificationGateway.objects.get_or_create(channel=channel)
     gw.is_enabled = data.get('is_enabled', False)
 
+    # The mirror snapshot intentionally contains blank gateway secrets. A Save
+    # forwarded from the remote must therefore treat a blank secret as "keep the
+    # master's existing value". A direct Save on the master keeps the old behaviour
+    # and may intentionally clear a secret by submitting a blank value.
+    from_mirror = bool(getattr(request, '_mirror_forwarded', False))
+
     if channel == 'whatsapp':
         gw.wa_phone_number_id = data.get('wa_phone_number_id', '').strip()
-        gw.wa_access_token    = data.get('wa_access_token',    '').strip()
-        gw.wa_from_number     = data.get('wa_from_number',     '').strip()
+        token = data.get('wa_access_token', '').strip()
+        if token or not from_mirror:
+            gw.wa_access_token = token
+        gw.wa_from_number = data.get('wa_from_number', '').strip()
     elif channel == 'telegram':
-        gw.tg_bot_token = data.get('tg_bot_token', '').strip()
+        token = data.get('tg_bot_token', '').strip()
+        if token or not from_mirror:
+            gw.tg_bot_token = token
     elif channel == 'email':
         gw.email_host     = data.get('email_host',     'smtp.gmail.com').strip()
         gw.email_port     = int(data.get('email_port', 587))
         gw.email_username = data.get('email_username', '').strip()
-        gw.email_password = data.get('email_password', '').strip()
-        gw.email_from     = data.get('email_from',     '').strip()
+        password = data.get('email_password', '').strip()
+        if password or not from_mirror:
+            gw.email_password = password
+        gw.email_from = data.get('email_from', '').strip()
 
     gw.save()
     return JsonResponse({'ok': True})
@@ -2590,14 +2644,15 @@ def system_restart_ping(request):
 
 #------- Uptime KUMA
 def uptime_status(request):
-    monitors = get_kuma_monitors()
+    # The remote mirror cannot reach the local Uptime Kuma server.
+    monitors = [] if settings.IS_MIRROR else get_kuma_monitors()
     return render(request, "monitor/uptime_status.html", {
         "monitors": monitors,
         "role": get_role(request.user),
     })
 
 def uptime_status_log(request, monitor_id):
-    logs = get_monitor_log(monitor_id)
+    logs = [] if settings.IS_MIRROR else get_monitor_log(monitor_id)
     return JsonResponse({"logs": logs})
 
 

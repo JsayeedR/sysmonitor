@@ -54,6 +54,9 @@ _TOKEN_CACHE_KEY = 'tuya_access_token'
 
 
 def tuya_configured():
+    from django.conf import settings
+    if getattr(settings, 'IS_MIRROR', False):
+        return True   # the remote shows data copied from the master
     return bool(TUYA_ACCESS_ID and TUYA_ACCESS_SECRET and TUYA_DEVICE_ID)
 
 

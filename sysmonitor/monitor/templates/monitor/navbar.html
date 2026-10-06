@@ -1,4 +1,25 @@
 {% load i18n %}
+{% if is_mirror %}
+<div id="mirror-banner" style="background:#1e3a8a;color:#dbeafe;font-size:.74rem;padding:.35rem 1rem;text-align:center;">
+  🌐 Remote site · changes are saved on the master server ·
+  <span id="mirror-lag">{% if mirror_lag_seconds is None %}sync status unknown{% else %}data is {{ mirror_lag_seconds }}s old{% endif %}</span>
+</div>
+<script>
+(function(){
+  var pushed = {{ mirror_pushed_at|default:"null" }};
+  var el = document.getElementById('mirror-lag');
+  if (!pushed || !el) return;
+  function tick(){
+    var s = Math.max(0, Math.round(Date.now()/1000 - pushed));
+    el.textContent = s < 120 ? 'data is ' + s + 's old'
+                   : s < 7200 ? 'data is ' + Math.round(s/60) + ' min old — local server may be offline'
+                   : 'data is ' + Math.round(s/3600) + ' h old — local server is offline or unreachable';
+    el.style.color = s > 120 ? '#fca5a5' : '';
+  }
+  tick(); setInterval(tick, 5000);
+})();
+</script>
+{% endif %}
 <style>
   /* NAV (shared partial) */
   nav {
@@ -76,51 +97,51 @@
     <span></span><span></span><span></span>
   </button>
   <div class="nav-links" id="nav-links">
-    <a href="/" class="{% if request.path == '/' %}active{% endif %}">📊 Dashboard</a>
-    <a href="/sensor/" class="{% if '/sensor/' in request.path %}active{% endif %}">🌡️ Colocation</a>
-    <a href="/report/" class="{% if '/report/' in request.path %}active{% endif %}">⚡ Load Shedding</a>
+    <a href="{{ base_path }}/" class="{% if request.path == '/' %}active{% endif %}">📊 Dashboard</a>
+    <a href="{{ base_path }}/sensor/" class="{% if '/sensor/' in request.path %}active{% endif %}">🌡️ Colocation</a>
+    <a href="{{ base_path }}/report/" class="{% if '/report/' in request.path %}active{% endif %}">⚡ Load Shedding</a>
 
     {% if role == "viewer" %}
     <div class="nav-dropdown" id="generator-data-dropdown">
       <a href="#" class="nav-dropdown-toggle {% if '/genruntime/' in request.path or '/generator-fuel-report/' in request.path %}active{% endif %}" onclick="toggleGeneratorDataDropdown(event)">⚙️ Generator Data ▾</a>
       <div class="nav-dropdown-menu">
-        <a href="/genruntime/" class="{% if '/genruntime/' in request.path %}active{% endif %}">⏱️ Generator Runtime</a>
-        <a href="/generator-fuel-report/" class="{% if '/generator-fuel-report/' in request.path %}active{% endif %}">📊 Generator Fuel Report</a>
+        <a href="{{ base_path }}/genruntime/" class="{% if '/genruntime/' in request.path %}active{% endif %}">⏱️ Generator Runtime</a>
+        <a href="{{ base_path }}/generator-fuel-report/" class="{% if '/generator-fuel-report/' in request.path %}active{% endif %}">📊 Generator Fuel Report</a>
       </div>
     </div>
     {% elif role == "user" or role == "admin" %}
     <div class="nav-dropdown" id="generator-data-dropdown">
       <a href="#" class="nav-dropdown-toggle {% if '/generator-log/' in request.path or '/generator-fuel/' in request.path or '/generator-fuel-report/' in request.path or '/generator-cycle-audit/' in request.path or '/genruntime/' in request.path %}active{% endif %}" onclick="toggleGeneratorDataDropdown(event)">⚙️ Generator Data ▾</a>
       <div class="nav-dropdown-menu">
-        <a href="/generator-log/" class="{% if '/generator-log/' in request.path %}active{% endif %}">🔄 Generator Shifting Entry</a>
-        <a href="/generator-fuel/" class="{% if request.path == '/generator-fuel/' %}active{% endif %}">⛽ Generator Fuel Entry</a>
-        <a href="/generator-fuel-report/" class="{% if '/generator-fuel-report/' in request.path %}active{% endif %}">📊 Generator Fuel Report</a>
-        <a href="/generator-cycle-audit/" class="{% if '/generator-cycle-audit/' in request.path %}active{% endif %}">🕵️ Generator Cycle Audit</a>
-        <a href="/genruntime/" class="{% if '/genruntime/' in request.path %}active{% endif %}">⏱️ Generator Runtime</a>
+        <a href="{{ base_path }}/generator-log/" class="{% if '/generator-log/' in request.path %}active{% endif %}">🔄 Generator Shifting Entry</a>
+        <a href="{{ base_path }}/generator-fuel/" class="{% if request.path == '/generator-fuel/' %}active{% endif %}">⛽ Generator Fuel Entry</a>
+        <a href="{{ base_path }}/generator-fuel-report/" class="{% if '/generator-fuel-report/' in request.path %}active{% endif %}">📊 Generator Fuel Report</a>
+        <a href="{{ base_path }}/generator-cycle-audit/" class="{% if '/generator-cycle-audit/' in request.path %}active{% endif %}">🕵️ Generator Cycle Audit</a>
+        <a href="{{ base_path }}/genruntime/" class="{% if '/genruntime/' in request.path %}active{% endif %}">⏱️ Generator Runtime</a>
       </div>
     </div>
     {% endif %}
 
     {% if role == "viewer" %}
-    <a href="/smw6pac/" class="{% if '/smw6pac/' in request.path %}active{% endif %}">❄️ SMW6PAC</a>
-    <a href="/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
+    <a href="{{ base_path }}/smw6pac/" class="{% if '/smw6pac/' in request.path %}active{% endif %}">❄️ SMW6PAC</a>
+    <a href="{{ base_path }}/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
     {% endif %}
 
     {% if role == "user" %}
     <div class="nav-dropdown" id="others-dropdown">
       <a href="#" class="nav-dropdown-toggle {% if '/uptime/' in request.path or '/events/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
       <div class="nav-dropdown-menu">
-        <a href="/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
-        <a href="/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 All Events</a>
+        <a href="{{ base_path }}/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
+        <a href="{{ base_path }}/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 All Events</a>
       </div>
     </div>
     {% elif role == "admin" %}
     <div class="nav-dropdown" id="others-dropdown">
       <a href="#" class="nav-dropdown-toggle {% if '/smw6pac/' in request.path or '/uptime/' in request.path or '/events/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
       <div class="nav-dropdown-menu">
-        <a href="/smw6pac/" class="{% if '/smw6pac/' in request.path %}active{% endif %}">❄️ SMW6PAC</a>
-        <a href="/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
-        <a href="/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 All Events</a>
+        <a href="{{ base_path }}/smw6pac/" class="{% if '/smw6pac/' in request.path %}active{% endif %}">❄️ SMW6PAC</a>
+        <a href="{{ base_path }}/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
+        <a href="{{ base_path }}/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 All Events</a>
       </div>
     </div>
     {% endif %}
@@ -129,21 +150,21 @@
     <div class="nav-dropdown" id="admin-dropdown">
       <a href="#" class="nav-dropdown-toggle {% if '/devices/' in request.path or '/users/' in request.path or '/notifications/' in request.path or '/activity/' in request.path or '/system/' in request.path %}active{% endif %}" onclick="toggleAdminDropdown(event)">🗂️ Administrative ▾</a>
       <div class="nav-dropdown-menu">
-        <a href="/devices/" class="{% if '/devices/' in request.path %}active{% endif %}">🖥️ Devices</a>
-        <a href="/users/" class="{% if '/users/' in request.path %}active{% endif %}">👥 Users</a>
-        <a href="/notifications/" class="{% if '/notifications/' in request.path %}active{% endif %}">🔔 Notifications</a>
-        <a href="/activity/" class="{% if '/activity/' in request.path %}active{% endif %}">🕵️ Activity</a>
-        <a href="/system/" class="{% if '/system/' in request.path %}active{% endif %}">🛠️ System</a>
+        <a href="{{ base_path }}/devices/" class="{% if '/devices/' in request.path %}active{% endif %}">🖥️ Devices</a>
+        <a href="{{ base_path }}/users/" class="{% if '/users/' in request.path %}active{% endif %}">👥 Users</a>
+        <a href="{{ base_path }}/notifications/" class="{% if '/notifications/' in request.path %}active{% endif %}">🔔 Notifications</a>
+        <a href="{{ base_path }}/activity/" class="{% if '/activity/' in request.path %}active{% endif %}">🕵️ Activity</a>
+        <a href="{{ base_path }}/system/" class="{% if '/system/' in request.path %}active{% endif %}">🛠️ System</a>
       </div>
     </div>
     {% endif %}
 
-    <a href="/about/" class="{% if '/about/' in request.path %}active{% endif %}">ℹ️ About Me</a>
+    <a href="{{ base_path }}/about/" class="{% if '/about/' in request.path %}active{% endif %}">ℹ️ About Me</a>
   </div>
   <div class="nav-meta">
     <span class="role-badge">{{ role|upper }}</span>
-    <a href="/profile/" class="nav-user" style="text-decoration:none;">👤 {{ user.username }}</a>
-    <a href="/logout/" class="nav-logout">Logout</a>
+    <a href="{{ base_path }}/profile/" class="nav-user" style="text-decoration:none;">👤 {{ user.username }}</a>
+    <a href="{{ base_path }}/logout/" class="nav-logout">Logout</a>
   </div>
 </nav>
 <script>

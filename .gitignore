@@ -76,3 +76,14 @@ sysmonitor/media/
 # Python cache
 sysmonitor/**/__pycache__/
 sysmonitor/**/*.pyc
+.env.*
+!.env.*example
+**/backups/
+mirror_current
+mirror_meta.json
+.mirror_*
+.mirror-*
+*.backup_*
+*.pre-patch*
+*.bak
+.sysmonitor-bad-commit

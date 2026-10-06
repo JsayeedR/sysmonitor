@@ -79,7 +79,7 @@
 <div class="container">
   <div class="page-header">
     <h1>👥 User Management</h1>
-    <a href="/users/create/" class="btn btn-primary">+ Create User</a>
+    <a href="{{ base_path }}/users/create/" class="btn btn-primary">+ Create User</a>
   </div>
 
   {% if messages %}
@@ -132,15 +132,15 @@
           <td style="color:#64748b">{{ u.usage_time }}</td>
           <td>
             <div class="actions">
-              <a href="/users/{{ u.obj.id }}/edit/" class="btn btn-secondary">Edit</a>
+              <a href="{{ base_path }}/users/{{ u.obj.id }}/edit/" class="btn btn-secondary">Edit</a>
               {% if not u.obj.is_superuser %}
-              <form method="post" action="/users/{{ u.obj.id }}/toggle-active/" style="display:inline;">
+              <form method="post" action="{{ base_path }}/users/{{ u.obj.id }}/toggle-active/" style="display:inline;">
                 {% csrf_token %}
                 <button type="submit" class="btn {% if u.obj.is_active %}btn-danger{% else %}btn-primary{% endif %}">
                   {% if u.obj.is_active %}Disable{% else %}Enable{% endif %}
                 </button>
               </form>
-              <a href="/users/{{ u.obj.id }}/delete/" class="btn btn-danger">Delete</a>
+              <a href="{{ base_path }}/users/{{ u.obj.id }}/delete/" class="btn btn-danger">Delete</a>
               {% endif %}
             </div>
           </td>
@@ -272,7 +272,7 @@
             <span style="color:#f87171;font-size:.75rem;">● Disabled</span>
           {% endif %}
 
-          <a href="/users/{{ u.obj.id }}/edit/"
+          <a href="{{ base_path }}/users/{{ u.obj.id }}/edit/"
              style="
                background:#3b82f6;
                color:white;
@@ -515,7 +515,7 @@ function toast(msg) {
 }
 
 function reviewRequest(id, action) {
-  fetch(`/profile/pending-changes/${id}/${action}/`, {
+  fetch(`{{ base_path }}/profile/pending-changes/${id}/${action}/`, {
     method: 'POST',
     headers: { 'X-CSRFToken': '{{ csrf_token }}' },
   }).then(r => r.json()).then(r => {

@@ -354,7 +354,7 @@
         <button class="range-btn" data-range="7d">7d</button>
         <button class="range-btn" data-range="30d">30d</button>
         <button class="range-btn" data-range="all">All</button>
-        <a href="/sensor/export/?range=24h" id="download-link" class="download-btn">⬇ Download CSV</a>
+        <a href="{{ base_path }}/sensor/export/?range=24h" id="download-link" class="download-btn">⬇ Download CSV</a>
         <button type="button" id="download-png-btn" class="download-btn">🖼 PNG</button>
       </div>
     </div>
@@ -399,7 +399,7 @@
   }
 
   function refreshCards() {
-    fetch('/api/sensor-status/').then(r => r.json()).then(d => {
+    fetch('{{ base_path }}/api/sensor-status/').then(r => r.json()).then(d => {
       if (!d.has_data) return;
 
       document.getElementById('card-temp').textContent =
@@ -535,10 +535,10 @@
       if (dates.from) params.set('from', dates.from);
       if (dates.to) params.set('to', dates.to);
 
-      return '/api/sensor-history/?' + params.toString();
+      return '{{ base_path }}/api/sensor-history/?' + params.toString();
     }
 
-    return '/api/sensor-history/?range=' +
+    return '{{ base_path }}/api/sensor-history/?range=' +
       encodeURIComponent(currentRange);
   }
 
@@ -552,9 +552,9 @@
       if (dates.from) params.set('from', dates.from);
       if (dates.to) params.set('to', dates.to);
 
-      link.href = '/sensor/export/?' + params.toString();
+      link.href = '{{ base_path }}/sensor/export/?' + params.toString();
     } else {
-      link.href = '/sensor/export/?range=' +
+      link.href = '{{ base_path }}/sensor/export/?range=' +
         encodeURIComponent(currentRange);
     }
   }

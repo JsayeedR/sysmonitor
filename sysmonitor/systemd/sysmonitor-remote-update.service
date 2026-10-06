@@ -1,0 +1,12 @@
+# REMOTE server only.
+[Unit]
+Description=SysMonitor remote: pull new code from GitHub
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=app-admin
+WorkingDirectory=/home/app-admin/sysmonitor-repo/sysmonitor
+ExecStart=/home/app-admin/sysmonitor-repo/sysmonitor/deploy/remote-update.sh
+StandardOutput=journal
+StandardError=journal

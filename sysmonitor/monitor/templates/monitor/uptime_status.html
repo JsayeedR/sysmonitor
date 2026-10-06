@@ -79,6 +79,9 @@
   <div class="page-header">
     <h1>🌐 Uptime Status (Websites &amp; Devices)</h1>
   </div>
+  {% if is_mirror %}
+  <p style="color:#fbbf24;margin:1rem 0">Live uptime data comes from the local Uptime Kuma server and is not available on the mirror. Please open the local SysMonitor for this page.</p>
+  {% endif %}
 
   <table>
     <thead>
@@ -138,7 +141,7 @@ function openLog(monitorId, name) {
   document.getElementById('logModalBody').textContent = 'Loading...';
   document.getElementById('logModal').classList.add('open');
 
-  fetch('/uptime/' + monitorId + '/log/')
+  fetch('{{ base_path }}/uptime/' + monitorId + '/log/')
     .then(r => r.json())
     .then(data => {
       const body = document.getElementById('logModalBody');

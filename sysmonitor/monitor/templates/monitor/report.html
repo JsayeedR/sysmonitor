@@ -401,7 +401,7 @@ function loadReport() {
   const from = document.getElementById('date-from').value;
   const to   = document.getElementById('date-to').value;
 
-  let url = '/api/report/';
+  let url = '{{ base_path }}/api/report/';
   const params = [];
   if (from) params.push('from=' + from);
   if (to)   params.push('to='   + to);

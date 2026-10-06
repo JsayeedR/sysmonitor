@@ -13,6 +13,12 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 
+try:  # load .env if python-dotenv is installed; real environment variables win
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent.parent / '.env')
+except ImportError:
+    pass
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -66,6 +72,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'monitor.context_processors.page_counter',
+                'monitor.mirror.mirror_context',
             ],
         },
     },
@@ -133,3 +140,67 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 KUMA_URL = os.environ.get('KUMA_URL', 'http://127.0.0.1:3001')
 KUMA_USERNAME = os.environ.get('KUMA_USERNAME')
 KUMA_PASSWORD = os.environ.get('KUMA_PASSWORD')
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Remote mirror (app.bsccl.com/sysmonitor)
+#
+# SYSMONITOR_ROLE=local  (default) → the normal master server. Nothing below
+#                                    changes its behaviour.
+# SYSMONITOR_ROLE=remote           → the remote site. It shows a copy of the
+#                                    master's database (pushed by
+#                                    monitor/mirror_push.py), never pings or
+#                                    sends notifications, and passes every change
+#                                    on to the master (monitor/mirror.py).
+# See MIRROR_SETUP.md.
+# ─────────────────────────────────────────────────────────────────────────
+SYSMONITOR_ROLE = os.environ.get('SYSMONITOR_ROLE', 'local').strip().lower()
+IS_MIRROR = SYSMONITOR_ROLE == 'remote'
+
+# Shared secret between master and remote (same value on both servers).
+MIRROR_SHARED_SECRET = os.environ.get('MIRROR_SHARED_SECRET', '').strip()
+MIRROR_PUBLIC_URL = os.environ.get('MIRROR_PUBLIC_URL', 'https://app.bsccl.com/sysmonitor').rstrip('/')
+
+if MIRROR_SHARED_SECRET and not IS_MIRROR:
+    # MASTER: accept signed requests forwarded from the remote through the
+    # SSH tunnel (they arrive from 127.0.0.1).
+    ALLOWED_HOSTS = list(ALLOWED_HOSTS) + ['127.0.0.1', 'localhost']
+    MIDDLEWARE.insert(MIDDLEWARE.index('django.contrib.auth.middleware.AuthenticationMiddleware') + 1,
+                      'monitor.mirror.MirrorInboundMiddleware')
+    DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024
+
+if IS_MIRROR:
+    # Custom backend: opens the newest snapshot named in `mirror_current`
+    # (see monitor/mirror_db/base.py). NAME's folder is where snapshots live.
+    DATABASES['default']['ENGINE'] = 'monitor.mirror_db'
+    DATABASES['default']['NAME'] = Path(
+        os.environ.get('MIRROR_DB_PATH', str(BASE_DIR / 'mirror.sqlite3')))
+    MIRROR_META_PATH = Path(
+        os.environ.get('MIRROR_META_PATH', str(BASE_DIR / 'mirror_meta.json')))
+
+    # Sessions live in the browser (signed cookie), NOT in the database,
+    # because the database file is replaced every ~30 seconds.
+    SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
+    SESSION_COOKIE_NAME = 'sysmonitor_mirror_session'
+    CSRF_COOKIE_NAME = 'sysmonitor_mirror_csrf'
+
+    # Behind nginx + HTTPS, served under a sub-path (e.g. /sysmonitor).
+    USE_X_FORWARDED_HOST = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    _prefix = os.environ.get('MIRROR_URL_PREFIX', '/sysmonitor').rstrip('/')
+    if _prefix:
+        SESSION_COOKIE_PATH = _prefix + '/'
+        CSRF_COOKIE_PATH = _prefix + '/'
+    if os.environ.get('MIRROR_HTTPS', '1') == '1':
+        SESSION_COOKIE_SECURE = True
+        CSRF_COOKIE_SECURE = True
+    CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get('MIRROR_TRUSTED_ORIGINS', '').split(',') if o]
+
+    # Login check that never writes (see monitor/mirror_auth.py).
+    AUTHENTICATION_BACKENDS = ['monitor.mirror_auth.ReadOnlyModelBackend']
+
+    # Pass every change (and master-only pages) on to the master server.
+    MIRROR_MASTER_URL = os.environ.get('MIRROR_MASTER_URL', 'http://127.0.0.1:18000')
+    MIDDLEWARE.insert(MIDDLEWARE.index('django.contrib.auth.middleware.AuthenticationMiddleware') + 1,
+                      'monitor.mirror.MirrorForwardMiddleware')
+    DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024     # profile pictures etc.

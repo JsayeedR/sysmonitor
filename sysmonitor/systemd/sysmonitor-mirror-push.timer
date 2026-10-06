@@ -1,0 +1,11 @@
+[Unit]
+Description=SysMonitor live push to the remote mirror — every ~30 seconds
+
+[Timer]
+OnBootSec=60
+# 30 seconds after the previous run FINISHED (runs never overlap)
+OnUnitInactiveSec=30
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

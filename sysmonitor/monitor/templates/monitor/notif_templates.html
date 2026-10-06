@@ -47,7 +47,7 @@
 <body>
 {% include "monitor/navbar.html" %}
 <div class="main">
-  <a href="/notifications/" class="back-link">← Back to Notifications</a>
+  <a href="{{ base_path }}/notifications/" class="back-link">← Back to Notifications</a>
   <div class="page-title">✍️ Message Formats</div>
   <div class="page-sub">
     Customize the wording SysMonitor sends for each event, across WhatsApp/Telegram/Email.
@@ -94,7 +94,7 @@ function toast(msg) {
 }
 function saveTemplate(eventType) {
   const text = document.getElementById('tpl-' + eventType).value;
-  fetch('/notifications/templates/save/', {
+  fetch('{{ base_path }}/notifications/templates/save/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
     body: JSON.stringify({ event_type: eventType, template_text: text }),

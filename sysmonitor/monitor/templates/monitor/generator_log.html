@@ -265,7 +265,7 @@ function addEntry() {
 
   if (!date || !time) { toast('Date and time are required', false); return; }
 
-  fetch('/generator-log/add/', {
+  fetch('{{ base_path }}/generator-log/add/', {
     method: 'POST',
     headers: { 'Content-Type':'application/json', 'X-CSRFToken': CSRF },
     body: JSON.stringify({ generator, date, time, note }),
@@ -277,7 +277,7 @@ function addEntry() {
 
 function deleteEntry(id) {
   if (!confirm('Delete this log entry? This is an admin-only action.')) return;
-  fetch(`/generator-log/${id}/delete/`, {
+  fetch(`{{ base_path }}/generator-log/${id}/delete/`, {
     method: 'POST',
     headers: { 'X-CSRFToken': CSRF },
   }).then(r => r.json()).then(r => {
@@ -301,7 +301,7 @@ function closeEdit() {
 
 function saveEdit() {
   const id = document.getElementById('edit-id').value;
-  fetch(`/generator-log/${id}/edit/`, {
+  fetch(`{{ base_path }}/generator-log/${id}/edit/`, {
     method: 'POST',
     headers: { 'Content-Type':'application/json', 'X-CSRFToken': CSRF },
     body: JSON.stringify({
