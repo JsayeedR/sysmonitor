@@ -21,7 +21,7 @@ DB_PATH         = os.path.join(BASE_DIR, 'db.sqlite3')
 BACKUP_DIR      = os.path.join(BASE_DIR, 'backups')
 DB_BACKUP_DIR   = os.path.join(BACKUP_DIR, 'database')
 PROJ_BACKUP_DIR = os.path.join(BACKUP_DIR, 'project')
-KEEP_DAYS       = 90  # keep last 90 daily backups (applies to both database and project)
+KEEP_DAYS       = 30  # keep last 30 daily backups (applies to both database and project)
 
 # Folders/files to exclude from the project archive — venv is the big one,
 # plus other things that don't belong in a code/config backup
