@@ -650,3 +650,193 @@ Dashboard URL:
 ---
 
 *SysMonitor © 2026 Jikrul Sayeed. All rights reserved.*
+
+---
+
+# Current System Addendum — October 2026
+
+This section documents major capabilities added after the original technical
+README was written. Where older sections describe fewer features, fewer
+services or notification limitations, this addendum reflects the current
+implementation.
+
+## Current deployment topology
+
+### MASTER
+
+The on-site MASTER is authoritative for:
+
+- outage monitoring
+- device monitoring
+- PAC monitoring
+- Tuya environmental polling
+- notifications
+- generator operational data
+- application writes
+- the authoritative SQLite database
+- daily backups
+- mirror generation
+
+Project path:
+
+`/home/nanolab/Desktop/sysmonitor`
+
+### REMOTE
+
+The remote deployment provides external access using short-lived mirrored
+SQLite snapshots.
+
+Application path:
+
+`/home/app-admin/sysmonitor/repo/sysmonitor`
+
+Python environment:
+
+`/home/app-admin/sysmonitor/venv`
+
+Supported remote writes are forwarded to the MASTER rather than being applied
+directly to the mirrored database.
+
+## Current service set
+
+The repository includes systemd units for:
+
+- sysmonitor-web
+- sysmonitor-ping
+- sysmonitor-other-devices
+- sysmonitor-pac
+- sysmonitor-tuya-poll
+- sysmonitor-backup
+- sysmonitor-realtime-sync
+- sysmonitor-mirror-push
+- sysmonitor-mirror-full
+- sysmonitor-mirror-tunnel
+- sysmonitor-remote-web
+- sysmonitor-remote-update
+
+## Generator Data suite
+
+Generator Data contains:
+
+1. Generator Shifting Entry
+2. Generator Fuel Entry
+3. Generator Manual Cycle Entry
+4. Generator Fuel Report
+5. Generator Runtime
+
+Manual cycle handling includes:
+
+- mandatory generator assignment
+- duplicate protection
+- audited add/edit/delete actions
+- user accountability
+- processing-state protection against accidental repeat submission
+
+## Generator fuel
+
+Fuel records contain generator, reading time, before/after tank values and
+loaded fuel.
+
+Calculated consumption uses successive register readings. Invalid negative
+intervals are excluded from valid consumption totals.
+
+## Reporting
+
+Load Shedding reporting includes:
+
+- total outages
+- total outage duration
+- Generator-01 runtime
+- Generator-02 runtime
+- monthly comparison
+- date-range selection
+- CSV export
+- PDF export
+
+Quick-range filtering is also used on operational logs.
+
+## Colocation environmental monitoring
+
+The colocation subsystem stores environmental readings including:
+
+- temperature
+- humidity
+- timestamp
+- sensor/battery state where available
+
+Administrators can configure low/high thresholds for temperature and humidity.
+
+The notification system can deliver environmental alarms and scheduled
+colocation status updates to selected recipients.
+
+## Notification platform
+
+Supported channels:
+
+- WhatsApp
+- Telegram
+- Email
+
+The platform includes:
+
+- gateway configuration
+- recipient configuration
+- message templates
+- delivery history
+- success/failure logging
+- power-event notifications
+- cycle-complete notifications
+- PAC notifications
+- environmental alarms
+- scheduled summaries
+
+Older README statements saying Email/external notifications are not implemented
+are obsolete.
+
+## Event Log vs Activity Log
+
+Event Log records operational/system events.
+
+Activity Log records attributable user/admin actions such as login activity,
+device/user administration, generator operations and other audited changes.
+
+Normal page views do not create Event or Activity records.
+
+## Usage tracking
+
+`PageViewCounter` stores aggregate application page views.
+
+`UserProfile.total_usage_seconds` stores accumulated active authenticated usage.
+
+Idle browser tabs are excluded through the usage tracking timeout logic.
+
+## Backup retention
+
+Normal daily backups are stored under:
+
+- `backups/database/`
+- `backups/project/`
+
+The current rolling retention target is 30 daily backups for each normal backup
+class.
+
+Special development checkpoints such as `db_before_*` are separate from normal
+daily retention and should be reviewed manually.
+
+## Remote mirror snapshots
+
+Files matching `mirror-*.sqlite3` on the remote host are short-lived mirror
+snapshots used for safe database handoff.
+
+They are temporary runtime files, not long-term backups.
+
+## Current security principle
+
+The existing monitoring path remains passive.
+
+SysMonitor does not command:
+
+- generator starting/stopping
+- ATS operation
+- grid switching
+- power infrastructure

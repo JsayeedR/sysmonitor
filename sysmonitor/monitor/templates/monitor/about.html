@@ -74,7 +74,7 @@
       align-items:center;
       gap:.5rem;
       margin:0 0 .65rem .15rem;
-      color:#fbbf24;
+      color:#93c5fd;
       font-size:.69rem;
       font-weight:700;
       text-transform:uppercase;
@@ -121,12 +121,12 @@
 
     .stat-label {
       font-size:.68rem;
-      color:#f59e0b;
+      color:#dbeafe;
       margin-top:.38rem;
       text-transform:uppercase;
       letter-spacing:.055em;
       line-height:1.35;
-      font-weight:750;
+      font-weight:700;
     }
 
     .stat-sub {
@@ -253,6 +253,80 @@
     .arch-node.purple rect { stroke:var(--purple); }
     .arch-edge { stroke:var(--dim); stroke-width:1.5; fill:none; }
     .arch-edge-label { fill:var(--muted); font-size:9.5px; font-family:'Segoe UI',system-ui,sans-serif; }
+
+
+    /* CURRENT PLATFORM CAPABILITIES */
+    .capability-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+      gap:1rem;
+      margin-top:1rem;
+    }
+
+    .capability-card {
+      position:relative;
+      background:linear-gradient(145deg,var(--surface),var(--surface2));
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:1.2rem 1.25rem;
+      overflow:hidden;
+    }
+
+    .capability-card::before {
+      content:'';
+      position:absolute;
+      left:0;
+      top:0;
+      width:3px;
+      height:100%;
+      background:linear-gradient(180deg,var(--blue),var(--cyan));
+      opacity:.8;
+    }
+
+    .capability-card h4 {
+      font-size:.92rem;
+      margin-bottom:.42rem;
+      color:#e2e8f0;
+    }
+
+    .capability-card p {
+      font-size:.8rem;
+      color:var(--muted);
+      margin:0;
+      line-height:1.55;
+    }
+
+    .platform-flow {
+      margin-top:1rem;
+      padding:1.25rem;
+      background:linear-gradient(145deg,#111c31,#17243a);
+      border:1px solid var(--border);
+      border-radius:14px;
+    }
+
+    .platform-flow-row {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:.55rem;
+      flex-wrap:wrap;
+      color:#cbd5e1;
+      font-size:.78rem;
+      text-align:center;
+    }
+
+    .platform-node {
+      border:1px solid #334155;
+      background:#0f172a;
+      padding:.52rem .72rem;
+      border-radius:8px;
+      white-space:nowrap;
+    }
+
+    .platform-arrow {
+      color:#60a5fa;
+      font-weight:700;
+    }
 
     /* TECH STACK */
     .tech-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1rem; margin-top:1rem; }
@@ -466,12 +540,13 @@
       <li><a href="#architecture">3. Architecture</a></li>
       <li><a href="#logic">4. The detection logic</a></li>
       <li><a href="#features">5. Features</a></li>
-      <li><a href="#tech-stack">6. Tech stack</a></li>
-      <li><a href="#notifications">7. Notifications</a></li>
-      <li><a href="#android-app">8. Android app</a></li>
-      <li><a href="#roles">9. Roles &amp; access control</a></li>
-      <li><a href="#faq">10. FAQ</a></li>
-      <li><a href="#about-us">11. About us</a></li>
+      <li><a href="#current-platform">6. Current platform</a></li>
+      <li><a href="#tech-stack">7. Tech stack</a></li>
+      <li><a href="#notifications">8. Notifications</a></li>
+      <li><a href="#android-app">9. Android app</a></li>
+      <li><a href="#roles">10. Roles &amp; access control</a></li>
+      <li><a href="#faq">11. FAQ</a></li>
+      <li><a href="#about-us">12. About us</a></li>
     </ul>
   </div>
 
@@ -747,10 +822,86 @@
       <div class="card"><span class="icon">🚧</span><h4>Maintenance Mode</h4><p>Pause detection during planned network work so it's never logged as an outage.</p></div>
       <div class="card"><span class="icon">ℹ️</span><h4>Public Docs Page</h4><p>This page — readable by anyone, logged in or not, with no secrets exposed.</p></div>
     </div>
+      <div class="card"><span class="icon">⛽</span><h4>Generator Fuel Management</h4><p>Fuel entry history, calculated fuel usage, runtime correlation and dedicated fuel reporting.</p></div>
+      <div class="card"><span class="icon">🕵️</span><h4>Manual Cycle Audit</h4><p>Audited manual outage-cycle entry with generator selection, duplicate protection and administrative edit/delete controls.</p></div>
+      <div class="card"><span class="icon">📈</span><h4>Advanced Reporting</h4><p>Date-range outage reporting, generator runtime analysis, monthly comparisons and CSV/PDF export.</p></div>
+      <div class="card"><span class="icon">🌡️</span><h4>Environmental Monitoring</h4><p>Colocation temperature and humidity monitoring with history, configurable alarm thresholds and scheduled updates.</p></div>
+      <div class="card"><span class="icon">🌐</span><h4>Remote Mirror</h4><p>A remote web instance receives safe database snapshots while supported write operations are forwarded to the MASTER.</p></div>
+      <div class="card"><span class="icon">📊</span><h4>Usage &amp; Page Analytics</h4><p>Global page views plus accumulated active user usage time with idle-session protection.</p></div>
+      <div class="card"><span class="icon">📤</span><h4>CSV &amp; PDF Exports</h4><p>Operational reports and major logs can be exported for review, reporting and audit use.</p></div>
+      <div class="card"><span class="icon">🛰️</span><h4>Uptime Monitoring</h4><p>Integrated status monitoring for additional websites and devices beyond the primary outage loop.</p></div>
+
+  </section>
+
+
+  <section id="current-platform">
+    <h2>🚀 6. Current Platform Capabilities</h2>
+    <p>
+      SysMonitor has grown beyond the original outage detector into a broader
+      NOC operations platform while keeping its passive monitoring principle.
+      It observes, records, reports and alerts without controlling the generator,
+      ATS or power infrastructure.
+    </p>
+
+    <div class="capability-grid">
+      <div class="capability-card">
+        <h4>⚡ Power &amp; Outage Intelligence</h4>
+        <p>Automatic outage-cycle detection, PDB downtime measurement, historical cycle tracking, abnormal-state classification and audited corrections.</p>
+      </div>
+
+      <div class="capability-card">
+        <h4>⛽ Generator Operations</h4>
+        <p>Generator shifting, runtime, manual cycle entry, fuel loading history and fuel-consumption analysis are grouped under Generator Data.</p>
+      </div>
+
+      <div class="capability-card">
+        <h4>🌡️ Colocation Environment</h4>
+        <p>Temperature and humidity readings, monitoring period, configurable thresholds, alarm notifications and scheduled environmental summaries.</p>
+      </div>
+
+      <div class="capability-card">
+        <h4>🔔 Notification Platform</h4>
+        <p>WhatsApp, Telegram and Email gateways with selectable recipients, templates, delivery logs and multiple operational alert categories.</p>
+      </div>
+
+      <div class="capability-card">
+        <h4>📊 Reporting &amp; Export</h4>
+        <p>Load-shedding reports, generator runtime, monthly charts, date-range filters and CSV/PDF exports across important operational logs.</p>
+      </div>
+
+      <div class="capability-card">
+        <h4>🧾 Audit &amp; Accountability</h4>
+        <p>Operational Event Log and human Activity Log are separated so system events and user actions remain clear and traceable.</p>
+      </div>
+
+      <div class="capability-card">
+        <h4>🌐 MASTER + REMOTE Architecture</h4>
+        <p>The MASTER remains authoritative for monitoring and writes. The remote site receives safe SQLite snapshots and forwards supported writes to the MASTER.</p>
+      </div>
+
+      <div class="capability-card">
+        <h4>💾 Resilience &amp; Recovery</h4>
+        <p>Automated database/project backups, mirror synchronization, systemd services and rolling retention protect operational history.</p>
+      </div>
+    </div>
+
+    <div class="platform-flow">
+      <div class="platform-flow-row">
+        <span class="platform-node">📡 Monitoring Sources</span>
+        <span class="platform-arrow">→</span>
+        <span class="platform-node">🖥️ MASTER</span>
+        <span class="platform-arrow">→</span>
+        <span class="platform-node">🗄️ Authoritative SQLite</span>
+        <span class="platform-arrow">→</span>
+        <span class="platform-node">🌐 Remote Mirror</span>
+        <span class="platform-arrow">→</span>
+        <span class="platform-node">💻 Web / 📱 Android</span>
+      </div>
+    </div>
   </section>
 
   <section id="tech-stack">
-    <h2>🧩 6. Tech stack</h2>
+    <h2>🧩 7. Tech stack</h2>
     <p>
       Built to be simple to operate on a single on-site machine — no external
       cloud dependency for the core monitoring loop:
@@ -800,7 +951,7 @@
   </section>
 
   <section id="notifications">
-    <h2>📢 7. Notifications</h2>
+    <h2>📢 8. Notifications</h2>
     <p>
       SysMonitor can alert designated recipients the moment a power event
       happens, over multiple channels:
@@ -819,6 +970,11 @@
       <li><strong>Critical</strong> — sent once if both reference devices are unreachable for an extended period.</li>
       <li><strong>Alarm</strong> — sent once per cycle if the generator or ATS doesn't behave as expected.</li>
       <li><strong>Cycle complete</strong> — sent once the cycle closes cleanly (power restored, ATS switched back).</li>
+      <li><strong>PAC status change</strong> — optional notification when monitored PAC status changes.</li>
+      <li><strong>Colocation environmental alarm</strong> — optional alert when temperature or humidity moves outside configured limits.</li>
+      <li><strong>Colocation status update</strong> — scheduled environmental-data message for selected recipients.</li>
+      <li><strong>Daily / monthly summaries</strong> — scheduled operational report delivery for recipients who opt in.</li>
+
     </ul>
     <p>
       Each of these fires <strong>at most once per cycle</strong> — the
@@ -834,7 +990,7 @@
   </section>
 
   <section id="android-app">
-    <h2>📱 8. Android App</h2>
+    <h2>📱 9. Android App</h2>
     <p>
       A lightweight Android wrapper app is available for quick access to the
       SysMonitor dashboard from a phone — it automatically detects whether
@@ -873,7 +1029,7 @@
   </section>
 
   <section id="roles">
-    <h2>🔐 9. Roles &amp; Access Control</h2>
+    <h2>🔐 10. Roles &amp; Access Control</h2>
     <p>
       Access to the dashboard is account-based. Every account is assigned a
       role that determines exactly which pages appear in its navigation:
@@ -902,7 +1058,7 @@
   </section>
 
   <section id="faq">
-    <h2>❓ 10. FAQ</h2>
+    <h2>❓ 11. FAQ</h2>
 
     <details class="faq-item">
       <summary>Does SysMonitor control the generator or ATS?</summary>
