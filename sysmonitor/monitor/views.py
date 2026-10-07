@@ -4987,3 +4987,422 @@ def generator_fuel_report(request):
             'fuel_chart_json': json.dumps(fuel_chart),
         }
     )
+
+# ─── NOC CCTV ─────────────────────────────────────────────────────────────────
+
+def _cctv_clean_host(value):
+    """
+    CCTV host fields should normally contain only an IP/hostname.
+
+    Be tolerant if an admin pastes http:// or https:// and strip scheme/path
+    rather than generating a broken URL.
+    """
+    from urllib.parse import urlsplit
+
+    value = (value or '').strip()
+
+    if not value:
+        return ''
+
+    if '://' in value:
+        parts = urlsplit(value)
+        return parts.hostname or ''
+
+    return value.split('/')[0].split(':')[0].strip()
+
+
+def _cctv_web_url(nvr, remote=False):
+    host = _cctv_clean_host(
+        nvr.remote_host if remote else nvr.local_host
+    )
+
+    if not host:
+        return ''
+
+    scheme = nvr.web_scheme or 'https'
+    port = nvr.web_port
+
+    default_port = (
+        (scheme == 'https' and port == 443) or
+        (scheme == 'http' and port == 80)
+    )
+
+    port_part = '' if default_port else f':{port}'
+
+    return f'{scheme}://{host}{port_part}/'
+
+
+def _cctv_rtsp_url(camera, remote=False):
+    host = _cctv_clean_host(
+        camera.nvr.remote_host if remote else camera.nvr.local_host
+    )
+
+    if not host:
+        return ''
+
+    return (
+        f'rtsp://{host}:{camera.nvr.rtsp_port}'
+        f'/cam/realmonitor?channel={camera.channel}'
+        f'&subtype={camera.stream_type}'
+    )
+
+
+@role_required('user', 'admin', 'viewer')
+def cctv_view(request):
+    """
+    NOC CCTV directory.
+
+    IMPORTANT:
+      This page does not proxy, decode, transcode or save CCTV video.
+      URLs point the user's browser/player directly at the NVR.
+    """
+    from django.conf import settings
+    from .models import CCTVCamera
+
+    is_remote = bool(settings.IS_MIRROR)
+
+    rows = []
+
+    cameras = (
+        CCTVCamera.objects
+        .select_related('nvr')
+        .filter(enabled=True, nvr__enabled=True)
+        .order_by('display_order', 'name')
+    )
+
+    for camera in cameras:
+        configured_browser_url = (
+            camera.browser_url_remote
+            if is_remote
+            else camera.browser_url_local
+        )
+
+        rows.append({
+            'obj': camera,
+            'web_url': (
+                configured_browser_url
+                or _cctv_web_url(camera.nvr, remote=is_remote)
+            ),
+            'rtsp_url': _cctv_rtsp_url(
+                camera,
+                remote=is_remote
+            ),
+            'route_type': 'REMOTE' if is_remote else 'LOCAL',
+        })
+
+    return render(request, 'monitor/cctv.html', {
+        'cameras': rows,
+        'role': get_role(request.user),
+        'is_remote_cctv': is_remote,
+    })
+
+
+@role_required('admin')
+def cctv_setup(request):
+    from .models import CCTVNVR, CCTVCamera
+
+    edit_nvr = None
+    edit_camera = None
+
+    edit_nvr_id = request.GET.get('edit_nvr')
+    edit_camera_id = request.GET.get('edit_camera')
+
+    if edit_nvr_id:
+        edit_nvr = CCTVNVR.objects.filter(
+            id=edit_nvr_id
+        ).first()
+
+    if edit_camera_id:
+        edit_camera = (
+            CCTVCamera.objects
+            .select_related('nvr')
+            .filter(id=edit_camera_id)
+            .first()
+        )
+
+    return render(request, 'monitor/cctv_setup.html', {
+        'nvrs': CCTVNVR.objects.all().order_by('name'),
+        'cameras': (
+            CCTVCamera.objects
+            .select_related('nvr')
+            .all()
+            .order_by('display_order', 'name')
+        ),
+        'edit_nvr': edit_nvr,
+        'edit_camera': edit_camera,
+        'role': get_role(request.user),
+    })
+
+
+@role_required('admin')
+def cctv_nvr_save(request):
+    from django.contrib import messages
+    from django.shortcuts import redirect
+    from .models import CCTVNVR
+
+    if request.method != 'POST':
+        return redirect('cctv_setup')
+
+    raw_id = (request.POST.get('id') or '').strip()
+
+    obj = (
+        CCTVNVR.objects.filter(id=raw_id).first()
+        if raw_id
+        else None
+    )
+
+    creating = obj is None
+
+    if creating:
+        obj = CCTVNVR()
+
+    name = (request.POST.get('name') or '').strip()
+    local_host = _cctv_clean_host(
+        request.POST.get('local_host')
+    )
+    remote_host = _cctv_clean_host(
+        request.POST.get('remote_host')
+    )
+
+    try:
+        web_port = int(request.POST.get('web_port') or 443)
+        rtsp_port = int(request.POST.get('rtsp_port') or 554)
+    except ValueError:
+        messages.error(request, 'Web and RTSP ports must be numbers.')
+        return redirect('cctv_setup')
+
+    if not name or not local_host:
+        messages.error(
+            request,
+            'NVR name and local IP/hostname are required.'
+        )
+        return redirect('cctv_setup')
+
+    if not (1 <= web_port <= 65535 and 1 <= rtsp_port <= 65535):
+        messages.error(request, 'Ports must be between 1 and 65535.')
+        return redirect('cctv_setup')
+
+    scheme = request.POST.get('web_scheme') or 'https'
+
+    if scheme not in ('http', 'https'):
+        scheme = 'https'
+
+    obj.name = name
+    obj.local_host = local_host
+    obj.remote_host = remote_host
+    obj.web_scheme = scheme
+    obj.web_port = web_port
+    obj.rtsp_port = rtsp_port
+    obj.enabled = request.POST.get('enabled') == 'on'
+    obj.note = (request.POST.get('note') or '').strip()[:300]
+
+    obj.save()
+
+    action_word = 'created' if creating else 'updated'
+
+    log_activity(
+        request.user,
+        'CCTV_CONFIG',
+        (
+            f'CCTV NVR {action_word}: '
+            f'{obj.name} (ID:{obj.id}); '
+            f'local={obj.local_host}; '
+            f'remote={obj.remote_host or "not set"}'
+        ),
+        get_ip(request)
+    )
+
+    messages.success(
+        request,
+        f'NVR "{obj.name}" {action_word}.'
+    )
+
+    return redirect('cctv_setup')
+
+
+@role_required('admin')
+def cctv_nvr_delete(request, nid):
+    from django.contrib import messages
+    from django.shortcuts import redirect, get_object_or_404
+    from .models import CCTVNVR
+
+    obj = get_object_or_404(CCTVNVR, id=nid)
+
+    if request.method != 'POST':
+        return redirect('cctv_setup')
+
+    name = obj.name
+    camera_count = obj.cameras.count()
+
+    obj.delete()
+
+    log_activity(
+        request.user,
+        'CCTV_CONFIG',
+        (
+            f'CCTV NVR deleted: {name}; '
+            f'{camera_count} linked camera(s) removed.'
+        ),
+        get_ip(request)
+    )
+
+    messages.success(
+        request,
+        f'NVR "{name}" deleted.'
+    )
+
+    return redirect('cctv_setup')
+
+
+@role_required('admin')
+def cctv_camera_save(request):
+    from django.contrib import messages
+    from django.shortcuts import redirect
+    from django.db import IntegrityError
+    from .models import CCTVNVR, CCTVCamera
+
+    if request.method != 'POST':
+        return redirect('cctv_setup')
+
+    raw_id = (request.POST.get('id') or '').strip()
+
+    obj = (
+        CCTVCamera.objects.filter(id=raw_id).first()
+        if raw_id
+        else None
+    )
+
+    creating = obj is None
+
+    if creating:
+        obj = CCTVCamera()
+
+    try:
+        nvr_id = int(request.POST.get('nvr_id') or 0)
+        channel = int(request.POST.get('channel') or 0)
+        stream_type = int(
+            request.POST.get('stream_type') or 1
+        )
+        display_order = int(
+            request.POST.get('display_order') or 1
+        )
+    except ValueError:
+        messages.error(
+            request,
+            'NVR, channel and display order must be valid numbers.'
+        )
+        return redirect('cctv_setup')
+
+    nvr = CCTVNVR.objects.filter(id=nvr_id).first()
+
+    if not nvr:
+        messages.error(request, 'Select a valid NVR.')
+        return redirect('cctv_setup')
+
+    name = (request.POST.get('name') or '').strip()
+
+    if not name:
+        messages.error(request, 'Camera name is required.')
+        return redirect('cctv_setup')
+
+    if not (1 <= channel <= 256):
+        messages.error(
+            request,
+            'Camera channel must be between 1 and 256.'
+        )
+        return redirect('cctv_setup')
+
+    if stream_type not in (0, 1):
+        stream_type = 1
+
+    if display_order < 1:
+        display_order = 1
+
+    obj.nvr = nvr
+    obj.name = name[:100]
+    obj.channel = channel
+    obj.stream_type = stream_type
+    obj.location = (
+        request.POST.get('location') or ''
+    ).strip()[:150]
+    obj.display_order = display_order
+    obj.enabled = request.POST.get('enabled') == 'on'
+
+    obj.browser_url_local = (
+        request.POST.get('browser_url_local') or ''
+    ).strip()[:500]
+
+    obj.browser_url_remote = (
+        request.POST.get('browser_url_remote') or ''
+    ).strip()[:500]
+
+    obj.note = (
+        request.POST.get('note') or ''
+    ).strip()[:300]
+
+    try:
+        obj.save()
+    except IntegrityError:
+        messages.error(
+            request,
+            (
+                f'Channel {channel} is already configured '
+                f'for NVR "{nvr.name}".'
+            )
+        )
+        return redirect('cctv_setup')
+
+    action_word = 'created' if creating else 'updated'
+
+    log_activity(
+        request.user,
+        'CCTV_CONFIG',
+        (
+            f'CCTV camera {action_word}: '
+            f'{obj.name} (ID:{obj.id}), '
+            f'NVR={nvr.name}, CH={obj.channel}, '
+            f'stream={obj.stream_type}'
+        ),
+        get_ip(request)
+    )
+
+    messages.success(
+        request,
+        f'Camera "{obj.name}" {action_word}.'
+    )
+
+    return redirect('cctv_setup')
+
+
+@role_required('admin')
+def cctv_camera_delete(request, cid):
+    from django.contrib import messages
+    from django.shortcuts import redirect, get_object_or_404
+    from .models import CCTVCamera
+
+    obj = get_object_or_404(CCTVCamera, id=cid)
+
+    if request.method != 'POST':
+        return redirect('cctv_setup')
+
+    detail = (
+        f'CCTV camera deleted: {obj.name} '
+        f'(ID:{obj.id}), NVR={obj.nvr.name}, CH={obj.channel}'
+    )
+
+    name = obj.name
+    obj.delete()
+
+    log_activity(
+        request.user,
+        'CCTV_CONFIG',
+        detail,
+        get_ip(request)
+    )
+
+    messages.success(
+        request,
+        f'Camera "{name}" deleted.'
+    )
+
+    return redirect('cctv_setup')

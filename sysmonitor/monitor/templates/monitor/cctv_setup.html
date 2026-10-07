@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SysMonitor — CCTV Setup</title>
+
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    :root{
+      --bg:#0f172a;
+      --surface:#1e293b;
+      --surface2:#162032;
+      --border:#334155;
+      --text:#f1f5f9;
+      --muted:#94a3b8;
+      --blue:#3b82f6;
+      --green:#22c55e;
+      --red:#ef4444;
+      --cyan:#22d3ee;
+    }
+
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:'Segoe UI',system-ui,sans-serif;
+    }
+
+    .page{
+      max-width:1180px;
+      margin:0 auto;
+      padding:1.5rem 1.25rem 4rem;
+    }
+
+    h1{
+      font-size:1.5rem;
+      margin:0 0 .25rem;
+    }
+
+    .lead{
+      color:var(--muted);
+      font-size:.85rem;
+      margin:0 0 1.3rem;
+    }
+
+    .messages{
+      margin-bottom:1rem;
+    }
+
+    .msg{
+      padding:.7rem .9rem;
+      margin-bottom:.5rem;
+      border-radius:8px;
+      background:#172554;
+      border:1px solid #1d4ed8;
+      color:#bfdbfe;
+      font-size:.8rem;
+    }
+
+    .section{
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:14px;
+      margin-bottom:1.2rem;
+      overflow:hidden;
+    }
+
+    .section-head{
+      padding:.9rem 1rem;
+      border-bottom:1px solid var(--border);
+      background:var(--surface2);
+      font-size:.9rem;
+      font-weight:750;
+    }
+
+    .section-body{
+      padding:1rem;
+    }
+
+    .form-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:.8rem;
+    }
+
+    .field{
+      min-width:0;
+    }
+
+    .field.full{
+      grid-column:1/-1;
+    }
+
+    label{
+      display:block;
+      color:#cbd5e1;
+      font-size:.72rem;
+      font-weight:700;
+      margin-bottom:.3rem;
+    }
+
+    input,select{
+      width:100%;
+      background:#0f172a;
+      color:var(--text);
+      border:1px solid var(--border);
+      border-radius:8px;
+      padding:.58rem .65rem;
+      font-size:.8rem;
+    }
+
+    .check{
+      display:flex;
+      align-items:center;
+      gap:.45rem;
+      padding-top:1.5rem;
+    }
+
+    .check input{
+      width:auto;
+    }
+
+    .actions{
+      margin-top:1rem;
+      display:flex;
+      gap:.55rem;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      text-decoration:none;
+      padding:.55rem .8rem;
+      border-radius:8px;
+      font-size:.75rem;
+      font-weight:700;
+      cursor:pointer;
+      border:1px solid var(--border);
+      background:#111827;
+      color:#cbd5e1;
+    }
+
+    .primary{
+      background:#1d4ed8;
+      border-color:#2563eb;
+      color:white;
+    }
+
+    .danger{
+      background:#450a0a;
+      border-color:#991b1b;
+      color:#fecaca;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+    }
+
+    th,td{
+      text-align:left;
+      padding:.7rem .75rem;
+      border-bottom:1px solid var(--border);
+      font-size:.76rem;
+      vertical-align:middle;
+    }
+
+    th{
+      color:var(--muted);
+      font-size:.68rem;
+      text-transform:uppercase;
+      background:#111827;
+    }
+
+    tr:last-child td{
+      border-bottom:none;
+    }
+
+    .status{
+      font-size:.68rem;
+      border-radius:20px;
+      padding:.2rem .5rem;
+      display:inline-block;
+      font-weight:700;
+    }
+
+    .on{
+      background:#052e16;
+      color:#4ade80;
+    }
+
+    .off{
+      background:#450a0a;
+      color:#fca5a5;
+    }
+
+    .table-wrap{
+      overflow-x:auto;
+    }
+
+    .hint{
+      color:var(--muted);
+      font-size:.7rem;
+      margin-top:.35rem;
+    }
+
+    @media(max-width:760px){
+      .form-grid{grid-template-columns:1fr}
+      .field.full{grid-column:auto}
+    }
+  </style>
+</head>
+
+<body>
+
+{% include "monitor/navbar.html" %}
+
+<div class="page">
+
+  <h1>🎥 CCTV Setup</h1>
+
+  <p class="lead">
+    Configure NVR addresses and select only the channels that should
+    appear on the NOC CCTV page. No NVR username/password is stored here.
+  </p>
+
+  {% if messages %}
+  <div class="messages">
+    {% for message in messages %}
+      <div class="msg">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="section">
+
+    <div class="section-head">
+      {% if edit_nvr %}
+        Edit NVR
+      {% else %}
+        Add NVR
+      {% endif %}
+    </div>
+
+    <div class="section-body">
+
+      <form method="post" action="{{ base_path }}/cctv-setup/nvr/save/">
+        {% csrf_token %}
+
+        {% if edit_nvr %}
+        <input type="hidden" name="id" value="{{ edit_nvr.id }}">
+        {% endif %}
+
+        <div class="form-grid">
+
+          <div class="field">
+            <label>NVR Name</label>
+            <input
+              name="name"
+              required
+              value="{{ edit_nvr.name|default:'' }}"
+              placeholder="NOC Dahua NVR"
+            >
+          </div>
+
+          <div class="field">
+            <label>Local IP / Hostname</label>
+            <input
+              name="local_host"
+              required
+              value="{{ edit_nvr.local_host|default:'' }}"
+              placeholder="192.168.1.108"
+            >
+          </div>
+
+          <div class="field">
+            <label>Remote / Real IP or Hostname</label>
+            <input
+              name="remote_host"
+              value="{{ edit_nvr.remote_host|default:'' }}"
+              placeholder="Public IP or DNS"
+            >
+          </div>
+
+          <div class="field">
+            <label>Web Protocol</label>
+            <select name="web_scheme">
+              <option value="https"
+                {% if not edit_nvr or edit_nvr.web_scheme == "https" %}selected{% endif %}
+              >HTTPS</option>
+              <option value="http"
+                {% if edit_nvr.web_scheme == "http" %}selected{% endif %}
+              >HTTP</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Web Port</label>
+            <input
+              type="number"
+              min="1"
+              max="65535"
+              name="web_port"
+              value="{{ edit_nvr.web_port|default:443 }}"
+            >
+          </div>
+
+          <div class="field">
+            <label>RTSP Port</label>
+            <input
+              type="number"
+              min="1"
+              max="65535"
+              name="rtsp_port"
+              value="{{ edit_nvr.rtsp_port|default:554 }}"
+            >
+          </div>
+
+          <div class="field full">
+            <label>Note</label>
+            <input
+              name="note"
+              value="{{ edit_nvr.note|default:'' }}"
+              placeholder="Optional description"
+            >
+          </div>
+
+          <div class="check">
+            <input
+              type="checkbox"
+              name="enabled"
+              id="nvr_enabled"
+              {% if not edit_nvr or edit_nvr.enabled %}checked{% endif %}
+            >
+            <label for="nvr_enabled" style="margin:0">Enabled</label>
+          </div>
+
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" type="submit">
+            {% if edit_nvr %}Save NVR Changes{% else %}+ Add NVR{% endif %}
+          </button>
+
+          {% if edit_nvr %}
+          <a class="btn" href="{{ base_path }}/cctv-setup/">
+            Cancel Edit
+          </a>
+          {% endif %}
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+
+  <div class="section">
+
+    <div class="section-head">
+      Configured NVRs
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Local</th>
+            <th>Remote</th>
+            <th>Web</th>
+            <th>RTSP</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          {% for n in nvrs %}
+          <tr>
+            <td>{{ n.name }}</td>
+            <td>{{ n.local_host }}</td>
+            <td>{{ n.remote_host|default:"—" }}</td>
+            <td>{{ n.web_scheme|upper }} : {{ n.web_port }}</td>
+            <td>{{ n.rtsp_port }}</td>
+            <td>
+              {% if n.enabled %}
+                <span class="status on">Enabled</span>
+              {% else %}
+                <span class="status off">Disabled</span>
+              {% endif %}
+            </td>
+            <td>
+              <a class="btn" href="?edit_nvr={{ n.id }}">Edit</a>
+
+              <form
+                method="post"
+                action="{{ base_path }}/cctv-setup/nvr/{{ n.id }}/delete/"
+                style="display:inline"
+                onsubmit="return confirm('Delete this NVR and all linked CCTV cameras?')"
+              >
+                {% csrf_token %}
+                <button class="btn danger" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" style="color:var(--muted)">
+              No NVR configured yet.
+            </td>
+          </tr>
+          {% endfor %}
+
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+
+  <div class="section">
+
+    <div class="section-head">
+      {% if edit_camera %}
+        Edit Camera
+      {% else %}
+        Add Selected Camera
+      {% endif %}
+    </div>
+
+    <div class="section-body">
+
+      <form method="post" action="{{ base_path }}/cctv-setup/camera/save/">
+        {% csrf_token %}
+
+        {% if edit_camera %}
+        <input type="hidden" name="id" value="{{ edit_camera.id }}">
+        {% endif %}
+
+        <div class="form-grid">
+
+          <div class="field">
+            <label>NVR</label>
+            <select name="nvr_id" required>
+              <option value="">Select NVR</option>
+
+              {% for n in nvrs %}
+              <option
+                value="{{ n.id }}"
+                {% if edit_camera and edit_camera.nvr_id == n.id %}selected{% endif %}
+              >
+                {{ n.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Camera Name</label>
+            <input
+              name="name"
+              required
+              value="{{ edit_camera.name|default:'' }}"
+              placeholder="Generator Room"
+            >
+          </div>
+
+          <div class="field">
+            <label>Channel Number</label>
+            <input
+              type="number"
+              min="1"
+              max="256"
+              name="channel"
+              required
+              value="{{ edit_camera.channel|default:1 }}"
+            >
+          </div>
+
+          <div class="field">
+            <label>Default Stream</label>
+            <select name="stream_type">
+              <option
+                value="1"
+                {% if not edit_camera or edit_camera.stream_type == 1 %}selected{% endif %}
+              >
+                Sub Stream — recommended
+              </option>
+
+              <option
+                value="0"
+                {% if edit_camera and edit_camera.stream_type == 0 %}selected{% endif %}
+              >
+                Main Stream
+              </option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Display Order</label>
+            <input
+              type="number"
+              min="1"
+              name="display_order"
+              value="{{ edit_camera.display_order|default:1 }}"
+            >
+          </div>
+
+          <div class="field">
+            <label>Location</label>
+            <input
+              name="location"
+              value="{{ edit_camera.location|default:'' }}"
+              placeholder="Ground Floor"
+            >
+          </div>
+
+          <div class="field full">
+            <label>Optional Local Browser Live URL</label>
+            <input
+              type="url"
+              name="browser_url_local"
+              value="{{ edit_camera.browser_url_local|default:'' }}"
+              placeholder="Leave blank to open the NVR web page"
+            >
+            <div class="hint">
+              Only use this if your Dahua model provides a browser-compatible
+              per-camera HTML5/WebRTC/HLS URL.
+            </div>
+          </div>
+
+          <div class="field full">
+            <label>Optional Remote Browser Live URL</label>
+            <input
+              type="url"
+              name="browser_url_remote"
+              value="{{ edit_camera.browser_url_remote|default:'' }}"
+              placeholder="Leave blank to open the remote NVR web page"
+            >
+          </div>
+
+          <div class="field full">
+            <label>Note</label>
+            <input
+              name="note"
+              value="{{ edit_camera.note|default:'' }}"
+              placeholder="Optional note"
+            >
+          </div>
+
+          <div class="check">
+            <input
+              type="checkbox"
+              name="enabled"
+              id="camera_enabled"
+              {% if not edit_camera or edit_camera.enabled %}checked{% endif %}
+            >
+            <label for="camera_enabled" style="margin:0">Show on CCTV page</label>
+          </div>
+
+        </div>
+
+        <div class="actions">
+
+          <button class="btn primary" type="submit">
+            {% if edit_camera %}
+              Save Camera Changes
+            {% else %}
+              + Add Camera
+            {% endif %}
+          </button>
+
+          {% if edit_camera %}
+          <a class="btn" href="{{ base_path }}/cctv-setup/">
+            Cancel Edit
+          </a>
+          {% endif %}
+
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+
+  <div class="section">
+
+    <div class="section-head">
+      Selected CCTV Cameras
+    </div>
+
+    <div class="table-wrap">
+
+      <table>
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Camera</th>
+            <th>NVR</th>
+            <th>Channel</th>
+            <th>Stream</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          {% for c in cameras %}
+          <tr>
+
+            <td>{{ c.display_order }}</td>
+
+            <td>
+              <strong>{{ c.name }}</strong>
+              {% if c.location %}
+                <div style="color:var(--muted);font-size:.68rem">
+                  {{ c.location }}
+                </div>
+              {% endif %}
+            </td>
+
+            <td>{{ c.nvr.name }}</td>
+            <td>CH {{ c.channel }}</td>
+
+            <td>
+              {% if c.stream_type == 1 %}
+                Sub
+              {% else %}
+                Main
+              {% endif %}
+            </td>
+
+            <td>
+              {% if c.enabled %}
+                <span class="status on">Visible</span>
+              {% else %}
+                <span class="status off">Hidden</span>
+              {% endif %}
+            </td>
+
+            <td>
+              <a
+                class="btn"
+                href="?edit_camera={{ c.id }}"
+              >
+                Edit
+              </a>
+
+              <form
+                method="post"
+                action="{{ base_path }}/cctv-setup/camera/{{ c.id }}/delete/"
+                style="display:inline"
+                onsubmit="return confirm('Delete this CCTV camera entry?')"
+              >
+                {% csrf_token %}
+                <button class="btn danger" type="submit">
+                  Delete
+                </button>
+              </form>
+            </td>
+
+          </tr>
+
+          {% empty %}
+
+          <tr>
+            <td colspan="7" style="color:var(--muted)">
+              No CCTV cameras selected yet.
+            </td>
+          </tr>
+
+          {% endfor %}
+
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+
+</div>
+
+{% include "monitor/footer.html" %}
+
+</body>
+</html>

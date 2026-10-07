@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SysMonitor — NOC CCTV</title>
+
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    :root{
+      --bg:#0f172a;
+      --surface:#1e293b;
+      --surface2:#162032;
+      --border:#334155;
+      --text:#f1f5f9;
+      --muted:#94a3b8;
+      --dim:#64748b;
+      --blue:#3b82f6;
+      --cyan:#22d3ee;
+      --green:#22c55e;
+      --red:#ef4444;
+    }
+
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:'Segoe UI',system-ui,sans-serif;
+    }
+
+    .page{
+      max-width:1280px;
+      margin:0 auto;
+      padding:1.6rem 1.25rem 4rem;
+    }
+
+    .head{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+      gap:1rem;
+      flex-wrap:wrap;
+      margin-bottom:1.3rem;
+    }
+
+    .head h1{
+      margin:0;
+      font-size:1.55rem;
+    }
+
+    .head p{
+      color:var(--muted);
+      margin:.35rem 0 0;
+      font-size:.86rem;
+    }
+
+    .route-badge{
+      border:1px solid #1d4ed8;
+      background:#1e3a8a33;
+      color:#93c5fd;
+      border-radius:20px;
+      padding:.38rem .75rem;
+      font-size:.72rem;
+      font-weight:700;
+    }
+
+    .notice{
+      margin-bottom:1.2rem;
+      background:#0c2340;
+      color:#93c5fd;
+      border:1px solid #1e40af55;
+      padding:.8rem 1rem;
+      border-radius:10px;
+      font-size:.8rem;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:1rem;
+    }
+
+    .camera{
+      border:1px solid var(--border);
+      background:linear-gradient(145deg,var(--surface),var(--surface2));
+      border-radius:14px;
+      overflow:hidden;
+      min-width:0;
+    }
+
+    .screen{
+      aspect-ratio:16/9;
+      background:
+        radial-gradient(circle at center,#17233a,#080d17 72%);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      padding:1.2rem;
+      border-bottom:1px solid var(--border);
+    }
+
+    .screen .icon{
+      font-size:2rem;
+      margin-bottom:.55rem;
+    }
+
+    .screen strong{
+      font-size:.88rem;
+    }
+
+    .screen span{
+      color:var(--muted);
+      font-size:.72rem;
+      margin-top:.3rem;
+    }
+
+    .body{
+      padding:1rem;
+    }
+
+    .name-row{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:.8rem;
+    }
+
+    .name{
+      font-weight:750;
+      font-size:.98rem;
+    }
+
+    .ch{
+      color:var(--cyan);
+      font-size:.72rem;
+      font-weight:700;
+      white-space:nowrap;
+    }
+
+    .meta{
+      color:var(--muted);
+      font-size:.76rem;
+      margin:.35rem 0 .85rem;
+      min-height:1.2em;
+    }
+
+    .buttons{
+      display:flex;
+      gap:.5rem;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:.35rem;
+      text-decoration:none;
+      border-radius:8px;
+      padding:.55rem .75rem;
+      font-size:.76rem;
+      font-weight:700;
+      cursor:pointer;
+      border:1px solid var(--border);
+      background:#111827;
+      color:#cbd5e1;
+    }
+
+    .btn-primary{
+      background:#1d4ed8;
+      border-color:#2563eb;
+      color:white;
+    }
+
+    .btn:hover{
+      filter:brightness(1.12);
+    }
+
+    .rtsp{
+      margin-top:.75rem;
+      padding:.55rem .65rem;
+      border-radius:7px;
+      background:#0b1220;
+      border:1px solid #243246;
+      color:#64748b;
+      font-family:monospace;
+      font-size:.64rem;
+      overflow-wrap:anywhere;
+    }
+
+    .empty{
+      border:1px dashed var(--border);
+      border-radius:14px;
+      padding:3rem 1rem;
+      text-align:center;
+      color:var(--muted);
+    }
+
+    @media(max-width:900px){
+      .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    }
+
+    @media(max-width:600px){
+      .grid{grid-template-columns:1fr}
+      .page{padding-left:1rem;padding-right:1rem}
+    }
+  </style>
+</head>
+
+<body>
+
+{% include "monitor/navbar.html" %}
+
+<div class="page">
+
+  <div class="head">
+    <div>
+      <h1>🎥 NOC CCTV</h1>
+      <p>
+        Selected NVR cameras configured for NOC viewing.
+      </p>
+    </div>
+
+    <span class="route-badge">
+      {% if is_remote_cctv %}
+        🌐 REMOTE NVR route
+      {% else %}
+        🏢 LOCAL NVR route
+      {% endif %}
+    </span>
+  </div>
+
+  <div class="notice">
+    SysMonitor does not relay or store CCTV video.
+    Live traffic goes directly from your browser/player to the NVR,
+    so this page does not create video load on the SysMonitor server.
+  </div>
+
+  {% if cameras %}
+
+  <div class="grid">
+
+    {% for c in cameras %}
+
+    <div class="camera">
+
+      <div class="screen">
+        <div class="icon">📹</div>
+        <strong>{{ c.obj.name }}</strong>
+        <span>
+          Click Open Live View to connect directly to the NVR.
+        </span>
+      </div>
+
+      <div class="body">
+
+        <div class="name-row">
+          <div class="name">{{ c.obj.name }}</div>
+          <div class="ch">
+            CH {{ c.obj.channel }}
+            ·
+            {% if c.obj.stream_type == 1 %}
+              SUB
+            {% else %}
+              MAIN
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="meta">
+          {% if c.obj.location %}
+            {{ c.obj.location }} ·
+          {% endif %}
+          {{ c.obj.nvr.name }}
+        </div>
+
+        <div class="buttons">
+
+          {% if c.web_url %}
+          <a
+            class="btn btn-primary"
+            href="{{ c.web_url }}"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            ▶ Open Live View
+          </a>
+          {% endif %}
+
+          {% if c.rtsp_url %}
+          <button
+            class="btn"
+            type="button"
+            onclick="copyText('{{ c.rtsp_url|escapejs }}', this)"
+          >
+            📋 Copy RTSP
+          </button>
+          {% endif %}
+
+        </div>
+
+        {% if c.rtsp_url %}
+        <div class="rtsp">{{ c.rtsp_url }}</div>
+        {% endif %}
+
+      </div>
+    </div>
+
+    {% endfor %}
+
+  </div>
+
+  {% else %}
+
+  <div class="empty">
+    <div style="font-size:2rem;margin-bottom:.5rem">🎥</div>
+    No CCTV cameras are currently enabled.
+    {% if role == "admin" %}
+      Configure cameras from Administrative → CCTV Setup.
+    {% endif %}
+  </div>
+
+  {% endif %}
+
+</div>
+
+{% include "monitor/footer.html" %}
+
+<script>
+function copyText(value, button) {
+  navigator.clipboard.writeText(value).then(function () {
+    const old = button.textContent;
+    button.textContent = '✓ Copied';
+    setTimeout(function () {
+      button.textContent = old;
+    }, 1200);
+  });
+}
+</script>
+
+</body>
+</html>

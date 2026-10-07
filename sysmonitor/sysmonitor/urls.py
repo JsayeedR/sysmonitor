@@ -83,6 +83,12 @@ urlpatterns += [
     path('system/restart-ping/',             views.system_restart_ping,   name='system_restart_ping'),
     path('mirror/activity/',                   views.mirror_activity,       name='mirror_activity'),
     path('mirror/track/',                      views.mirror_track,          name='mirror_track'),
+    path('cctv/',                              views.cctv_view,             name='cctv_view'),
+    path('cctv-setup/',                        views.cctv_setup,            name='cctv_setup'),
+    path('cctv-setup/nvr/save/',               views.cctv_nvr_save,         name='cctv_nvr_save'),
+    path('cctv-setup/nvr/<int:nid>/delete/',   views.cctv_nvr_delete,       name='cctv_nvr_delete'),
+    path('cctv-setup/camera/save/',            views.cctv_camera_save,      name='cctv_camera_save'),
+    path('cctv-setup/camera/<int:cid>/delete/', views.cctv_camera_delete,    name='cctv_camera_delete'),
     path('system/recent-cycles/',              views.system_recent_cycles,  name='system_recent_cycles'),
 ]
 

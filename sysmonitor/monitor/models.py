@@ -551,3 +551,145 @@ class GeneratorFuelLog(models.Model):
             f"{self.fuel_before_l}L → {self.fuel_after_l}L"
         )
 
+# ── NOC CCTV / NVR Configuration ──────────────────────────────────────────────
+
+class CCTVNVR(models.Model):
+    """
+    Metadata only. SysMonitor never proxies or stores CCTV video.
+
+    The browser connects directly to the configured NVR address. The MASTER
+    uses local_host while the REMOTE site uses remote_host.
+    """
+
+    name = models.CharField(
+        max_length=100,
+        default='NOC NVR'
+    )
+
+    local_host = models.CharField(
+        max_length=255,
+        help_text='Local/LAN NVR IP or hostname, e.g. 192.168.1.108'
+    )
+
+    remote_host = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text='Public/remote NVR IP or hostname. Leave blank if remote viewing is unavailable.'
+    )
+
+    WEB_SCHEME_CHOICES = [
+        ('http', 'HTTP'),
+        ('https', 'HTTPS'),
+    ]
+
+    web_scheme = models.CharField(
+        max_length=8,
+        choices=WEB_SCHEME_CHOICES,
+        default='https'
+    )
+
+    web_port = models.PositiveIntegerField(
+        default=443,
+        help_text='NVR browser/web port.'
+    )
+
+    rtsp_port = models.PositiveIntegerField(
+        default=554,
+        help_text='Dahua RTSP port. Default is normally 554.'
+    )
+
+    enabled = models.BooleanField(default=True)
+
+    note = models.CharField(
+        max_length=300,
+        blank=True
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'CCTV NVR'
+        verbose_name_plural = 'CCTV NVRs'
+
+    def __str__(self):
+        return self.name
+
+
+class CCTVCamera(models.Model):
+    """
+    One selected camera/channel exposed on the NOC CCTV page.
+
+    No credentials are stored here and no video passes through Django.
+    """
+
+    STREAM_CHOICES = [
+        (0, 'Main Stream'),
+        (1, 'Sub Stream'),
+    ]
+
+    nvr = models.ForeignKey(
+        CCTVNVR,
+        on_delete=models.CASCADE,
+        related_name='cameras'
+    )
+
+    name = models.CharField(max_length=100)
+
+    channel = models.PositiveSmallIntegerField(
+        help_text='Dahua channel number. Channel numbering starts at 1.'
+    )
+
+    stream_type = models.PositiveSmallIntegerField(
+        choices=STREAM_CHOICES,
+        default=1,
+        help_text='Sub Stream is recommended for multi-camera NOC viewing.'
+    )
+
+    location = models.CharField(
+        max_length=150,
+        blank=True
+    )
+
+    display_order = models.PositiveSmallIntegerField(
+        default=1
+    )
+
+    enabled = models.BooleanField(default=True)
+
+    # Optional model-specific direct browser URLs.
+    # These are useful if the NVR provides HTML5/WebRTC/HLS access.
+    browser_url_local = models.URLField(
+        max_length=500,
+        blank=True,
+        help_text='Optional direct browser-compatible local live-view URL.'
+    )
+
+    browser_url_remote = models.URLField(
+        max_length=500,
+        blank=True,
+        help_text='Optional direct browser-compatible remote live-view URL.'
+    )
+
+    note = models.CharField(
+        max_length=300,
+        blank=True
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['display_order', 'name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['nvr', 'channel'],
+                name='unique_cctv_nvr_channel'
+            ),
+        ]
+        verbose_name = 'CCTV Camera'
+        verbose_name_plural = 'CCTV Cameras'
+
+    def __str__(self):
+        return f"{self.name} — CH{self.channel}"
