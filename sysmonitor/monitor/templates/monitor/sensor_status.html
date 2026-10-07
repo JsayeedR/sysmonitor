@@ -763,5 +763,36 @@
   // Report + chart: every 2 minutes.
   setInterval(() => loadHistory(currentRange), 120000);
 </script>
+
+<script>
+window.addEventListener(
+  "sysmonitor:mirror-sync",
+  function () {
+    /*
+     * Refresh live cards and the currently selected
+     * history/report range in place.
+     */
+    if (
+      typeof refreshCards ===
+      "function"
+    ) {
+      refreshCards();
+    }
+
+    if (
+      typeof loadHistory ===
+      "function"
+    ) {
+      loadHistory(
+        typeof currentRange !==
+          "undefined"
+          ? currentRange
+          : "24h"
+      );
+    }
+  }
+);
+</script>
+
 </body>
 </html>

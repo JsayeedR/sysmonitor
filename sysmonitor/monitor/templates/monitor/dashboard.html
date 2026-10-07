@@ -967,5 +967,40 @@ checkMaintenanceStatus();
 setInterval(checkMaintenanceStatus, 30 * 1000); // poll every 30s — needs to be responsive since it affects live monitoring state
 </script>
 
+
+<script>
+window.addEventListener(
+  "sysmonitor:mirror-sync",
+  function () {
+    /*
+     * Refresh only data widgets.
+     * No navigation and no full page reload.
+     */
+    if (typeof refresh === "function") {
+      refresh();
+    }
+
+    if (
+      typeof refreshColocation ===
+      "function"
+    ) {
+      refreshColocation();
+    }
+
+    if (
+      typeof loadSummary ===
+      "function"
+    ) {
+      loadSummary(
+        typeof currentSummaryDate !==
+          "undefined"
+          ? currentSummaryDate
+          : ""
+      );
+    }
+  }
+);
+</script>
+
 </body>
 </html>

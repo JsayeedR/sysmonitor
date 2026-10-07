@@ -856,5 +856,24 @@ async function loadManualCycles() {
 loadManualCycles();
 </script>
 
+
+<script>
+window.addEventListener(
+  "sysmonitor:mirror-sync",
+  function () {
+    /*
+     * Never replace the editing form.
+     * Only refresh the history/summary data underneath it.
+     */
+    if (
+      typeof loadManualCycles ===
+      "function"
+    ) {
+      loadManualCycles();
+    }
+  }
+);
+</script>
+
 </body>
 </html>

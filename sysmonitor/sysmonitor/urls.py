@@ -83,6 +83,7 @@ urlpatterns += [
     path('system/restart-ping/',             views.system_restart_ping,   name='system_restart_ping'),
     path('mirror/activity/',                   views.mirror_activity,       name='mirror_activity'),
     path('mirror/track/',                      views.mirror_track,          name='mirror_track'),
+    path('mirror/version/',                    views.mirror_version,        name='mirror_version'),
     path('cctv/',                              views.cctv_view,             name='cctv_view'),
     path('cctv/status/',                       views.cctv_live_status,      name='cctv_live_status'),
     path('cctv-setup/',                        views.cctv_setup,            name='cctv_setup'),

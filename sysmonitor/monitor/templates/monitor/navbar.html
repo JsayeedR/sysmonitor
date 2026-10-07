@@ -1,22 +1,208 @@
 {% load i18n %}
 {% if is_mirror %}
-<div id="mirror-banner" style="background:#1e3a8a;color:#dbeafe;font-size:.74rem;padding:.35rem 1rem;text-align:center;">
+<div
+  id="mirror-banner"
+  style="
+    background:#1e3a8a;
+    color:#dbeafe;
+    font-size:.74rem;
+    padding:.35rem 1rem;
+    text-align:center;
+    transition:background .25s ease,color .25s ease;
+  "
+>
   🌐 Remote site · changes are saved on the master server ·
-  <span id="mirror-lag">{% if mirror_lag_seconds is None %}sync status unknown{% else %}data is {{ mirror_lag_seconds }}s old{% endif %}</span>
+  <span id="mirror-lag">
+    {% if mirror_lag_seconds is None %}
+      sync status unknown
+    {% else %}
+      data is {{ mirror_lag_seconds }}s old
+    {% endif %}
+  </span>
 </div>
+
 <script>
-(function(){
-  var pushed = {{ mirror_pushed_at|default:"null" }};
-  var el = document.getElementById('mirror-lag');
-  if (!pushed || !el) return;
-  function tick(){
-    var s = Math.max(0, Math.round(Date.now()/1000 - pushed));
-    el.textContent = s < 120 ? 'data is ' + s + 's old'
-                   : s < 7200 ? 'data is ' + Math.round(s/60) + ' min old — local server may be offline'
-                   : 'data is ' + Math.round(s/3600) + ' h old — local server is offline or unreachable';
-    el.style.color = s > 120 ? '#fca5a5' : '';
+(function () {
+  let pushed = {{ mirror_pushed_at|default:"null" }};
+  let checking = false;
+
+  const banner = document.getElementById("mirror-banner");
+  const lagEl = document.getElementById("mirror-lag");
+
+  const versionUrl =
+    "{{ base_path }}/mirror/version/";
+
+  function renderAge() {
+    if (!pushed || !lagEl) {
+      if (lagEl) {
+        lagEl.textContent = "sync status unknown";
+      }
+      return;
+    }
+
+    const seconds = Math.max(
+      0,
+      Math.round(
+        Date.now() / 1000 - pushed
+      )
+    );
+
+    if (seconds < 120) {
+      lagEl.textContent =
+        "data is " + seconds + "s old";
+      lagEl.style.color = "";
+    }
+    else if (seconds < 7200) {
+      lagEl.textContent =
+        "data is " +
+        Math.round(seconds / 60) +
+        " min old — local server may be offline";
+
+      lagEl.style.color = "#fca5a5";
+    }
+    else {
+      lagEl.textContent =
+        "data is " +
+        Math.round(seconds / 3600) +
+        " h old — local server is offline or unreachable";
+
+      lagEl.style.color = "#fca5a5";
+    }
   }
-  tick(); setInterval(tick, 5000);
+
+  function flashUpdated() {
+    if (!banner) return;
+
+    const oldBackground =
+      banner.style.background;
+
+    const oldColor =
+      banner.style.color;
+
+    banner.style.background = "#065f46";
+    banner.style.color = "#d1fae5";
+
+    if (lagEl) {
+      lagEl.textContent =
+        "new data synced — updating view…";
+      lagEl.style.color = "#a7f3d0";
+    }
+
+    window.setTimeout(
+      function () {
+        banner.style.background =
+          oldBackground || "#1e3a8a";
+
+        banner.style.color =
+          oldColor || "#dbeafe";
+
+        renderAge();
+      },
+      1400
+    );
+  }
+
+  async function checkMirrorVersion() {
+    if (checking) return;
+
+    checking = true;
+
+    try {
+      const response = await fetch(
+        versionUrl,
+        {
+          cache: "no-store",
+          credentials: "same-origin",
+          headers: {
+            "Accept": "application/json",
+            "X-Requested-With": "XMLHttpRequest"
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "HTTP " + response.status
+        );
+      }
+
+      const data = await response.json();
+
+      if (
+        !data.ok ||
+        !data.is_mirror ||
+        !data.pushed_at
+      ) {
+        return;
+      }
+
+      const nextPushed =
+        Number(data.pushed_at);
+
+      if (!Number.isFinite(nextPushed)) {
+        return;
+      }
+
+      /*
+       * Initial request only establishes the current version.
+       * Later changes fire the page-data refresh event.
+       */
+      if (!pushed) {
+        pushed = nextPushed;
+        renderAge();
+        return;
+      }
+
+      if (nextPushed > pushed) {
+        const previous = pushed;
+
+        pushed = nextPushed;
+
+        flashUpdated();
+
+        window.dispatchEvent(
+          new CustomEvent(
+            "sysmonitor:mirror-sync",
+            {
+              detail: {
+                previousPushedAt: previous,
+                pushedAt: nextPushed
+              }
+            }
+          )
+        );
+      }
+
+    } catch (error) {
+      /*
+       * Leave the existing page untouched if the status check
+       * temporarily fails.
+       */
+    } finally {
+      checking = false;
+    }
+  }
+
+  renderAge();
+
+  window.setInterval(
+    renderAge,
+    5000
+  );
+
+  window.setInterval(
+    checkMirrorVersion,
+    5000
+  );
+
+  /*
+   * Check once shortly after page load instead of waiting
+   * the full five seconds.
+   */
+  window.setTimeout(
+    checkMirrorVersion,
+    800
+  );
 })();
 </script>
 {% endif %}

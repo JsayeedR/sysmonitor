@@ -61,6 +61,48 @@ def mirror_activity(request):
     return JsonResponse({'ok': True})
 
 
+
+def mirror_version(request):
+    """
+    Tiny REMOTE sync-version endpoint.
+
+    The browser polls this endpoint and refreshes only page data when a new
+    mirror snapshot arrives. It never reloads the whole page.
+    """
+    import time as _time
+    from django.conf import settings as _settings
+    from .mirror import _read_meta
+
+    if not getattr(_settings, 'IS_MIRROR', False):
+        return JsonResponse({
+            'ok': True,
+            'is_mirror': False,
+            'pushed_at': None,
+            'age_seconds': 0,
+        })
+
+    meta = _read_meta()
+    pushed = meta.get('pushed_at')
+
+    try:
+        pushed = float(pushed) if pushed is not None else None
+    except (TypeError, ValueError):
+        pushed = None
+
+    age = (
+        max(0, int(_time.time() - pushed))
+        if pushed
+        else None
+    )
+
+    return JsonResponse({
+        'ok': True,
+        'is_mirror': True,
+        'pushed_at': pushed,
+        'age_seconds': age,
+    })
+
+
 def mirror_track(request):
     """Remote site reports one page view (signed, tunnel-only). Counts it in the
     master's page counter; the user's usage time is updated by the normal
