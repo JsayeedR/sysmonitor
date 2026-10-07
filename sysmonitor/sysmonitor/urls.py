@@ -85,6 +85,7 @@ urlpatterns += [
     path('mirror/track/',                      views.mirror_track,          name='mirror_track'),
     path('mirror/version/',                    views.mirror_version,        name='mirror_version'),
     path('cctv/',                              views.cctv_view,             name='cctv_view'),
+    path('cctv/auth/',                         views.cctv_stream_auth,      name='cctv_stream_auth'),
     path('cctv/status/',                       views.cctv_live_status,      name='cctv_live_status'),
     path('cctv-setup/',                        views.cctv_setup,            name='cctv_setup'),
     path('cctv-setup/nvr/save/',               views.cctv_nvr_save,         name='cctv_nvr_save'),

@@ -5129,9 +5129,15 @@ def cctv_view(request):
 
         live_url = ''
 
-        # The gateway is intentionally LAN-only at this stage.
-        # Remote users still see camera metadata but no unusable iframe.
-        if not is_remote and secret['ready']:
+        if is_remote:
+            # Secure REMOTE HLS proof-of-concept.
+            # Enable NOC-1 only until browser/load testing is complete.
+            if camera.id == 1:
+                live_url = (
+                    f'/sysmonitor-cctv/'
+                    f'camera-{camera.id}/'
+                )
+        elif secret['ready']:
             live_url = player_url(camera)
 
         rows.append({
@@ -5162,6 +5168,38 @@ def cctv_view(request):
             'is_remote_cctv': is_remote,
         },
     )
+
+
+
+def cctv_stream_auth(request):
+    """
+    Authorization endpoint used internally by REMOTE nginx auth_request.
+
+    It does not serve video. It only confirms that the request carries a
+    valid SysMonitor session belonging to a CCTV-authorized user.
+    """
+    from django.conf import settings
+    from django.http import HttpResponse
+
+    if not getattr(settings, 'IS_MIRROR', False):
+        return HttpResponse(status=404)
+
+    if not request.user.is_authenticated:
+        return HttpResponse(status=401)
+
+    if not request.user.is_active:
+        return HttpResponse(status=403)
+
+    if get_role(request.user) not in (
+        'viewer',
+        'user',
+        'admin',
+    ):
+        return HttpResponse(status=403)
+
+    response = HttpResponse(status=204)
+    response['Cache-Control'] = 'no-store'
+    return response
 
 
 

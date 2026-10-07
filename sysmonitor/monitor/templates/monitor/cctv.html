@@ -293,12 +293,17 @@ body{
       </p>
     </div>
 
-    {% if not is_remote_cctv %}
     <div class="status-strip">
 
       <span class="live-badge">
-        ● LOCAL LIVE WEBRTC
+        {% if is_remote_cctv %}
+          ● SECURE REMOTE LIVE
+        {% else %}
+          ● LOCAL LIVE WEBRTC
+        {% endif %}
       </span>
+
+      {% if not is_remote_cctv %}
 
       <span
         class="status-card bandwidth"
@@ -334,15 +339,16 @@ body{
         <span class="value" id="cctv-gateway">—</span>
       </span>
 
+      {% endif %}
     </div>
-    {% endif %}
   </div>
 
   {% if is_remote_cctv %}
   <div class="notice">
-    Remote CCTV video is currently disabled for security.
-    Camera configuration remains visible, but the live WebRTC gateway
-    is restricted to the local NOC network.
+    Secure remote CCTV is being enabled through the encrypted
+    SysMonitor tunnel. NOC-1 is currently enabled for verification.
+    Video is live only while viewed; SysMonitor does not record or
+    store CCTV video. Existing NVR recording continues normally.
   </div>
   {% else %}
   <div class="notice">
@@ -382,7 +388,7 @@ body{
 
           <span style="margin-top:.35rem;font-size:.72rem">
             {% if is_remote_cctv %}
-              Local live gateway only
+              Secure remote live pending verification
             {% elif not c.credentials_ready %}
               NVR live credentials not configured
             {% else %}
@@ -436,7 +442,7 @@ body{
           </a>
           {% endif %}
 
-          {% if c.web_url %}
+          {% if c.web_url and not is_remote_cctv %}
           <a
             class="btn"
             href="{{ c.web_url }}"
