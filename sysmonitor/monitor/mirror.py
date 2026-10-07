@@ -45,7 +45,7 @@ NONCE_TTL_SECONDS = 600         # a used request ID is remembered this long (> 2
 LOCAL_POST_PATHS = ('/login/', '/logout/')
 # GET pages that need the master machine (live services / local hardware).
 PASS_THROUGH_GET_PREFIXES = (
-    '/system/', '/uptime/', '/smw6pac/',
+    '/system/', '/uptime/', '/smw6pac/', '/cctv-setup/',
     '/generator-cycle-audit/data/',
     '/notifications/whatsapp-health/', '/notifications/gateway/telegram-chats/',
 )

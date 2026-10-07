@@ -1,212 +1,282 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>SysMonitor — NOC CCTV</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 
-  <style>
-    *,*::before,*::after{box-sizing:border-box}
-    :root{
-      --bg:#0f172a;
-      --surface:#1e293b;
-      --surface2:#162032;
-      --border:#334155;
-      --text:#f1f5f9;
-      --muted:#94a3b8;
-      --dim:#64748b;
-      --blue:#3b82f6;
-      --cyan:#22d3ee;
-      --green:#22c55e;
-      --red:#ef4444;
-    }
+<title>SysMonitor — NOC CCTV</title>
 
-    body{
-      margin:0;
-      background:var(--bg);
-      color:var(--text);
-      font-family:'Segoe UI',system-ui,sans-serif;
-    }
+<style>
+*,*::before,*::after{box-sizing:border-box}
 
-    .page{
-      max-width:1280px;
-      margin:0 auto;
-      padding:1.6rem 1.25rem 4rem;
-    }
+:root{
+  --bg:#0f172a;
+  --surface:#1e293b;
+  --surface2:#162032;
+  --border:#334155;
+  --text:#f1f5f9;
+  --muted:#94a3b8;
+  --blue:#3b82f6;
+  --cyan:#22d3ee;
+  --green:#22c55e;
+}
 
-    .head{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-end;
-      gap:1rem;
-      flex-wrap:wrap;
-      margin-bottom:1.3rem;
-    }
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Segoe UI',system-ui,sans-serif;
+}
 
-    .head h1{
-      margin:0;
-      font-size:1.55rem;
-    }
+.page{
+  max-width:1500px;
+  margin:0 auto;
+  padding:1.4rem 1.2rem 4rem;
+}
 
-    .head p{
-      color:var(--muted);
-      margin:.35rem 0 0;
-      font-size:.86rem;
-    }
+.head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:1rem;
+  flex-wrap:wrap;
+  margin-bottom:1rem;
+}
 
-    .route-badge{
-      border:1px solid #1d4ed8;
-      background:#1e3a8a33;
-      color:#93c5fd;
-      border-radius:20px;
-      padding:.38rem .75rem;
-      font-size:.72rem;
-      font-weight:700;
-    }
+.head h1{
+  margin:0;
+  font-size:1.55rem;
+}
 
-    .notice{
-      margin-bottom:1.2rem;
-      background:#0c2340;
-      color:#93c5fd;
-      border:1px solid #1e40af55;
-      padding:.8rem 1rem;
-      border-radius:10px;
-      font-size:.8rem;
-    }
+.head p{
+  margin:.35rem 0 0;
+  color:var(--muted);
+  font-size:.82rem;
+}
 
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:1rem;
-    }
+.live-badge{
+  padding:.35rem .7rem;
+  border:1px solid #166534;
+  background:#052e16;
+  color:#86efac;
+  border-radius:20px;
+  font-size:.7rem;
+  font-weight:700;
+  white-space:nowrap;
+}
 
-    .camera{
-      border:1px solid var(--border);
-      background:linear-gradient(145deg,var(--surface),var(--surface2));
-      border-radius:14px;
-      overflow:hidden;
-      min-width:0;
-    }
+.status-strip{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:.45rem;
+  flex-wrap:wrap;
+}
 
-    .screen{
-      aspect-ratio:16/9;
-      background:
-        radial-gradient(circle at center,#17233a,#080d17 72%);
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      padding:1.2rem;
-      border-bottom:1px solid var(--border);
-    }
+.status-card{
+  display:flex;
+  align-items:center;
+  gap:.38rem;
+  min-height:29px;
+  padding:.34rem .58rem;
+  border:1px solid #334155;
+  background:#111827;
+  border-radius:20px;
+  color:#cbd5e1;
+  font-size:.66rem;
+  font-weight:700;
+  white-space:nowrap;
+  box-shadow:0 1px 2px rgba(0,0,0,.15);
+}
 
-    .screen .icon{
-      font-size:2rem;
-      margin-bottom:.55rem;
-    }
+.status-card .label{
+  color:#94a3b8;
+  font-size:.59rem;
+  font-weight:700;
+  letter-spacing:.035em;
+}
 
-    .screen strong{
-      font-size:.88rem;
-    }
+.status-card .value{
+  color:#e2e8f0;
+  font-variant-numeric:tabular-nums;
+}
 
-    .screen span{
-      color:var(--muted);
-      font-size:.72rem;
-      margin-top:.3rem;
-    }
+.status-card.bandwidth{
+  border-color:#9a5b13;
+  background:#2a1b0b;
+}
 
-    .body{
-      padding:1rem;
-    }
+.status-card.bandwidth .label{
+  color:#fbbf24;
+}
 
-    .name-row{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:.8rem;
-    }
+.status-card.bandwidth .value{
+  color:#fdba74;
+}
 
-    .name{
-      font-weight:750;
-      font-size:.98rem;
-    }
+.status-card.gateway .value{
+  color:#93c5fd;
+}
 
-    .ch{
-      color:var(--cyan);
-      font-size:.72rem;
-      font-weight:700;
-      white-space:nowrap;
-    }
+.status-card.ram .value{
+  color:#c4b5fd;
+}
 
-    .meta{
-      color:var(--muted);
-      font-size:.76rem;
-      margin:.35rem 0 .85rem;
-      min-height:1.2em;
-    }
+.status-card.load .value{
+  color:#a7f3d0;
+}
 
-    .buttons{
-      display:flex;
-      gap:.5rem;
-      flex-wrap:wrap;
-    }
+.status-error{
+  color:#fca5a5 !important;
+}
 
-    .btn{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:.35rem;
-      text-decoration:none;
-      border-radius:8px;
-      padding:.55rem .75rem;
-      font-size:.76rem;
-      font-weight:700;
-      cursor:pointer;
-      border:1px solid var(--border);
-      background:#111827;
-      color:#cbd5e1;
-    }
+@media(max-width:900px){
+  .head{
+    align-items:flex-start;
+  }
 
-    .btn-primary{
-      background:#1d4ed8;
-      border-color:#2563eb;
-      color:white;
-    }
+  .status-strip{
+    justify-content:flex-start;
+    width:100%;
+  }
+}
 
-    .btn:hover{
-      filter:brightness(1.12);
-    }
+.notice{
+  border:1px solid #1e3a5f;
+  background:#10223a;
+  color:#93c5fd;
+  padding:.65rem .85rem;
+  border-radius:9px;
+  margin-bottom:1rem;
+  font-size:.76rem;
+}
 
-    .rtsp{
-      margin-top:.75rem;
-      padding:.55rem .65rem;
-      border-radius:7px;
-      background:#0b1220;
-      border:1px solid #243246;
-      color:#64748b;
-      font-family:monospace;
-      font-size:.64rem;
-      overflow-wrap:anywhere;
-    }
+.grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:1rem;
+}
 
-    .empty{
-      border:1px dashed var(--border);
-      border-radius:14px;
-      padding:3rem 1rem;
-      text-align:center;
-      color:var(--muted);
-    }
+.camera{
+  border:1px solid var(--border);
+  background:linear-gradient(
+    145deg,
+    var(--surface),
+    var(--surface2)
+  );
+  border-radius:13px;
+  overflow:hidden;
+}
 
-    @media(max-width:900px){
-      .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-    }
+.video-wrap{
+  position:relative;
+  width:100%;
+  aspect-ratio:16/9;
+  background:#020617;
+}
 
-    @media(max-width:600px){
-      .grid{grid-template-columns:1fr}
-      .page{padding-left:1rem;padding-right:1rem}
-    }
-  </style>
+.video-wrap iframe{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  border:0;
+  background:#020617;
+}
+
+.unavailable{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  text-align:center;
+  padding:1rem;
+  color:var(--muted);
+}
+
+.unavailable .icon{
+  font-size:2rem;
+  margin-bottom:.5rem;
+}
+
+.camera-info{
+  padding:.8rem .9rem;
+}
+
+.top{
+  display:flex;
+  justify-content:space-between;
+  gap:.7rem;
+  align-items:flex-start;
+}
+
+.name{
+  font-weight:750;
+  font-size:.92rem;
+}
+
+.channel{
+  color:var(--cyan);
+  font-size:.68rem;
+  font-weight:700;
+  white-space:nowrap;
+}
+
+.meta{
+  margin-top:.25rem;
+  color:var(--muted);
+  font-size:.7rem;
+}
+
+.buttons{
+  margin-top:.65rem;
+  display:flex;
+  gap:.45rem;
+  flex-wrap:wrap;
+}
+
+.btn{
+  padding:.4rem .6rem;
+  border:1px solid var(--border);
+  border-radius:7px;
+  background:#111827;
+  color:#cbd5e1;
+  text-decoration:none;
+  font-size:.68rem;
+  font-weight:700;
+}
+
+.btn:hover{
+  filter:brightness(1.15);
+}
+
+.empty{
+  border:1px dashed var(--border);
+  padding:3rem 1rem;
+  text-align:center;
+  color:var(--muted);
+  border-radius:12px;
+}
+
+@media(max-width:1050px){
+  .grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media(max-width:650px){
+  .grid{
+    grid-template-columns:1fr;
+  }
+
+  .page{
+    padding-left:.8rem;
+    padding-right:.8rem;
+  }
+}
+</style>
 </head>
 
 <body>
@@ -219,24 +289,68 @@
     <div>
       <h1>🎥 NOC CCTV</h1>
       <p>
-        Selected NVR cameras configured for NOC viewing.
+        Live video from the existing NVR. NVR recording continues normally; SysMonitor does not record or store CCTV video.
       </p>
     </div>
 
-    <span class="route-badge">
-      {% if is_remote_cctv %}
-        🌐 REMOTE NVR route
-      {% else %}
-        🏢 LOCAL NVR route
-      {% endif %}
-    </span>
+    {% if not is_remote_cctv %}
+    <div class="status-strip">
+
+      <span class="live-badge">
+        ● LOCAL LIVE WEBRTC
+      </span>
+
+      <span
+        class="status-card bandwidth"
+        title="Total current traffic through the SysMonitor MASTER LAN interface"
+      >
+        <span class="label">⇅ SERVER LAN</span>
+        <span class="value" id="cctv-bandwidth">
+          Sampling…
+        </span>
+      </span>
+
+      <span
+        class="status-card ram"
+        title="SysMonitor MASTER memory usage"
+      >
+        <span class="label">RAM</span>
+        <span class="value" id="cctv-ram">—</span>
+      </span>
+
+      <span
+        class="status-card load"
+        title="SysMonitor MASTER 1-minute system load"
+      >
+        <span class="label">LOAD</span>
+        <span class="value" id="cctv-load">—</span>
+      </span>
+
+      <span
+        class="status-card gateway"
+        title="MediaMTX live gateway resident memory"
+      >
+        <span class="label">GATEWAY</span>
+        <span class="value" id="cctv-gateway">—</span>
+      </span>
+
+    </div>
+    {% endif %}
   </div>
 
+  {% if is_remote_cctv %}
   <div class="notice">
-    SysMonitor does not relay or store CCTV video.
-    Live traffic goes directly from your browser/player to the NVR,
-    so this page does not create video load on the SysMonitor server.
+    Remote CCTV video is currently disabled for security.
+    Camera configuration remains visible, but the live WebRTC gateway
+    is restricted to the local NOC network.
   </div>
+  {% else %}
+  <div class="notice">
+    Video is relayed live from the NVR only while somebody is watching.
+    SysMonitor recording and video storage are disabled. Existing NVR recording
+    and NVR hard-disk storage are completely unaffected.
+  </div>
+  {% endif %}
 
   {% if cameras %}
 
@@ -246,19 +360,51 @@
 
     <div class="camera">
 
-      <div class="screen">
-        <div class="icon">📹</div>
-        <strong>{{ c.obj.name }}</strong>
-        <span>
-          Click Open Live View to connect directly to the NVR.
-        </span>
+      <div class="video-wrap">
+
+        {% if c.live_url %}
+
+        <iframe
+          src="{{ c.live_url }}"
+          allow="autoplay; fullscreen"
+          loading="lazy"
+          referrerpolicy="no-referrer"
+          title="{{ c.obj.name }}"
+        ></iframe>
+
+        {% else %}
+
+        <div class="unavailable">
+
+          <div class="icon">📹</div>
+
+          <strong>{{ c.obj.name }}</strong>
+
+          <span style="margin-top:.35rem;font-size:.72rem">
+            {% if is_remote_cctv %}
+              Local live gateway only
+            {% elif not c.credentials_ready %}
+              NVR live credentials not configured
+            {% else %}
+              Live stream unavailable
+            {% endif %}
+          </span>
+
+        </div>
+
+        {% endif %}
+
       </div>
 
-      <div class="body">
+      <div class="camera-info">
 
-        <div class="name-row">
-          <div class="name">{{ c.obj.name }}</div>
-          <div class="ch">
+        <div class="top">
+
+          <div class="name">
+            {{ c.obj.name }}
+          </div>
+
+          <div class="channel">
             CH {{ c.obj.channel }}
             ·
             {% if c.obj.stream_type == 1 %}
@@ -267,6 +413,7 @@
               MAIN
             {% endif %}
           </div>
+
         </div>
 
         <div class="meta">
@@ -278,34 +425,32 @@
 
         <div class="buttons">
 
+          {% if c.live_url %}
+          <a
+            class="btn"
+            href="{{ c.live_url }}"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            ⛶ Full View
+          </a>
+          {% endif %}
+
           {% if c.web_url %}
           <a
-            class="btn btn-primary"
+            class="btn"
             href="{{ c.web_url }}"
             target="_blank"
             rel="noopener noreferrer"
           >
-            ▶ Open Live View
+            NVR
           </a>
-          {% endif %}
-
-          {% if c.rtsp_url %}
-          <button
-            class="btn"
-            type="button"
-            onclick="copyText('{{ c.rtsp_url|escapejs }}', this)"
-          >
-            📋 Copy RTSP
-          </button>
           {% endif %}
 
         </div>
 
-        {% if c.rtsp_url %}
-        <div class="rtsp">{{ c.rtsp_url }}</div>
-        {% endif %}
-
       </div>
+
     </div>
 
     {% endfor %}
@@ -315,11 +460,7 @@
   {% else %}
 
   <div class="empty">
-    <div style="font-size:2rem;margin-bottom:.5rem">🎥</div>
-    No CCTV cameras are currently enabled.
-    {% if role == "admin" %}
-      Configure cameras from Administrative → CCTV Setup.
-    {% endif %}
+    No CCTV cameras are enabled.
   </div>
 
   {% endif %}
@@ -328,17 +469,145 @@
 
 {% include "monitor/footer.html" %}
 
+{% if not is_remote_cctv %}
 <script>
-function copyText(value, button) {
-  navigator.clipboard.writeText(value).then(function () {
-    const old = button.textContent;
-    button.textContent = '✓ Copied';
-    setTimeout(function () {
-      button.textContent = old;
-    }, 1200);
-  });
-}
+(() => {
+  const statusUrl = "{% url 'cctv_live_status' %}";
+
+  const bandwidthEl = document.getElementById("cctv-bandwidth");
+  const ramEl = document.getElementById("cctv-ram");
+  const loadEl = document.getElementById("cctv-load");
+  const gatewayEl = document.getElementById("cctv-gateway");
+
+  let previous = null;
+
+  function formatMbps(value) {
+    if (!Number.isFinite(value)) {
+      return "—";
+    }
+
+    if (value < 0.01) {
+      return "0.00";
+    }
+
+    if (value < 10) {
+      return value.toFixed(2);
+    }
+
+    if (value < 100) {
+      return value.toFixed(1);
+    }
+
+    return value.toFixed(0);
+  }
+
+  async function refreshCctvStatus() {
+    try {
+      const response = await fetch(
+        statusUrl,
+        {
+          cache: "no-store",
+          credentials: "same-origin"
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "HTTP " + response.status
+        );
+      }
+
+      const data = await response.json();
+
+      if (!data.ok) {
+        throw new Error(
+          "Status unavailable"
+        );
+      }
+
+      const now = performance.now();
+
+      if (previous) {
+        const seconds = (
+          now - previous.time
+        ) / 1000;
+
+        if (seconds > 0) {
+          const rxDelta = Math.max(
+            0,
+            data.rx_bytes - previous.rx
+          );
+
+          const txDelta = Math.max(
+            0,
+            data.tx_bytes - previous.tx
+          );
+
+          const rxMbps = (
+            rxDelta * 8 /
+            seconds /
+            1000000
+          );
+
+          const txMbps = (
+            txDelta * 8 /
+            seconds /
+            1000000
+          );
+
+          bandwidthEl.textContent =
+            "↓ " +
+            formatMbps(rxMbps) +
+            "  ↑ " +
+            formatMbps(txMbps) +
+            " Mbps";
+        }
+      }
+
+      previous = {
+        rx: data.rx_bytes,
+        tx: data.tx_bytes,
+        time: now
+      };
+
+      ramEl.textContent =
+        Number(data.ram_percent).toFixed(1) +
+        "%";
+
+      loadEl.textContent =
+        Number(data.load_1m).toFixed(2);
+
+      gatewayEl.textContent =
+        Number(data.gateway_mb).toFixed(1) +
+        " MB";
+
+      bandwidthEl.classList.remove(
+        "status-error"
+      );
+
+    } catch (error) {
+      bandwidthEl.textContent =
+        "Status unavailable";
+
+      bandwidthEl.classList.add(
+        "status-error"
+      );
+
+      ramEl.textContent = "—";
+      loadEl.textContent = "—";
+      gatewayEl.textContent = "—";
+    }
+  }
+
+  refreshCctvStatus();
+
+  window.setInterval(
+    refreshCctvStatus,
+    2000
+  );
+})();
 </script>
+{% endif %}
 
 </body>
 </html>

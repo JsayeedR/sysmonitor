@@ -84,6 +84,7 @@ urlpatterns += [
     path('mirror/activity/',                   views.mirror_activity,       name='mirror_activity'),
     path('mirror/track/',                      views.mirror_track,          name='mirror_track'),
     path('cctv/',                              views.cctv_view,             name='cctv_view'),
+    path('cctv/status/',                       views.cctv_live_status,      name='cctv_live_status'),
     path('cctv-setup/',                        views.cctv_setup,            name='cctv_setup'),
     path('cctv-setup/nvr/save/',               views.cctv_nvr_save,         name='cctv_nvr_save'),
     path('cctv-setup/nvr/<int:nid>/delete/',   views.cctv_nvr_delete,       name='cctv_nvr_delete'),

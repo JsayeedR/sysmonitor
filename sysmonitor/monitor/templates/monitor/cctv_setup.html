@@ -223,8 +223,9 @@
   <h1>🎥 CCTV Setup</h1>
 
   <p class="lead">
-    Configure NVR addresses and select only the channels that should
-    appear on the NOC CCTV page. No NVR username/password is stored here.
+    Configure NVR addresses, live-view credentials and the channels that
+    should appear on the NOC CCTV page. Credentials are stored only on the
+    MASTER in a protected local file — never in the SysMonitor database.
   </p>
 
   {% if messages %}
@@ -319,6 +320,37 @@
             >
           </div>
 
+          <div class="field">
+            <label>NVR Username</label>
+            <input
+              name="nvr_username"
+              autocomplete="username"
+              value="{{ edit_nvr_username|default:'' }}"
+              placeholder="Read-only NVR account recommended"
+            >
+            <div class="hint">
+              Stored only on the MASTER. Blank while editing keeps the existing username.
+            </div>
+          </div>
+
+          <div class="field">
+            <label>NVR Password</label>
+            <input
+              type="password"
+              name="nvr_password"
+              autocomplete="new-password"
+              value=""
+              placeholder="{% if edit_nvr_has_password %}Password already saved — leave blank to keep{% else %}Enter NVR password{% endif %}"
+            >
+            <div class="hint">
+              {% if edit_nvr_has_password %}
+                ✓ A password is already saved on the MASTER.
+              {% else %}
+                Required before live WebRTC video can start.
+              {% endif %}
+            </div>
+          </div>
+
           <div class="field full">
             <label>Note</label>
             <input
@@ -382,7 +414,16 @@
 
           {% for n in nvrs %}
           <tr>
-            <td>{{ n.name }}</td>
+            <td>
+              {{ n.name }}
+              <div style="font-size:.66rem;margin-top:.2rem">
+                {% if n.gateway_credentials_ready %}
+                  <span style="color:#4ade80">● Live credentials saved</span>
+                {% else %}
+                  <span style="color:#fca5a5">● Live credentials missing</span>
+                {% endif %}
+              </div>
+            </td>
             <td>{{ n.local_host }}</td>
             <td>{{ n.remote_host|default:"—" }}</td>
             <td>{{ n.web_scheme|upper }} : {{ n.web_port }}</td>

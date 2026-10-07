@@ -5050,13 +5050,17 @@ def _cctv_rtsp_url(camera, remote=False):
 @role_required('user', 'admin', 'viewer')
 def cctv_view(request):
     """
-    NOC CCTV directory.
+    NOC CCTV live view.
 
-    IMPORTANT:
-      This page does not proxy, decode, transcode or save CCTV video.
-      URLs point the user's browser/player directly at the NVR.
+    Django serves only configuration/layout. Video is delivered by the local
+    MediaMTX WebRTC gateway and is never stored by SysMonitor.
     """
     from django.conf import settings
+
+    from .cctv_gateway import (
+        credential_info,
+        player_url,
+    )
     from .models import CCTVCamera
 
     is_remote = bool(settings.IS_MIRROR)
@@ -5066,39 +5070,192 @@ def cctv_view(request):
     cameras = (
         CCTVCamera.objects
         .select_related('nvr')
-        .filter(enabled=True, nvr__enabled=True)
-        .order_by('display_order', 'name')
+        .filter(
+            enabled=True,
+            nvr__enabled=True,
+        )
+        .order_by(
+            'display_order',
+            'name',
+        )
     )
 
     for camera in cameras:
-        configured_browser_url = (
-            camera.browser_url_remote
-            if is_remote
-            else camera.browser_url_local
+        secret = credential_info(
+            camera.nvr_id
         )
+
+        live_url = ''
+
+        # The gateway is intentionally LAN-only at this stage.
+        # Remote users still see camera metadata but no unusable iframe.
+        if not is_remote and secret['ready']:
+            live_url = player_url(camera)
 
         rows.append({
             'obj': camera,
-            'web_url': (
-                configured_browser_url
-                or _cctv_web_url(camera.nvr, remote=is_remote)
+            'live_url': live_url,
+            'credentials_ready': secret['ready'],
+            'web_url': _cctv_web_url(
+                camera.nvr,
+                remote=is_remote,
             ),
             'rtsp_url': _cctv_rtsp_url(
                 camera,
-                remote=is_remote
+                remote=is_remote,
             ),
-            'route_type': 'REMOTE' if is_remote else 'LOCAL',
+            'route_type': (
+                'REMOTE'
+                if is_remote
+                else 'LOCAL'
+            ),
         })
 
-    return render(request, 'monitor/cctv.html', {
-        'cameras': rows,
-        'role': get_role(request.user),
-        'is_remote_cctv': is_remote,
+    return render(
+        request,
+        'monitor/cctv.html',
+        {
+            'cameras': rows,
+            'role': get_role(request.user),
+            'is_remote_cctv': is_remote,
+        },
+    )
+
+
+
+@role_required('user', 'admin', 'viewer')
+def cctv_live_status(request):
+    """
+    Lightweight MASTER status for the local CCTV page.
+
+    Returns cumulative network counters. The browser calculates current
+    Mbps from the difference between samples, avoiding server-side delays.
+    """
+    import os
+
+    interface = 'enp2s0'
+
+    rx_bytes = 0
+    tx_bytes = 0
+
+    try:
+        with open('/proc/net/dev', 'r') as fh:
+            for line in fh:
+                if ':' not in line:
+                    continue
+
+                name, values = line.split(':', 1)
+
+                if name.strip() != interface:
+                    continue
+
+                fields = values.split()
+
+                rx_bytes = int(fields[0])
+                tx_bytes = int(fields[8])
+                break
+    except (OSError, ValueError, IndexError):
+        pass
+
+    mem_total_kb = 0
+    mem_available_kb = 0
+
+    try:
+        with open('/proc/meminfo', 'r') as fh:
+            for line in fh:
+                if line.startswith('MemTotal:'):
+                    mem_total_kb = int(
+                        line.split()[1]
+                    )
+                elif line.startswith('MemAvailable:'):
+                    mem_available_kb = int(
+                        line.split()[1]
+                    )
+    except (OSError, ValueError, IndexError):
+        pass
+
+    ram_percent = 0.0
+
+    if mem_total_kb > 0:
+        ram_used_kb = (
+            mem_total_kb -
+            mem_available_kb
+        )
+
+        ram_percent = (
+            ram_used_kb /
+            mem_total_kb *
+            100.0
+        )
+
+    try:
+        load_1m = os.getloadavg()[0]
+    except (OSError, AttributeError):
+        load_1m = 0.0
+
+    gateway_rss_kb = 0
+
+    try:
+        for entry in os.scandir('/proc'):
+            if not entry.name.isdigit():
+                continue
+
+            try:
+                comm_path = (
+                    f'/proc/{entry.name}/comm'
+                )
+
+                with open(comm_path, 'r') as fh:
+                    process_name = fh.read().strip()
+
+                if process_name != 'mediamtx':
+                    continue
+
+                status_path = (
+                    f'/proc/{entry.name}/status'
+                )
+
+                with open(status_path, 'r') as fh:
+                    for line in fh:
+                        if line.startswith('VmRSS:'):
+                            gateway_rss_kb += int(
+                                line.split()[1]
+                            )
+                            break
+
+            except (
+                OSError,
+                ValueError,
+                IndexError,
+                PermissionError,
+            ):
+                continue
+    except OSError:
+        pass
+
+    return JsonResponse({
+        'ok': True,
+        'interface': interface,
+        'rx_bytes': rx_bytes,
+        'tx_bytes': tx_bytes,
+        'ram_percent': round(
+            ram_percent,
+            1,
+        ),
+        'load_1m': round(
+            load_1m,
+            2,
+        ),
+        'gateway_mb': round(
+            gateway_rss_kb / 1024.0,
+            1,
+        ),
     })
 
 
 @role_required('admin')
 def cctv_setup(request):
+    from .cctv_gateway import credential_info
     from .models import CCTVNVR, CCTVCamera
 
     edit_nvr = None
@@ -5120,33 +5277,83 @@ def cctv_setup(request):
             .first()
         )
 
-    return render(request, 'monitor/cctv_setup.html', {
-        'nvrs': CCTVNVR.objects.all().order_by('name'),
-        'cameras': (
-            CCTVCamera.objects
-            .select_related('nvr')
-            .all()
-            .order_by('display_order', 'name')
-        ),
-        'edit_nvr': edit_nvr,
-        'edit_camera': edit_camera,
-        'role': get_role(request.user),
-    })
+    nvrs = list(
+        CCTVNVR.objects
+        .all()
+        .order_by('name')
+    )
+
+    for nvr in nvrs:
+        info = credential_info(nvr.id)
+
+        nvr.gateway_username = (
+            info['username']
+        )
+
+        nvr.gateway_credentials_ready = (
+            info['ready']
+        )
+
+    edit_secret = {
+        'username': '',
+        'has_password': False,
+        'ready': False,
+    }
+
+    if edit_nvr:
+        edit_secret = credential_info(
+            edit_nvr.id
+        )
+
+    return render(
+        request,
+        'monitor/cctv_setup.html',
+        {
+            'nvrs': nvrs,
+            'cameras': (
+                CCTVCamera.objects
+                .select_related('nvr')
+                .all()
+                .order_by(
+                    'display_order',
+                    'name',
+                )
+            ),
+            'edit_nvr': edit_nvr,
+            'edit_camera': edit_camera,
+            'edit_nvr_username': (
+                edit_secret['username']
+            ),
+            'edit_nvr_has_password': (
+                edit_secret['has_password']
+            ),
+            'role': get_role(request.user),
+        },
+    )
 
 
 @role_required('admin')
 def cctv_nvr_save(request):
     from django.contrib import messages
     from django.shortcuts import redirect
+
+    from .cctv_gateway import (
+        rebuild_gateway_config,
+        save_credentials,
+    )
     from .models import CCTVNVR
 
     if request.method != 'POST':
         return redirect('cctv_setup')
 
-    raw_id = (request.POST.get('id') or '').strip()
+    raw_id = (
+        request.POST.get('id') or ''
+    ).strip()
 
     obj = (
-        CCTVNVR.objects.filter(id=raw_id).first()
+        CCTVNVR.objects
+        .filter(id=raw_id)
+        .first()
         if raw_id
         else None
     )
@@ -5156,35 +5363,68 @@ def cctv_nvr_save(request):
     if creating:
         obj = CCTVNVR()
 
-    name = (request.POST.get('name') or '').strip()
+    name = (
+        request.POST.get('name') or ''
+    ).strip()
+
     local_host = _cctv_clean_host(
         request.POST.get('local_host')
     )
+
     remote_host = _cctv_clean_host(
         request.POST.get('remote_host')
     )
 
     try:
-        web_port = int(request.POST.get('web_port') or 443)
-        rtsp_port = int(request.POST.get('rtsp_port') or 554)
+        web_port = int(
+            request.POST.get(
+                'web_port'
+            ) or 443
+        )
+
+        rtsp_port = int(
+            request.POST.get(
+                'rtsp_port'
+            ) or 554
+        )
+
     except ValueError:
-        messages.error(request, 'Web and RTSP ports must be numbers.')
+        messages.error(
+            request,
+            'Web and RTSP ports must be numbers.'
+        )
         return redirect('cctv_setup')
 
     if not name or not local_host:
         messages.error(
             request,
-            'NVR name and local IP/hostname are required.'
+            (
+                'NVR name and local IP/hostname '
+                'are required.'
+            )
         )
         return redirect('cctv_setup')
 
-    if not (1 <= web_port <= 65535 and 1 <= rtsp_port <= 65535):
-        messages.error(request, 'Ports must be between 1 and 65535.')
+    if not (
+        1 <= web_port <= 65535 and
+        1 <= rtsp_port <= 65535
+    ):
+        messages.error(
+            request,
+            'Ports must be between 1 and 65535.'
+        )
         return redirect('cctv_setup')
 
-    scheme = request.POST.get('web_scheme') or 'https'
+    scheme = (
+        request.POST.get(
+            'web_scheme'
+        ) or 'https'
+    )
 
-    if scheme not in ('http', 'https'):
+    if scheme not in (
+        'http',
+        'https',
+    ):
         scheme = 'https'
 
     obj.name = name
@@ -5193,12 +5433,62 @@ def cctv_nvr_save(request):
     obj.web_scheme = scheme
     obj.web_port = web_port
     obj.rtsp_port = rtsp_port
-    obj.enabled = request.POST.get('enabled') == 'on'
-    obj.note = (request.POST.get('note') or '').strip()[:300]
+    obj.enabled = (
+        request.POST.get(
+            'enabled'
+        ) == 'on'
+    )
+    obj.note = (
+        request.POST.get('note') or ''
+    ).strip()[:300]
 
     obj.save()
 
-    action_word = 'created' if creating else 'updated'
+    # Credentials are intentionally NOT written to db.sqlite3.
+    # Blank username/password when editing means keep the existing value.
+    username = (
+        request.POST.get(
+            'nvr_username'
+        ) or ''
+    ).strip()
+
+    password = (
+        request.POST.get(
+            'nvr_password'
+        ) or ''
+    )
+
+    try:
+        info = save_credentials(
+            obj.id,
+            username=username,
+            password=password,
+        )
+
+        rebuild_gateway_config()
+
+    except Exception as exc:
+        logger.exception(
+            'CCTV gateway configuration update failed'
+        )
+
+        messages.warning(
+            request,
+            (
+                'NVR metadata was saved, but the '
+                f'live gateway could not be updated: {exc}'
+            )
+        )
+
+        info = {
+            'ready': False,
+        }
+
+    action_word = (
+        'created'
+        if creating
+        else 'updated'
+    )
 
     log_activity(
         request.user,
@@ -5207,14 +5497,19 @@ def cctv_nvr_save(request):
             f'CCTV NVR {action_word}: '
             f'{obj.name} (ID:{obj.id}); '
             f'local={obj.local_host}; '
-            f'remote={obj.remote_host or "not set"}'
+            f'remote={obj.remote_host or "not set"}; '
+            f'gateway_credentials='
+            f'{"configured" if info["ready"] else "not configured"}'
         ),
         get_ip(request)
     )
 
     messages.success(
         request,
-        f'NVR "{obj.name}" {action_word}.'
+        (
+            f'NVR "{obj.name}" {action_word}. '
+            'Live gateway configuration refreshed.'
+        )
     )
 
     return redirect('cctv_setup')
@@ -5223,18 +5518,38 @@ def cctv_nvr_save(request):
 @role_required('admin')
 def cctv_nvr_delete(request, nid):
     from django.contrib import messages
-    from django.shortcuts import redirect, get_object_or_404
+    from django.shortcuts import (
+        get_object_or_404,
+        redirect,
+    )
+
+    from .cctv_gateway import (
+        delete_credentials,
+        rebuild_gateway_config,
+    )
     from .models import CCTVNVR
 
-    obj = get_object_or_404(CCTVNVR, id=nid)
+    obj = get_object_or_404(
+        CCTVNVR,
+        id=nid,
+    )
 
     if request.method != 'POST':
         return redirect('cctv_setup')
 
     name = obj.name
+    nvr_id = obj.id
     camera_count = obj.cameras.count()
 
     obj.delete()
+
+    try:
+        delete_credentials(nvr_id)
+        rebuild_gateway_config()
+    except Exception:
+        logger.exception(
+            'CCTV gateway rebuild after NVR delete failed'
+        )
 
     log_activity(
         request.user,
@@ -5352,6 +5667,14 @@ def cctv_camera_save(request):
         )
         return redirect('cctv_setup')
 
+    try:
+        from .cctv_gateway import rebuild_gateway_config
+        rebuild_gateway_config()
+    except Exception:
+        logger.exception(
+            'CCTV gateway rebuild after camera save failed'
+        )
+
     action_word = 'created' if creating else 'updated'
 
     log_activity(
@@ -5392,6 +5715,14 @@ def cctv_camera_delete(request, cid):
 
     name = obj.name
     obj.delete()
+
+    try:
+        from .cctv_gateway import rebuild_gateway_config
+        rebuild_gateway_config()
+    except Exception:
+        logger.exception(
+            'CCTV gateway rebuild after camera delete failed'
+        )
 
     log_activity(
         request.user,
