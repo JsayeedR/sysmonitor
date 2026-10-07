@@ -5130,9 +5130,9 @@ def cctv_view(request):
         live_url = ''
 
         if is_remote:
-            # Secure REMOTE HLS proof-of-concept.
-            # Enable NOC-1 only until browser/load testing is complete.
-            if camera.id == 1:
+            # Secure REMOTE HLS.
+            # Enable the verified H.264 substreams first.
+            if camera.id in (1, 2, 3, 4):
                 live_url = (
                     f'/sysmonitor/cctv-stream/'
                     f'camera-{camera.id}/'
