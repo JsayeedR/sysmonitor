@@ -5131,8 +5131,8 @@ def cctv_view(request):
 
         if is_remote:
             # Secure REMOTE HLS.
-            # Enable the verified H.264 substreams first.
-            if camera.id in (1, 2, 3, 4):
+            # All configured cameras use the authenticated tunnel.
+            if camera.id in (1, 2, 3, 4, 5):
                 live_url = (
                     f'/sysmonitor/cctv-stream/'
                     f'camera-{camera.id}/'
