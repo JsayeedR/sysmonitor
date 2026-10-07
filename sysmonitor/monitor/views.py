@@ -5134,7 +5134,7 @@ def cctv_view(request):
             # Enable NOC-1 only until browser/load testing is complete.
             if camera.id == 1:
                 live_url = (
-                    f'/sysmonitor-cctv/'
+                    f'/sysmonitor/cctv-stream/'
                     f'camera-{camera.id}/'
                 )
         elif secret['ready']:
