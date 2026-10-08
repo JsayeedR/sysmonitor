@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — MNOC PFE Report</title>
+  <style>
+    :root{
+      --bg:#0f172a;--surface:#1e293b;--surface2:#162032;
+      --border:#334155;--text:#f1f5f9;--muted:#94a3b8;
+      --blue:#3b82f6
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;background:var(--bg);color:var(--text);
+      font-family:'Segoe UI',system-ui,sans-serif
+    }
+    .wrap{max-width:1100px;margin:0 auto;padding:1.6rem 1.25rem 3rem}
+    .tabs{display:flex;gap:.55rem;flex-wrap:wrap;margin-bottom:1rem}
+    .panel{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:12px;padding:1rem;margin-bottom:1rem
+    }
+    h1{font-size:1.35rem;margin:0 0 .3rem}
+    h2{font-size:1rem;margin:0 0 .8rem}
+    .muted{font-size:.78rem;color:var(--muted)}
+    .grid{
+      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:.8rem
+    }
+    label{
+      display:block;font-size:.72rem;color:var(--muted);
+      margin-bottom:.3rem
+    }
+    input,select{
+      width:100%;background:var(--bg);color:var(--text);
+      border:1px solid var(--border);border-radius:8px;
+      padding:.6rem .7rem;font:inherit
+    }
+    .btn{
+      display:inline-block;border:0;border-radius:8px;
+      padding:.58rem .85rem;background:var(--blue);
+      color:#fff;text-decoration:none;font-size:.8rem;
+      font-weight:700;cursor:pointer
+    }
+    .secondary{background:#334155}
+    .msg{
+      border:1px solid #166534;background:#052e16;color:#86efac;
+      border-radius:8px;padding:.65rem .8rem;margin-bottom:.8rem
+    }
+    table{width:100%;border-collapse:collapse;font-size:.76rem}
+    th,td{
+      padding:.65rem;border-bottom:1px solid var(--border);
+      text-align:left
+    }
+    th{background:var(--surface2);color:#bfdbfe}
+    @media(max-width:700px){
+      .grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+
+{% include "monitor/navbar.html" %}
+
+<div class="wrap">
+
+  <div class="tabs">
+    <a class="btn secondary"
+       href="{{ base_path }}/shift-report/">
+      📝 Shift Handover
+    </a>
+
+    <a class="btn"
+       href="{{ base_path }}/shift-report/mnoc-pfe/">
+      ⚡ MNOC PFE Report
+    </a>
+  </div>
+
+  <h1>⚡ MNOC Daily PFE Report</h1>
+
+  <div class="muted" style="margin-bottom:1rem">
+    Daily PFE reading after Night Shift.
+    All Shift Engineers can view previous reports.
+  </div>
+
+  {% for message in messages %}
+    <div class="msg">{{ message }}</div>
+  {% endfor %}
+
+  <div class="panel">
+    <h2>Today's PFE Reading — {{ today|date:"d M Y" }}</h2>
+
+    {% if today_report %}
+
+      <div class="msg">
+        Today's PFE report already exists.
+        Prepared by
+        <strong>
+          {{ today_report.prepared_by.get_full_name|default:today_report.prepared_by.username }}
+        </strong>.
+      </div>
+
+      <a class="btn"
+         href="{{ base_path }}/shift-report/mnoc-pfe/{{ today_report.id }}/">
+        Open Today's PFE Report
+      </a>
+
+    {% else %}
+
+      <form method="post"
+            action="{{ base_path }}/shift-report/mnoc-pfe/create/">
+
+        {% csrf_token %}
+
+        <div class="grid">
+
+          <div>
+            <label>Date</label>
+            <input
+              value="{{ today|date:'d-m-Y' }}"
+              readonly
+            >
+          </div>
+
+          <div>
+            <label>Prepared By</label>
+            <input
+              value="{{ user.get_full_name|default:user.username }}"
+              readonly
+            >
+          </div>
+
+          <div>
+            <label>Voltage (V)</label>
+            <input
+              type="number"
+              step="0.01"
+              name="voltage_v"
+              placeholder="-1242"
+              required
+            >
+          </div>
+
+          <div>
+            <label>Current (mA)</label>
+            <input
+              type="number"
+              step="0.01"
+              name="current_ma"
+              placeholder="-1001.3"
+              required
+            >
+          </div>
+
+          <div>
+            <label>Mode</label>
+            <select name="mode">
+              <option value="CURRENT" selected>CURRENT</option>
+              <option value="VOLTAGE">VOLTAGE</option>
+              <option value="OTHER">OTHER</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Remark</label>
+            <input
+              name="remark"
+              value="OK"
+              required
+            >
+          </div>
+
+          <div style="grid-column:1/-1">
+            <label>Alarm Status</label>
+            <input
+              name="alarm_status"
+              value="None"
+              required
+            >
+          </div>
+
+        </div>
+
+        <div style="margin-top:1rem">
+          <button class="btn" type="submit">
+            💾 Create PFE Draft
+          </button>
+        </div>
+
+      </form>
+
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>MNOC PFE History</h2>
+
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Voltage</th>
+            <th>Current</th>
+            <th>Mode</th>
+            <th>Remark</th>
+            <th>Alarm</th>
+            <th>Prepared By</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for r in reports %}
+          <tr>
+            <td>{{ r.report_date|date:"d-m-Y" }}</td>
+            <td>{{ r.voltage_v }}</td>
+            <td>{{ r.current_ma }}</td>
+            <td>{{ r.mode }}</td>
+            <td>{{ r.remark }}</td>
+            <td>{{ r.alarm_status }}</td>
+
+            <td>
+              {{ r.prepared_by.get_full_name|default:r.prepared_by.username }}
+            </td>
+
+            <td>{{ r.get_status_display }}</td>
+
+            <td>
+              <a class="btn secondary"
+                 href="{{ base_path }}/shift-report/mnoc-pfe/{{ r.id }}/">
+                View
+              </a>
+            </td>
+          </tr>
+
+          {% empty %}
+          <tr>
+            <td colspan="9" class="muted">
+              No MNOC PFE reports yet.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

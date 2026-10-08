@@ -383,3 +383,46 @@ def build_previous_day_summary(report_date):
         'date': previous_date.isoformat(),
         'outage': outage,
     }
+
+
+def latest_completed_shift(now=None):
+    """
+    Return the most recently completed operational shift.
+
+    00:00-08:59 -> previous day's Evening
+    09:00-16:59 -> previous day's Night
+    17:00-22:59 -> today's Morning
+    23:00-23:59 -> today's Evening
+    """
+    now = now or datetime.now(BDT)
+
+    if now.tzinfo is None:
+        now = BDT.localize(now)
+    else:
+        now = now.astimezone(BDT)
+
+    today = now.date()
+    current_time = now.time().replace(tzinfo=None)
+
+    if current_time < time(9, 0):
+        report_date = today - timedelta(days=1)
+        shift = 'EVENING'
+
+    elif current_time < time(17, 0):
+        report_date = today - timedelta(days=1)
+        shift = 'NIGHT'
+
+    elif current_time < time(23, 0):
+        report_date = today
+        shift = 'MORNING'
+
+    else:
+        report_date = today
+        shift = 'EVENING'
+
+    start, end = shift_window(
+        report_date,
+        shift,
+    )
+
+    return report_date, shift, start, end

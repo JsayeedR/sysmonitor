@@ -100,8 +100,81 @@
       <div class="grid">
 
         <div>
+          <label>NOC From Display Name</label>
+          <input
+            name="noc_from_name"
+            value="{{ config.noc_from_name }}"
+            placeholder="SMW4 NOC (COXCLS)"
+          >
+        </div>
+
+        <div>
+          <label>NOC From Email</label>
+          <input
+            type="email"
+            name="noc_from_email"
+            value="{{ config.noc_from_email }}"
+            placeholder="smw4.coxnoc@bsccl.com"
+          >
+        </div>
+
+        <div>
+          <label>Microsoft SMTP Host</label>
+          <input
+            name="smtp_host"
+            value="{{ config.smtp_host }}"
+            placeholder="smtp.office365.com"
+          >
+        </div>
+
+        <div>
+          <label>SMTP Port</label>
+          <input
+            type="number"
+            name="smtp_port"
+            value="{{ config.smtp_port }}"
+          >
+        </div>
+
+        <div>
+          <label>SMTP Username</label>
+          <input
+            name="smtp_username"
+            value="{{ config.smtp_username }}"
+          >
+        </div>
+
+        <div>
+          <label>SMTP Password / App Password</label>
+          <input
+            type="password"
+            name="smtp_password"
+            placeholder="Leave blank to keep current password"
+          >
+        </div>
+
+        <div>
           <label>
-            Manager Email — mandatory TO
+            <input
+              type="checkbox"
+              name="smtp_use_tls"
+              {% if config.smtp_use_tls %}checked{% endif %}
+              style="width:auto"
+            >
+            Use STARTTLS
+          </label>
+        </div>
+
+        <div>
+          <label>Fixed Mandatory TO</label>
+          <textarea
+            name="mandatory_to"
+            placeholder="One per line or comma-separated">{{ config.mandatory_to }}</textarea>
+        </div>
+
+        <div>
+          <label>
+            Manager Email — legacy mandatory TO
           </label>
           <input
             type="email"
@@ -122,7 +195,7 @@
 
         <div>
           <label>
-            MNOC Night Email — TO
+            MNOC PFE Email — TO
           </label>
           <textarea
             name="mnoc_to"
@@ -131,11 +204,35 @@
 
         <div>
           <label>
-            MNOC Night Email — CC
+            MNOC PFE Email — CC
           </label>
           <textarea
             name="mnoc_cc"
             placeholder="One per line or comma-separated">{{ config.mnoc_cc }}</textarea>
+        </div>
+
+        <div>
+          <label>NOC Mobile / WhatsApp</label>
+          <input
+            name="noc_mobile"
+            value="{{ config.noc_mobile }}"
+          >
+        </div>
+
+        <div>
+          <label>Company Name</label>
+          <input
+            name="company_name"
+            value="{{ config.company_name }}"
+          >
+        </div>
+
+        <div>
+          <label>Website</label>
+          <input
+            name="website"
+            value="{{ config.website }}"
+          >
         </div>
 
       </div>

@@ -7,6 +7,32 @@ app_name = 'shiftreport'
 
 urlpatterns = [
     path(
+        'mnoc-pfe/',
+        views.mnoc_pfe_home,
+        name='pfe_home',
+    ),
+    path(
+        'mnoc-pfe/create/',
+        views.mnoc_pfe_create,
+        name='pfe_create',
+    ),
+    path(
+        'mnoc-pfe/<int:report_id>/',
+        views.mnoc_pfe_edit,
+        name='pfe_edit',
+    ),
+    path(
+        'mnoc-pfe/<int:report_id>/save/',
+        views.mnoc_pfe_save,
+        name='pfe_save',
+    ),
+    path(
+        'mnoc-pfe/<int:report_id>/send/',
+        views.mnoc_pfe_send,
+        name='pfe_send',
+    ),
+
+    path(
         '',
         views.shift_report_home,
         name='home',

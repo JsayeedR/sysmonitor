@@ -5,6 +5,7 @@ from .models import (
     ShiftImportantIssue,
     ShiftReport,
     ShiftReportConfig,
+    MnocPfeReport,
 )
 
 
@@ -60,3 +61,32 @@ class ShiftImportantIssueAdmin(admin.ModelAdmin):
     )
     list_filter = ('status',)
     search_fields = ('title', 'description')
+
+
+@admin.register(MnocPfeReport)
+class MnocPfeReportAdmin(admin.ModelAdmin):
+    list_display = (
+        'report_date',
+        'prepared_by',
+        'voltage_v',
+        'current_ma',
+        'mode',
+        'remark',
+        'alarm_status',
+        'status',
+        'sent_at',
+    )
+
+    list_filter = (
+        'status',
+        'mode',
+        'report_date',
+    )
+
+    search_fields = (
+        'prepared_by__username',
+        'prepared_by__first_name',
+        'prepared_by__last_name',
+        'remark',
+        'alarm_status',
+    )

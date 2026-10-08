@@ -14,12 +14,14 @@ from .models import (
     ShiftImportantIssue,
     ShiftReport,
     ShiftReportConfig,
+    MnocPfeReport,
 )
 from .services import (
     BDT,
     build_previous_day_summary,
     build_shift_snapshot,
     current_shift,
+    latest_completed_shift,
     parse_email_list,
     shift_window,
 )
@@ -31,6 +33,13 @@ def _role_allowed(user):
 
 def _admin_required(request):
     return get_role(request.user) == 'admin'
+
+
+def _can_manage_report(user, report):
+    if get_role(user) == 'admin':
+        return True
+
+    return report.prepared_by_id == user.id
 
 
 def _config():
@@ -57,16 +66,38 @@ def shift_report_home(request):
             'You do not have permission to access Shift Report.'
         )
 
-    current_date, current_code, current_start, current_end = current_shift()
+    current_date, current_code, current_start, current_end = (
+        current_shift()
+    )
+
+    due_date, due_code, due_start, due_end = (
+        latest_completed_shift()
+    )
 
     contacts = ShiftHandoverContact.objects.filter(
         is_active=True
     ).order_by('display_order', 'name')
 
-    reports = (
+    reports_qs = (
         ShiftReport.objects
         .select_related('prepared_by', 'handover_to')
-        .all()[:40]
+    )
+
+    if get_role(request.user) != 'admin':
+        reports_qs = reports_qs.filter(
+            prepared_by=request.user
+        )
+
+    reports = reports_qs[:40]
+
+    due_existing = (
+        ShiftReport.objects
+        .select_related('prepared_by')
+        .filter(
+            report_date=due_date,
+            shift=due_code,
+        )
+        .first()
     )
 
     issues = (
@@ -81,10 +112,18 @@ def shift_report_home(request):
         {
             'role': get_role(request.user),
             'user': request.user,
+
             'current_report_date': current_date,
             'current_shift': current_code,
             'current_shift_start': current_start,
             'current_shift_end': current_end,
+
+            'due_report_date': due_date,
+            'due_shift': due_code,
+            'due_shift_start': due_start,
+            'due_shift_end': due_end,
+            'due_existing': due_existing,
+
             'contacts': contacts,
             'reports': reports,
             'important_issues': issues,
@@ -101,21 +140,12 @@ def shift_report_create(request):
             'You do not have permission to create Shift Reports.'
         )
 
-    try:
-        report_date = _parse_date(
-            request.POST.get('report_date', '').strip()
-        )
-    except (TypeError, ValueError):
-        messages.error(request, 'A valid report date is required.')
-        return redirect('shiftreport:home')
+    report_date, shift, _, _ = latest_completed_shift()
 
-    shift = request.POST.get('shift', '').strip().upper()
-
-    if shift not in ('MORNING', 'EVENING', 'NIGHT'):
-        messages.error(request, 'Please select a valid shift.')
-        return redirect('shiftreport:home')
-
-    handover_id = request.POST.get('handover_to', '').strip()
+    handover_id = request.POST.get(
+        'handover_to',
+        '',
+    ).strip()
 
     handover = ShiftHandoverContact.objects.filter(
         id=handover_id,
@@ -129,27 +159,68 @@ def shift_report_create(request):
         )
         return redirect('shiftreport:home')
 
-    existing = ShiftReport.objects.filter(
-        report_date=report_date,
-        shift=shift,
-    ).first()
+    existing = (
+        ShiftReport.objects
+        .select_related('prepared_by')
+        .filter(
+            report_date=report_date,
+            shift=shift,
+        )
+        .first()
+    )
 
     if existing:
-        messages.info(
-            request,
-            'That shift report already exists. Opening the existing report.'
-        )
-        return redirect(
-            'shiftreport:edit',
-            report_id=existing.id,
+        owner_name = (
+            existing.prepared_by.get_full_name().strip()
+            or existing.prepared_by.username
         )
 
-    snapshot = build_shift_snapshot(report_date, shift)
+        if existing.prepared_by_id == request.user.id:
+            messages.info(
+                request,
+                'You already created this Shift Report.'
+            )
+
+            return redirect(
+                'shiftreport:edit',
+                report_id=existing.id,
+            )
+
+        if get_role(request.user) == 'admin':
+            messages.info(
+                request,
+                (
+                    'This Shift Report already exists and was '
+                    f'created by {owner_name}.'
+                )
+            )
+
+            return redirect(
+                'shiftreport:edit',
+                report_id=existing.id,
+            )
+
+        messages.error(
+            request,
+            (
+                'This Shift Report has already been created by '
+                f'{owner_name}. No second report can be generated.'
+            )
+        )
+
+        return redirect('shiftreport:home')
+
+    snapshot = build_shift_snapshot(
+        report_date,
+        shift,
+    )
 
     previous_day = {}
 
     if shift == 'NIGHT':
-        previous_day = build_previous_day_summary(report_date)
+        previous_day = build_previous_day_summary(
+            report_date
+        )
 
     report = ShiftReport.objects.create(
         report_date=report_date,
@@ -158,30 +229,32 @@ def shift_report_create(request):
         shift_end=snapshot['end'],
         prepared_by=request.user,
         handover_to=handover,
+
         regular_activities=request.POST.get(
             'regular_activities',
             '',
         ).strip(),
+
         issues_observed=request.POST.get(
             'issues_observed',
             '',
         ).strip(),
+
         pending_handover=request.POST.get(
             'pending_handover',
             '',
         ).strip(),
+
         important_notes=request.POST.get(
             'important_notes',
             '',
         ).strip(),
+
         additional_cc=request.POST.get(
             'additional_cc',
             '',
         ).strip(),
-        mnoc_notes=request.POST.get(
-            'mnoc_notes',
-            '',
-        ).strip(),
+
         outage_summary=snapshot['outage'],
         generator_summary=snapshot['generator'],
         sensor_summary=snapshot['sensor'],
@@ -225,30 +298,57 @@ def shift_report_edit(request, report_id):
         id=report_id,
     )
 
+    if not _can_manage_report(request.user, report):
+        return HttpResponseForbidden(
+            "You cannot access another engineer's Shift Report."
+        )
+
     contacts = ShiftHandoverContact.objects.filter(
         is_active=True
     ).order_by('display_order', 'name')
 
     cfg = _config()
 
+    mandatory_to = parse_email_list(cfg.mandatory_to)
     mandatory_cc = parse_email_list(cfg.mandatory_cc)
     additional_cc = parse_email_list(report.additional_cc)
 
     preview_to = []
 
     for address in (
-        report.handover_to.email,
-        cfg.manager_email,
+        [report.handover_to.email]
+        + mandatory_to
+        + ([cfg.manager_email] if cfg.manager_email else [])
     ):
         address = (address or '').strip()
 
-        if address and address not in preview_to:
+        if (
+            address
+            and address.casefold()
+            not in {x.casefold() for x in preview_to}
+        ):
             preview_to.append(address)
 
     preview_cc = []
 
+    to_keys = {
+        address.casefold()
+        for address in preview_to
+    }
+
     for address in mandatory_cc + additional_cc:
-        if address and address not in preview_cc:
+        address = (address or '').strip()
+
+        if not address:
+            continue
+
+        if address.casefold() in to_keys:
+            continue
+
+        if (
+            address.casefold()
+            not in {x.casefold() for x in preview_cc}
+        ):
             preview_cc.append(address)
 
     return render(
@@ -288,6 +388,11 @@ def shift_report_save(request, report_id):
         ShiftReport,
         id=report_id,
     )
+
+    if not _can_manage_report(request.user, report):
+        return HttpResponseForbidden(
+            "You cannot edit another engineer's Shift Report."
+        )
 
     if report.status == 'SENT':
         messages.error(
@@ -378,6 +483,11 @@ def shift_report_refresh_summary(request, report_id):
         id=report_id,
     )
 
+    if not _can_manage_report(request.user, report):
+        return HttpResponseForbidden(
+            "You cannot refresh another engineer's Shift Report."
+        )
+
     if report.status == 'SENT':
         messages.error(
             request,
@@ -452,6 +562,51 @@ def shift_report_config_save(request):
 
     cfg = _config()
 
+    cfg.noc_from_name = request.POST.get(
+        'noc_from_name',
+        '',
+    ).strip()
+
+    cfg.noc_from_email = request.POST.get(
+        'noc_from_email',
+        '',
+    ).strip()
+
+    cfg.smtp_host = request.POST.get(
+        'smtp_host',
+        '',
+    ).strip()
+
+    try:
+        cfg.smtp_port = int(
+            request.POST.get('smtp_port', '587')
+            or 587
+        )
+    except ValueError:
+        cfg.smtp_port = 587
+
+    cfg.smtp_username = request.POST.get(
+        'smtp_username',
+        '',
+    ).strip()
+
+    new_password = request.POST.get(
+        'smtp_password',
+        '',
+    )
+
+    if new_password:
+        cfg.smtp_password = new_password
+
+    cfg.smtp_use_tls = (
+        request.POST.get('smtp_use_tls') == 'on'
+    )
+
+    cfg.mandatory_to = request.POST.get(
+        'mandatory_to',
+        '',
+    ).strip()
+
     cfg.manager_email = request.POST.get(
         'manager_email',
         '',
@@ -469,6 +624,21 @@ def shift_report_config_save(request):
 
     cfg.mnoc_cc = request.POST.get(
         'mnoc_cc',
+        '',
+    ).strip()
+
+    cfg.noc_mobile = request.POST.get(
+        'noc_mobile',
+        '',
+    ).strip()
+
+    cfg.company_name = request.POST.get(
+        'company_name',
+        '',
+    ).strip()
+
+    cfg.website = request.POST.get(
+        'website',
         '',
     ).strip()
 
@@ -689,7 +859,6 @@ def shift_report_send(request, report_id):
     from .reporting import (
         XLSX_MIME,
         build_html_body,
-        build_mnoc_html_body,
         build_mnoc_recipient_lists,
         build_recipient_lists,
         build_shift_report_xlsx,
@@ -704,6 +873,11 @@ def shift_report_send(request, report_id):
         ),
         id=report_id,
     )
+
+    if not _can_manage_report(request.user, report):
+        return HttpResponseForbidden(
+            "You cannot send another engineer's Shift Report."
+        )
 
     # Fully successful reports are immutable and cannot be re-sent.
     if report.status == 'SENT':
@@ -748,31 +922,25 @@ def shift_report_send(request, report_id):
             report_id=report.id,
         )
 
-    if not cfg.manager_email:
+    if not cfg.mandatory_to and not cfg.manager_email:
         messages.error(
             request,
-            'Manager mandatory TO email is not configured.'
+            'Mandatory TO recipient is not configured.'
         )
         return redirect(
             'shiftreport:edit',
             report_id=report.id,
         )
 
-    mnoc_to = []
-    mnoc_cc = []
-
-    if report.shift == 'NIGHT':
-        mnoc_to, mnoc_cc = build_mnoc_recipient_lists(cfg)
-
-        if not mnoc_to:
-            messages.error(
-                request,
-                'MNOC Night Shift TO recipient is not configured.'
-            )
-            return redirect(
-                'shiftreport:edit',
-                report_id=report.id,
-            )
+    if not cfg.noc_from_email:
+        messages.error(
+            request,
+            'NOC From email is not configured.'
+        )
+        return redirect(
+            'shiftreport:edit',
+            report_id=report.id,
+        )
 
     filename, workbook = build_shift_report_xlsx(report)
     subject = build_subject(report)
@@ -806,6 +974,7 @@ def shift_report_send(request, report_id):
                     workbook,
                     XLSX_MIME,
                 ),
+                shift_config=cfg,
             )
 
         except Exception as exc:
@@ -835,67 +1004,6 @@ def shift_report_send(request, report_id):
         report.save(
             update_fields=[
                 'main_email_sent_at',
-                'updated_at',
-            ]
-        )
-
-    # ------------------------------------------------------
-    # SEPARATE NIGHT / MNOC EMAIL
-    # ------------------------------------------------------
-    if (
-        report.shift == 'NIGHT'
-        and report.mnoc_email_sent_at is None
-    ):
-        try:
-            send_smtp_email(
-                subject=(
-                    f'SysMonitor MNOC Night Report — '
-                    f'{report.report_date:%d %b %Y}'
-                ),
-                html_body=build_mnoc_html_body(report),
-                to_list=mnoc_to,
-                cc_list=mnoc_cc,
-                attachment=(
-                    filename,
-                    workbook,
-                    XLSX_MIME,
-                ),
-            )
-
-        except Exception as exc:
-            # Important: main_email_sent_at remains stored.
-            # Retrying this report will skip the already-successful
-            # normal email and retry only the MNOC message.
-            report.status = 'FAILED'
-            report.email_error = (
-                f'MNOC Night email failed: {exc}'
-            )[:2000]
-            report.save(
-                update_fields=[
-                    'status',
-                    'email_error',
-                    'updated_at',
-                ]
-            )
-
-            messages.error(
-                request,
-                (
-                    'Normal Shift Report email was sent, '
-                    f'but MNOC email failed: {exc}. '
-                    'Retry will send only the MNOC email.'
-                )
-            )
-
-            return redirect(
-                'shiftreport:edit',
-                report_id=report.id,
-            )
-
-        report.mnoc_email_sent_at = timezone.now()
-        report.save(
-            update_fields=[
-                'mnoc_email_sent_at',
                 'updated_at',
             ]
         )
@@ -936,5 +1044,399 @@ def shift_report_send(request, report_id):
 
     return redirect(
         'shiftreport:edit',
+        report_id=report.id,
+    )
+
+
+@login_required
+def mnoc_pfe_home(request):
+    if not _role_allowed(request.user):
+        return HttpResponseForbidden(
+            'You do not have permission to access MNOC PFE Reports.'
+        )
+
+    from django.utils import timezone
+
+    today = timezone.localtime().date()
+
+    reports = (
+        MnocPfeReport.objects
+        .select_related('prepared_by')
+        .all()[:60]
+    )
+
+    today_report = (
+        MnocPfeReport.objects
+        .select_related('prepared_by')
+        .filter(report_date=today)
+        .first()
+    )
+
+    return render(
+        request,
+        'shiftreport/pfe.html',
+        {
+            'role': get_role(request.user),
+            'user': request.user,
+            'today': today,
+            'reports': reports,
+            'today_report': today_report,
+            'config': ShiftReportConfig.objects.filter(pk=1).first(),
+        },
+    )
+
+
+@login_required
+@require_POST
+def mnoc_pfe_create(request):
+    if not _role_allowed(request.user):
+        return HttpResponseForbidden(
+            'You do not have permission to create MNOC PFE Reports.'
+        )
+
+    from decimal import Decimal, InvalidOperation
+    from django.utils import timezone
+
+    report_date = timezone.localtime().date()
+
+    existing = (
+        MnocPfeReport.objects
+        .select_related('prepared_by')
+        .filter(report_date=report_date)
+        .first()
+    )
+
+    if existing:
+        owner = (
+            existing.prepared_by.get_full_name().strip()
+            or existing.prepared_by.username
+        )
+
+        messages.error(
+            request,
+            (
+                f'MNOC PFE Report for {report_date:%d %b %Y} '
+                f'already exists and was prepared by {owner}.'
+            )
+        )
+
+        return redirect('shiftreport:pfe_home')
+
+    try:
+        voltage = Decimal(
+            request.POST.get('voltage_v', '').strip()
+        )
+
+        current = Decimal(
+            request.POST.get('current_ma', '').strip()
+        )
+
+    except (InvalidOperation, ValueError):
+        messages.error(
+            request,
+            'Voltage and Current must be valid numbers.'
+        )
+
+        return redirect('shiftreport:pfe_home')
+
+    mode = request.POST.get(
+        'mode',
+        'CURRENT',
+    ).strip().upper()
+
+    if mode not in ('CURRENT', 'VOLTAGE', 'OTHER'):
+        mode = 'CURRENT'
+
+    report = MnocPfeReport.objects.create(
+        report_date=report_date,
+        prepared_by=request.user,
+        voltage_v=voltage,
+        current_ma=current,
+        mode=mode,
+        remark=(
+            request.POST.get('remark', 'OK').strip()
+            or 'OK'
+        ),
+        alarm_status=(
+            request.POST.get('alarm_status', 'None').strip()
+            or 'None'
+        ),
+    )
+
+    messages.success(
+        request,
+        'MNOC PFE draft created.'
+    )
+
+    return redirect(
+        'shiftreport:pfe_edit',
+        report_id=report.id,
+    )
+
+
+@login_required
+def mnoc_pfe_edit(request, report_id):
+    if not _role_allowed(request.user):
+        return HttpResponseForbidden(
+            'You do not have permission to access MNOC PFE Reports.'
+        )
+
+    report = get_object_or_404(
+        MnocPfeReport.objects.select_related('prepared_by'),
+        id=report_id,
+    )
+
+    can_edit = (
+        get_role(request.user) == 'admin'
+        or report.prepared_by_id == request.user.id
+    )
+
+    return render(
+        request,
+        'shiftreport/pfe_edit.html',
+        {
+            'role': get_role(request.user),
+            'user': request.user,
+            'report': report,
+            'can_edit': can_edit,
+            'config': ShiftReportConfig.objects.filter(pk=1).first(),
+        },
+    )
+
+
+@login_required
+@require_POST
+def mnoc_pfe_save(request, report_id):
+    if not _role_allowed(request.user):
+        return HttpResponseForbidden(
+            'You do not have permission to edit MNOC PFE Reports.'
+        )
+
+    from decimal import Decimal, InvalidOperation
+
+    report = get_object_or_404(
+        MnocPfeReport,
+        id=report_id,
+    )
+
+    if (
+        get_role(request.user) != 'admin'
+        and report.prepared_by_id != request.user.id
+    ):
+        return HttpResponseForbidden(
+            "You cannot edit another engineer's MNOC PFE Report."
+        )
+
+    if report.status == 'SENT':
+        messages.error(
+            request,
+            'A sent MNOC PFE Report cannot be edited.'
+        )
+
+        return redirect(
+            'shiftreport:pfe_edit',
+            report_id=report.id,
+        )
+
+    try:
+        report.voltage_v = Decimal(
+            request.POST.get('voltage_v', '').strip()
+        )
+
+        report.current_ma = Decimal(
+            request.POST.get('current_ma', '').strip()
+        )
+
+    except (InvalidOperation, ValueError):
+        messages.error(
+            request,
+            'Voltage and Current must be valid numbers.'
+        )
+
+        return redirect(
+            'shiftreport:pfe_edit',
+            report_id=report.id,
+        )
+
+    mode = request.POST.get(
+        'mode',
+        'CURRENT',
+    ).strip().upper()
+
+    if mode not in ('CURRENT', 'VOLTAGE', 'OTHER'):
+        mode = 'CURRENT'
+
+    report.mode = mode
+
+    report.remark = (
+        request.POST.get('remark', 'OK').strip()
+        or 'OK'
+    )
+
+    report.alarm_status = (
+        request.POST.get('alarm_status', 'None').strip()
+        or 'None'
+    )
+
+    report.save()
+
+    messages.success(
+        request,
+        'MNOC PFE draft saved.'
+    )
+
+    return redirect(
+        'shiftreport:pfe_edit',
+        report_id=report.id,
+    )
+
+
+@login_required
+@require_POST
+def mnoc_pfe_send(request, report_id):
+    if not _role_allowed(request.user):
+        return HttpResponseForbidden(
+            'You do not have permission to send MNOC PFE Reports.'
+        )
+
+    from django.utils import timezone
+
+    from .reporting import (
+        build_mnoc_recipient_lists,
+        build_pfe_html_body,
+        build_pfe_subject,
+        send_smtp_email,
+    )
+
+    report = get_object_or_404(
+        MnocPfeReport.objects.select_related('prepared_by'),
+        id=report_id,
+    )
+
+    if (
+        get_role(request.user) != 'admin'
+        and report.prepared_by_id != request.user.id
+    ):
+        return HttpResponseForbidden(
+            "You cannot send another engineer's MNOC PFE Report."
+        )
+
+    if report.status == 'SENT':
+        messages.info(
+            request,
+            'This MNOC PFE Report has already been sent.'
+        )
+
+        return redirect(
+            'shiftreport:pfe_edit',
+            report_id=report.id,
+        )
+
+    cfg = _config()
+
+    if not cfg.noc_from_email:
+        messages.error(
+            request,
+            'NOC From email is not configured.'
+        )
+
+        return redirect(
+            'shiftreport:pfe_edit',
+            report_id=report.id,
+        )
+
+    to_list, cc_list = build_mnoc_recipient_lists(cfg)
+
+    if not to_list:
+        messages.error(
+            request,
+            'MNOC PFE mandatory TO recipient is not configured.'
+        )
+
+        return redirect(
+            'shiftreport:pfe_edit',
+            report_id=report.id,
+        )
+
+    subject = build_pfe_subject()
+
+    report.email_subject = subject
+    report.email_to = to_list
+    report.email_cc = cc_list
+
+    report.save(
+        update_fields=[
+            'email_subject',
+            'email_to',
+            'email_cc',
+            'updated_at',
+        ]
+    )
+
+    try:
+        send_smtp_email(
+            subject=subject,
+            html_body=build_pfe_html_body(
+                report,
+                cfg,
+            ),
+            to_list=to_list,
+            cc_list=cc_list,
+            shift_config=cfg,
+        )
+
+    except Exception as exc:
+        report.status = 'FAILED'
+        report.email_error = str(exc)[:2000]
+
+        report.save(
+            update_fields=[
+                'status',
+                'email_error',
+                'updated_at',
+            ]
+        )
+
+        messages.error(
+            request,
+            f'MNOC PFE email failed: {exc}'
+        )
+
+        return redirect(
+            'shiftreport:pfe_edit',
+            report_id=report.id,
+        )
+
+    report.status = 'SENT'
+    report.sent_at = timezone.now()
+    report.email_error = ''
+
+    report.save(
+        update_fields=[
+            'status',
+            'sent_at',
+            'email_error',
+            'updated_at',
+        ]
+    )
+
+    log_activity(
+        request.user,
+        'SHIFT_REPORT_SEND',
+        (
+            f'MNOC PFE Report sent: '
+            f'{report.report_date}; '
+            f'to={", ".join(to_list)}.'
+        )[:300],
+        get_ip(request),
+    )
+
+    messages.success(
+        request,
+        'MNOC PFE Report sent successfully.'
+    )
+
+    return redirect(
+        'shiftreport:pfe_edit',
         report_id=report.id,
     )

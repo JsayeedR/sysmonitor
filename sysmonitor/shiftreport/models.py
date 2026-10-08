@@ -10,9 +10,55 @@ class ShiftReportConfig(models.Model):
     hard-coded so NOC staff changes do not require a code deployment.
     """
 
+    # Shared NOC Microsoft mailbox used by every Shift Engineer.
+    noc_from_name = models.CharField(
+        max_length=150,
+        blank=True,
+        default='SMW4 NOC (COXCLS)',
+    )
+
+    noc_from_email = models.EmailField(
+        blank=True,
+        help_text='Fixed From address for Shift Report and MNOC PFE email.',
+    )
+
+    # Shift Report has its own shared SMTP authentication.
+    # This avoids individual mailbox configuration for every engineer.
+    smtp_host = models.CharField(
+        max_length=150,
+        blank=True,
+        default='smtp.office365.com',
+    )
+
+    smtp_port = models.PositiveIntegerField(
+        default=587,
+    )
+
+    smtp_username = models.CharField(
+        max_length=200,
+        blank=True,
+    )
+
+    smtp_password = models.CharField(
+        max_length=300,
+        blank=True,
+    )
+
+    smtp_use_tls = models.BooleanField(
+        default=True,
+    )
+
+    mandatory_to = models.TextField(
+        blank=True,
+        help_text=(
+            'Fixed mandatory TO addresses, one per line or comma-separated.'
+        ),
+    )
+
+    # Kept so any already-entered manager address is not lost.
     manager_email = models.EmailField(
         blank=True,
-        help_text='Mandatory To recipient for every normal shift report.',
+        help_text='Legacy manager mandatory TO address.',
     )
 
     mandatory_cc = models.TextField(
@@ -33,7 +79,24 @@ class ShiftReportConfig(models.Model):
 
     mnoc_cc = models.TextField(
         blank=True,
-        help_text='Mandatory CC recipients for the MNOC night-shift email.',
+        help_text='Mandatory CC recipients for the MNOC PFE email.',
+    )
+
+    noc_mobile = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+
+    company_name = models.CharField(
+        max_length=200,
+        blank=True,
+        default='Bangladesh Submarine Cables PLC. (BSCPLC)',
+    )
+
+    website = models.CharField(
+        max_length=200,
+        blank=True,
+        default='www.bscplc.gov.bd',
     )
 
     updated_at = models.DateTimeField(auto_now=True)
@@ -214,3 +277,110 @@ class ShiftImportantIssue(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class MnocPfeReport(models.Model):
+    """
+    Daily MNOC PFE reading prepared after Night Shift.
+
+    All Shift Engineers may view history.
+    Only the creator (or Admin) may edit an unsent draft.
+    Only one report is allowed per calendar date.
+    """
+
+    STATUS_CHOICES = [
+        ('DRAFT', 'Draft'),
+        ('SENT', 'Sent'),
+        ('FAILED', 'Email Failed'),
+    ]
+
+    MODE_CHOICES = [
+        ('CURRENT', 'CURRENT'),
+        ('VOLTAGE', 'VOLTAGE'),
+        ('OTHER', 'OTHER'),
+    ]
+
+    report_date = models.DateField(
+        unique=True,
+    )
+
+    prepared_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='prepared_mnoc_pfe_reports',
+    )
+
+    voltage_v = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+    )
+
+    current_ma = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+    )
+
+    mode = models.CharField(
+        max_length=20,
+        choices=MODE_CHOICES,
+        default='CURRENT',
+    )
+
+    remark = models.CharField(
+        max_length=100,
+        default='OK',
+    )
+
+    alarm_status = models.CharField(
+        max_length=200,
+        default='None',
+    )
+
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='DRAFT',
+    )
+
+    sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    email_subject = models.CharField(
+        max_length=300,
+        blank=True,
+    )
+
+    email_to = models.JSONField(
+        default=list,
+        blank=True,
+    )
+
+    email_cc = models.JSONField(
+        default=list,
+        blank=True,
+    )
+
+    email_error = models.TextField(
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        ordering = ['-report_date', '-id']
+        verbose_name = 'MNOC PFE Report'
+        verbose_name_plural = 'MNOC PFE Reports'
+
+    def __str__(self):
+        return (
+            f'{self.report_date} — '
+            f'{self.voltage_v} V / {self.current_ma} mA'
+        )

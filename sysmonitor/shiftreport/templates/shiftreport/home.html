@@ -97,6 +97,18 @@
 
 <div class="wrap">
 
+  <div style="display:flex;gap:.55rem;flex-wrap:wrap;margin-bottom:1rem">
+    <a class="btn"
+       href="{{ base_path }}/shift-report/">
+      📝 Shift Handover
+    </a>
+
+    <a class="btn btn-secondary"
+       href="{{ base_path }}/shift-report/mnoc-pfe/">
+      ⚡ MNOC PFE Report
+    </a>
+  </div>
+
   <div class="head">
     <div>
       <h1>📝 Shift Report</h1>
@@ -152,7 +164,18 @@
   <div class="panel">
     <h2>Create Shift Report Draft</h2>
 
-    {% if contacts %}
+    {% if due_existing %}
+      <div class="msg">
+        🔒 This completed shift already has a report.
+        Prepared by:
+        <strong>
+          {{ due_existing.prepared_by.get_full_name|default:due_existing.prepared_by.username }}
+        </strong>.
+        No second Shift Report can be generated.
+      </div>
+    {% endif %}
+
+    {% if contacts and not due_existing %}
     <form method="post"
           action="{{ base_path }}/shift-report/create/">
 
@@ -161,31 +184,19 @@
       <div class="grid">
 
         <div>
-          <label class="form-label">Operational Date</label>
+          <label class="form-label">Report Due</label>
           <input
-            type="date"
-            name="report_date"
-            value="{{ current_report_date|date:'Y-m-d' }}"
-            required
+            value="{{ due_report_date|date:'d M Y' }}"
+            readonly
           >
         </div>
 
         <div>
-          <label class="form-label">Shift</label>
-          <select name="shift" required>
-            <option value="MORNING"
-              {% if current_shift == "MORNING" %}selected{% endif %}>
-              Morning — 09:00 to 17:00
-            </option>
-            <option value="EVENING"
-              {% if current_shift == "EVENING" %}selected{% endif %}>
-              Evening — 17:00 to 23:00
-            </option>
-            <option value="NIGHT"
-              {% if current_shift == "NIGHT" %}selected{% endif %}>
-              Night — 23:00 to 09:00
-            </option>
-          </select>
+          <label class="form-label">Completed Shift</label>
+          <input
+            value="{{ due_shift|title }} — {{ due_shift_start|date:'H:i' }} to {{ due_shift_end|date:'H:i' }}"
+            readonly
+          >
         </div>
 
         <div class="full">
@@ -261,7 +272,7 @@
       </div>
     </form>
 
-    {% else %}
+    {% elif not due_existing %}
 
       <div class="muted">
         No active handover contacts are configured yet.

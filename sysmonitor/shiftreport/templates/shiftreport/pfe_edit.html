@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — MNOC PFE Report</title>
+  <style>
+    :root{
+      --bg:#0f172a;--surface:#1e293b;--border:#334155;
+      --text:#f1f5f9;--muted:#94a3b8;--blue:#3b82f6
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;background:var(--bg);color:var(--text);
+      font-family:'Segoe UI',system-ui,sans-serif
+    }
+    .wrap{max-width:900px;margin:0 auto;padding:1.6rem 1.25rem 3rem}
+    .panel{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:12px;padding:1rem;margin-bottom:1rem
+    }
+    .grid{
+      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:.8rem
+    }
+    label{
+      display:block;color:var(--muted);font-size:.72rem;
+      margin-bottom:.3rem
+    }
+    input,select{
+      width:100%;background:var(--bg);color:var(--text);
+      border:1px solid var(--border);border-radius:8px;
+      padding:.6rem
+    }
+    .btn{
+      display:inline-block;border:0;border-radius:8px;
+      padding:.58rem .85rem;background:var(--blue);color:white;
+      text-decoration:none;font-weight:700;cursor:pointer
+    }
+    .secondary{background:#334155}
+    .muted{color:var(--muted);font-size:.78rem}
+    @media(max-width:700px){
+      .grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+
+{% include "monitor/navbar.html" %}
+
+<div class="wrap">
+
+  <div style="display:flex;gap:.55rem;margin-bottom:1rem">
+    <a class="btn secondary"
+       href="{{ base_path }}/shift-report/">
+      📝 Shift Handover
+    </a>
+
+    <a class="btn"
+       href="{{ base_path }}/shift-report/mnoc-pfe/">
+      ⚡ MNOC PFE Report
+    </a>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">
+      MNOC PFE — {{ report.report_date|date:"d M Y" }}
+    </h2>
+
+    <div class="muted" style="margin-bottom:1rem">
+      Prepared By:
+      {{ report.prepared_by.get_full_name|default:report.prepared_by.username }}
+      · Status: {{ report.get_status_display }}
+    </div>
+
+    {% if can_edit and report.status != "SENT" %}
+
+    <form method="post"
+          action="{{ base_path }}/shift-report/mnoc-pfe/{{ report.id }}/save/">
+
+      {% csrf_token %}
+
+      <div class="grid">
+
+        <div>
+          <label>Voltage (V)</label>
+          <input
+            type="number"
+            step="0.01"
+            name="voltage_v"
+            value="{{ report.voltage_v }}"
+            required
+          >
+        </div>
+
+        <div>
+          <label>Current (mA)</label>
+          <input
+            type="number"
+            step="0.01"
+            name="current_ma"
+            value="{{ report.current_ma }}"
+            required
+          >
+        </div>
+
+        <div>
+          <label>Mode</label>
+          <select name="mode">
+            <option value="CURRENT"
+              {% if report.mode == "CURRENT" %}selected{% endif %}>
+              CURRENT
+            </option>
+
+            <option value="VOLTAGE"
+              {% if report.mode == "VOLTAGE" %}selected{% endif %}>
+              VOLTAGE
+            </option>
+
+            <option value="OTHER"
+              {% if report.mode == "OTHER" %}selected{% endif %}>
+              OTHER
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label>Remark</label>
+          <input
+            name="remark"
+            value="{{ report.remark }}"
+            required
+          >
+        </div>
+
+        <div style="grid-column:1/-1">
+          <label>Alarm Status</label>
+          <input
+            name="alarm_status"
+            value="{{ report.alarm_status }}"
+            required
+          >
+        </div>
+
+      </div>
+
+      <div style="margin-top:1rem">
+        <button class="btn" type="submit">
+          💾 Save PFE Draft
+        </button>
+      </div>
+
+    </form>
+
+    {% else %}
+
+      <div class="grid">
+        <div>
+          <label>Voltage (V)</label>
+          <input value="{{ report.voltage_v }}" readonly>
+        </div>
+
+        <div>
+          <label>Current (mA)</label>
+          <input value="{{ report.current_ma }}" readonly>
+        </div>
+
+        <div>
+          <label>Mode</label>
+          <input value="{{ report.mode }}" readonly>
+        </div>
+
+        <div>
+          <label>Remark</label>
+          <input value="{{ report.remark }}" readonly>
+        </div>
+
+        <div style="grid-column:1/-1">
+          <label>Alarm Status</label>
+          <input value="{{ report.alarm_status }}" readonly>
+        </div>
+      </div>
+
+      {% if not can_edit %}
+      <div class="muted" style="margin-top:1rem">
+        This PFE report was prepared by another Shift Engineer.
+        You can view it, but you cannot modify it.
+      </div>
+      {% endif %}
+
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">MNOC Email</h2>
+
+    <div class="muted" style="margin-bottom:1rem">
+      FROM:
+      {% if config and config.noc_from_email %}
+        {{ config.noc_from_name }}
+        &lt;{{ config.noc_from_email }}&gt;
+      {% else %}
+        Not configured
+      {% endif %}
+      <br>
+
+      TO:
+      {% if config %}
+        {{ config.mnoc_to|default:"Not configured" }}
+      {% else %}
+        Not configured
+      {% endif %}
+      <br>
+
+      CC:
+      {% if config %}
+        {{ config.mnoc_cc|default:"—" }}
+      {% else %}
+        —
+      {% endif %}
+    </div>
+
+    {% if report.status == "SENT" %}
+
+      <div class="muted">
+        ✅ Sent:
+        {{ report.sent_at|date:"d M Y H:i" }}
+      </div>
+
+    {% elif can_edit %}
+
+      {% if report.email_error %}
+      <div style="margin-bottom:.8rem;color:#fecaca">
+        ⚠️ {{ report.email_error }}
+      </div>
+      {% endif %}
+
+      <form method="post"
+            action="{{ base_path }}/shift-report/mnoc-pfe/{{ report.id }}/send/"
+            onsubmit="return confirm('Send this MNOC PFE Report now?');">
+
+        {% csrf_token %}
+
+        <button class="btn" type="submit">
+          📧 Send MNOC PFE Report
+        </button>
+      </form>
+
+      <div class="muted" style="margin-top:.7rem">
+        Date, recipients, sender and signature are generated automatically.
+      </div>
+
+    {% else %}
+
+      <div class="muted">
+        Only the engineer who prepared this PFE report
+        or an Administrator can send it.
+      </div>
+
+    {% endif %}
+  </div>
+
+</div>
+</body>
+</html>

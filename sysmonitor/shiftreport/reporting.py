@@ -303,15 +303,18 @@ def build_shift_report_xlsx(report):
 
 def build_recipient_lists(report, config):
     """
-    Normal email:
-      TO = handover officer + mandatory manager
-      CC = mandatory CC + operator-added CC
+    Normal Shift Report:
 
-    Duplicates are removed while preserving order.
+      FROM = shared NOC Microsoft mailbox
+      TO   = selected handover officer + fixed mandatory TO
+      CC   = fixed mandatory CC + engineer's optional Additional CC
+
+    manager_email is retained as a legacy mandatory TO address.
     """
     to_list = parse_email_list(
         '\n'.join([
             report.handover_to.email or '',
+            config.mandatory_to or '',
             config.manager_email or '',
         ])
     )
@@ -323,13 +326,15 @@ def build_recipient_lists(report, config):
         ])
     )
 
-    # If somebody added a TO address again in CC, keep it only in TO.
-    to_keys = {x.casefold() for x in to_list}
+    to_keys = {
+        address.casefold()
+        for address in to_list
+    }
 
     cc_list = [
-        x
-        for x in cc_list
-        if x.casefold() not in to_keys
+        address
+        for address in cc_list
+        if address.casefold() not in to_keys
     ]
 
     return to_list, cc_list
@@ -450,6 +455,7 @@ def send_smtp_email(
     to_list,
     cc_list=None,
     attachment=None,
+    shift_config=None,
 ):
     """
     Send through the existing SysMonitor Email NotificationGateway.
@@ -464,36 +470,75 @@ def send_smtp_email(
     if not to_list:
         raise ValueError('No TO recipient configured.')
 
-    try:
-        gateway = NotificationGateway.objects.get(channel='email')
-    except NotificationGateway.DoesNotExist:
-        raise RuntimeError(
-            'Email Notification Gateway is not configured.'
+    if shift_config is not None:
+        host = (shift_config.smtp_host or '').strip()
+        port = shift_config.smtp_port
+        username = (shift_config.smtp_username or '').strip()
+        password = shift_config.smtp_password or ''
+        sender = (
+            (shift_config.noc_from_email or '').strip()
+            or username
         )
+        from_name = (
+            shift_config.noc_from_name
+            or 'SMW4 NOC (COXCLS)'
+        ).strip()
+        use_tls = bool(shift_config.smtp_use_tls)
 
-    if not gateway.is_enabled:
-        raise RuntimeError(
-            'Email Notification Gateway is disabled.'
+        if not host:
+            raise RuntimeError(
+                'Shift Report SMTP host is not configured.'
+            )
+
+        if not username:
+            raise RuntimeError(
+                'Shift Report SMTP username is not configured.'
+            )
+
+        if not password:
+            raise RuntimeError(
+                'Shift Report SMTP password is not configured.'
+            )
+
+        if not sender:
+            raise RuntimeError(
+                'Shift Report NOC From email is not configured.'
+            )
+
+    else:
+        try:
+            gateway = NotificationGateway.objects.get(
+                channel='email'
+            )
+        except NotificationGateway.DoesNotExist:
+            raise RuntimeError(
+                'Email Notification Gateway is not configured.'
+            )
+
+        if not gateway.is_enabled:
+            raise RuntimeError(
+                'Email Notification Gateway is disabled.'
+            )
+
+        host = gateway.email_host
+        port = gateway.email_port
+        username = gateway.email_username
+        password = gateway.email_password
+        sender = (
+            gateway.email_from.strip()
+            or gateway.email_username.strip()
         )
-
-    if not gateway.email_host:
-        raise RuntimeError('Email SMTP host is not configured.')
-
-    if not gateway.email_username:
-        raise RuntimeError('Email SMTP username is not configured.')
-
-    if not gateway.email_password:
-        raise RuntimeError('Email SMTP password is not configured.')
-
-    sender = (
-        gateway.email_from.strip()
-        or gateway.email_username.strip()
-    )
+        from_name = ''
+        use_tls = True
 
     msg = MIMEMultipart()
 
     msg['Subject'] = subject
-    msg['From'] = sender
+
+    if from_name:
+        msg['From'] = f'{from_name} <{sender}>'
+    else:
+        msg['From'] = sender
     msg['To'] = ', '.join(to_list)
 
     if cc_list:
@@ -532,19 +577,21 @@ def send_smtp_email(
     recipients = list(to_list) + list(cc_list)
 
     smtp = smtplib.SMTP(
-        gateway.email_host,
-        gateway.email_port,
+        host,
+        port,
         timeout=30,
     )
 
     try:
         smtp.ehlo()
-        smtp.starttls()
-        smtp.ehlo()
+
+        if use_tls:
+            smtp.starttls()
+            smtp.ehlo()
 
         smtp.login(
-            gateway.email_username,
-            gateway.email_password,
+            username,
+            password,
         )
 
         smtp.sendmail(
@@ -558,3 +605,113 @@ def send_smtp_email(
             smtp.quit()
         except Exception:
             pass
+
+
+def build_prepared_by_signature(user, config):
+    """
+    Signature is generated automatically from Prepared By.
+    """
+    name = _display_name(user)
+
+    designation = ''
+    mobile = ''
+
+    try:
+        designation = user.userprofile.designation or ''
+        mobile = user.userprofile.mobile_number or ''
+    except Exception:
+        pass
+
+    lines = [
+        html.escape(name),
+    ]
+
+    if designation:
+        lines.append(
+            html.escape(designation)
+        )
+
+    if config.company_name:
+        lines.append(
+            html.escape(config.company_name)
+        )
+
+    if mobile:
+        lines.append(
+            f'Mob/WhatsApp# {html.escape(mobile)}'
+        )
+
+    if config.noc_mobile:
+        lines.append(
+            f'NOC Mob/WhatsApp# {html.escape(config.noc_mobile)}'
+        )
+
+    if config.website:
+        lines.append(
+            f'Website# {html.escape(config.website)}'
+        )
+
+    return '<br>'.join(lines)
+
+
+def build_pfe_subject():
+    return (
+        'Re: COX/SATUN/TUS CLS # Daily Basis PFE Readings'
+    )
+
+
+def build_pfe_html_body(report, config):
+    """
+    Match the existing MNOC daily PFE email structure.
+    """
+    signature = build_prepared_by_signature(
+        report.prepared_by,
+        config,
+    )
+
+    return f"""
+    <html>
+      <body>
+        <p>Dear MNOC,</p>
+
+        <p>
+          Please find the daily PFE reading from COX CLS
+          for your kind perusal.
+        </p>
+
+        <table
+          border="1"
+          cellpadding="7"
+          cellspacing="0"
+          style="border-collapse:collapse;text-align:center"
+        >
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Voltage(V)</th>
+              <th>Current (mA)</th>
+              <th>Mode</th>
+              <th>Remark</th>
+              <th>Alarm Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{report.report_date:%d-%m-%Y}</td>
+              <td>{html.escape(str(report.voltage_v))}</td>
+              <td>{html.escape(str(report.current_ma))}</td>
+              <td>{html.escape(report.mode)}</td>
+              <td>{html.escape(report.remark)}</td>
+              <td>{html.escape(report.alarm_status)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>
+          -------------------------------------------<br>
+          Regards,<br>
+          {signature}
+        </p>
+      </body>
+    </html>
+    """
