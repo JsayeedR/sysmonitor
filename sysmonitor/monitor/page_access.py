@@ -113,6 +113,13 @@ PAGE_DEFINITIONS = {
         ),
     },
 
+    'shift_report': {
+        'label': '📝 Shift Report',
+        'group': 'Main',
+        'roles': ('user', 'admin'),
+        'prefixes': ('/shift-report/',),
+    },
+
     'devices': {
         'label': '🖥️ Devices',
         'group': 'Administrative',

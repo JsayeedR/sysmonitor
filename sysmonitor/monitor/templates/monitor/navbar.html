@@ -305,6 +305,12 @@
     {% if "colocation" not in page_hidden %}<a href="{{ base_path }}/sensor/" class="{% if '/sensor/' in request.path %}active{% endif %}">🌡️ Colocation</a>{% endif %}
     {% if "load_shedding" not in page_hidden %}<a href="{{ base_path }}/report/" class="{% if '/report/' in request.path %}active{% endif %}">⚡ Load Shedding</a>{% endif %}
 
+    {% if role == "user" or role == "admin" %}
+    {% if "shift_report" not in page_hidden %}
+    <a href="{{ base_path }}/shift-report/" class="{% if '/shift-report/' in request.path %}active{% endif %}">📝 Shift Report</a>
+    {% endif %}
+    {% endif %}
+
     {% if page_show_generator %}
     {% if role == "viewer" %}
     <div class="nav-dropdown" id="generator-data-dropdown">

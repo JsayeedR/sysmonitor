@@ -227,6 +227,12 @@ class ActivityLog(models.Model):
         ('CCTV_CONFIG',            'CCTV Configuration Changed'),
         ('MESSAGE_TEMPLATE_EDIT',  'Message Template Updated'),
         ('MONTHLY_REPORT_SEND',    'Monthly Report Sent'),
+
+        ('SHIFT_REPORT_DRAFT',     'Shift Report Draft Saved'),
+        ('SHIFT_REPORT_SEND',      'Shift Report Sent'),
+        ('SHIFT_REPORT_CONFIG',    'Shift Report Configuration Changed'),
+        ('SHIFT_ISSUE_ADD',        'Shift Important Issue Added'),
+        ('SHIFT_ISSUE_EDIT',       'Shift Important Issue Updated'),
     ]
 
     user       = models.ForeignKey('auth.User', on_delete=models.SET_NULL,

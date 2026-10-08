@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Shift Report Configuration</title>
+  <style>
+    :root{
+      --bg:#0f172a;--surface:#1e293b;--surface2:#162032;
+      --border:#334155;--text:#f1f5f9;--muted:#94a3b8;
+      --blue:#3b82f6;--green:#22c55e;--red:#ef4444
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;background:var(--bg);color:var(--text);
+      font-family:'Segoe UI',system-ui,sans-serif
+    }
+    .wrap{max-width:1000px;margin:0 auto;padding:1.6rem 1.25rem 3rem}
+    .top{
+      display:flex;justify-content:space-between;gap:1rem;
+      flex-wrap:wrap;margin-bottom:1rem
+    }
+    h1{margin:0;font-size:1.3rem}
+    h2{font-size:1rem;margin:0 0 .8rem}
+    .muted{color:var(--muted);font-size:.78rem}
+    .panel{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:12px;padding:1rem;margin-bottom:1rem
+    }
+    .grid{
+      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:.8rem
+    }
+    label{
+      display:block;color:var(--muted);font-size:.72rem;
+      margin-bottom:.3rem
+    }
+    input,textarea{
+      width:100%;background:var(--bg);color:var(--text);
+      border:1px solid var(--border);border-radius:8px;
+      padding:.6rem .7rem;font:inherit;font-size:.82rem
+    }
+    textarea{min-height:95px}
+    .btn{
+      display:inline-block;border:0;border-radius:8px;
+      padding:.55rem .8rem;background:var(--blue);
+      color:white;text-decoration:none;font-size:.78rem;
+      font-weight:700;cursor:pointer
+    }
+    .secondary{background:#334155}
+    .danger{background:#991b1b}
+    .msg{
+      border:1px solid #166534;background:#052e16;color:#86efac;
+      border-radius:8px;padding:.65rem .8rem;margin-bottom:.8rem;
+      font-size:.8rem
+    }
+    table{width:100%;border-collapse:collapse;font-size:.76rem}
+    th,td{
+      padding:.6rem;border-bottom:1px solid var(--border);
+      text-align:left
+    }
+    th{background:var(--surface2);color:#bfdbfe}
+    @media(max-width:700px){
+      .grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+
+{% include "monitor/navbar.html" %}
+
+<div class="wrap">
+
+  <div class="top">
+    <div>
+      <h1>⚙️ Shift Report Configuration</h1>
+      <div class="muted">
+        Administrator-managed recipients and handover contacts.
+      </div>
+    </div>
+
+    <a href="{{ base_path }}/shift-report/"
+       class="btn secondary">
+      ← Shift Report
+    </a>
+  </div>
+
+  {% for message in messages %}
+    <div class="msg">{{ message }}</div>
+  {% endfor %}
+
+  <div class="panel">
+    <h2>Email Rules</h2>
+
+    <form method="post"
+          action="{{ base_path }}/shift-report/config/settings/save/">
+
+      {% csrf_token %}
+
+      <div class="grid">
+
+        <div>
+          <label>
+            Manager Email — mandatory TO
+          </label>
+          <input
+            type="email"
+            name="manager_email"
+            value="{{ config.manager_email }}"
+            placeholder="manager@example.com"
+          >
+        </div>
+
+        <div>
+          <label>
+            Mandatory CC
+          </label>
+          <textarea
+            name="mandatory_cc"
+            placeholder="One per line or comma-separated">{{ config.mandatory_cc }}</textarea>
+        </div>
+
+        <div>
+          <label>
+            MNOC Night Email — TO
+          </label>
+          <textarea
+            name="mnoc_to"
+            placeholder="One per line or comma-separated">{{ config.mnoc_to }}</textarea>
+        </div>
+
+        <div>
+          <label>
+            MNOC Night Email — CC
+          </label>
+          <textarea
+            name="mnoc_cc"
+            placeholder="One per line or comma-separated">{{ config.mnoc_cc }}</textarea>
+        </div>
+
+      </div>
+
+      <div style="margin-top:1rem">
+        <button class="btn" type="submit">
+          Save Email Configuration
+        </button>
+      </div>
+
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>Add Handover Contact</h2>
+
+    <form method="post"
+          action="{{ base_path }}/shift-report/config/handover/add/">
+
+      {% csrf_token %}
+
+      <div class="grid">
+        <div>
+          <label>Name</label>
+          <input name="name" required>
+        </div>
+
+        <div>
+          <label>Designation</label>
+          <input name="designation">
+        </div>
+
+        <div>
+          <label>Email</label>
+          <input type="email" name="email" required>
+        </div>
+
+        <div>
+          <label>Display Order</label>
+          <input type="number" name="display_order" value="100">
+        </div>
+      </div>
+
+      <div style="margin-top:1rem">
+        <button class="btn" type="submit">
+          + Add Handover Contact
+        </button>
+      </div>
+
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>Handover Contacts</h2>
+
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Designation</th>
+            <th>Email</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for contact in contacts %}
+          <tr>
+            <td>{{ contact.name }}</td>
+            <td>{{ contact.designation|default:"—" }}</td>
+            <td>{{ contact.email }}</td>
+            <td>
+              {% if contact.is_active %}
+                🟢 Active
+              {% else %}
+                🔴 Disabled
+              {% endif %}
+            </td>
+            <td>
+              <form method="post"
+                    action="{{ base_path }}/shift-report/config/handover/{{ contact.id }}/toggle/">
+                {% csrf_token %}
+
+                <button class="btn secondary" type="submit">
+                  {% if contact.is_active %}
+                    Disable
+                  {% else %}
+                    Enable
+                  {% endif %}
+                </button>
+              </form>
+            </td>
+          </tr>
+
+          {% empty %}
+          <tr>
+            <td colspan="5" class="muted">
+              No handover contacts configured.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

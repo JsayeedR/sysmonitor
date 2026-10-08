@@ -1,8 +1,9 @@
 from django.contrib import admin
-from django.urls import path, re_path
+from django.urls import include, path, re_path
 from monitor import views
 
 urlpatterns = [
+    path('shift-report/', include('shiftreport.urls')),
     path('admin/',                            admin.site.urls),
     path('',                                  views.dashboard,         name='dashboard'),
     path('login/',                            views.login_view,        name='login'),

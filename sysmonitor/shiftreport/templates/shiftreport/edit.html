@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Shift Report</title>
+  <style>
+    :root{
+      --bg:#0f172a;--surface:#1e293b;--surface2:#162032;
+      --border:#334155;--text:#f1f5f9;--muted:#94a3b8;
+      --blue:#3b82f6;--green:#22c55e;--yellow:#fbbf24;
+      --red:#ef4444
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;background:var(--bg);color:var(--text);
+      font-family:'Segoe UI',system-ui,sans-serif
+    }
+    .wrap{max-width:1150px;margin:0 auto;padding:1.6rem 1.25rem 3rem}
+    .top{
+      display:flex;justify-content:space-between;align-items:flex-start;
+      flex-wrap:wrap;gap:1rem;margin-bottom:1rem
+    }
+    h1{font-size:1.3rem;margin:0}
+    h2{font-size:1rem;margin:0 0 .75rem}
+    .muted{font-size:.78rem;color:var(--muted)}
+    .panel{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:12px;padding:1rem;margin-bottom:1rem
+    }
+    .grid{
+      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:.8rem
+    }
+    .summary-grid{
+      display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:.65rem
+    }
+    .summary{
+      background:var(--surface2);border:1px solid var(--border);
+      border-radius:9px;padding:.7rem
+    }
+    .label{
+      color:var(--muted);font-size:.68rem;text-transform:uppercase;
+      letter-spacing:.04em;margin-bottom:.25rem
+    }
+    .value{font-size:.9rem;font-weight:700}
+    label.form-label{
+      display:block;color:var(--muted);font-size:.72rem;
+      margin-bottom:.3rem
+    }
+    select,input,textarea{
+      width:100%;background:var(--bg);color:var(--text);
+      border:1px solid var(--border);border-radius:8px;
+      padding:.6rem .7rem;font:inherit;font-size:.82rem
+    }
+    textarea{min-height:110px;resize:vertical}
+    .btn{
+      display:inline-block;border:0;border-radius:8px;
+      padding:.58rem .85rem;background:var(--blue);
+      color:white;text-decoration:none;font-size:.8rem;font-weight:700;
+      cursor:pointer
+    }
+    .secondary{background:#334155}
+    .green{background:#166534}
+    .msg{
+      border:1px solid #166534;background:#052e16;color:#86efac;
+      border-radius:8px;padding:.65rem .8rem;margin-bottom:.8rem;
+      font-size:.8rem
+    }
+    table{width:100%;border-collapse:collapse;font-size:.75rem}
+    th,td{
+      padding:.55rem;border-bottom:1px solid var(--border);
+      text-align:left
+    }
+    th{color:#bfdbfe;background:var(--surface2)}
+    .recipient{
+      background:#0f172a;border:1px solid var(--border);
+      border-radius:8px;padding:.65rem;margin-bottom:.5rem;
+      font-size:.78rem
+    }
+    @media(max-width:700px){
+      .grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+
+{% include "monitor/navbar.html" %}
+
+<div class="wrap">
+
+  <div class="top">
+    <div>
+      <h1>
+        📝 {{ report.get_shift_display }}
+        — {{ report.report_date|date:"d M Y" }}
+      </h1>
+      <div class="muted" style="margin-top:.25rem">
+        {{ report.shift_start|date:"d M Y H:i" }}
+        →
+        {{ report.shift_end|date:"d M Y H:i" }}
+        · {{ report.get_status_display }}
+      </div>
+    </div>
+
+    <a href="{{ base_path }}/shift-report/"
+       class="btn secondary">
+      ← Shift Reports
+    </a>
+  </div>
+
+  {% for message in messages %}
+    <div class="msg">{{ message }}</div>
+  {% endfor %}
+
+  <div class="panel">
+    <h2>Automatic Operational Summary</h2>
+
+    <div class="summary-grid">
+
+      <div class="summary">
+        <div class="label">PDB Outages</div>
+        <div class="value">
+          {{ report.outage_summary.count|default:0 }}
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="label">Total PDB Outage</div>
+        <div class="value">
+          {{ report.outage_summary.total_duration|default:"0m" }}
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="label">Generator 01 Runtime</div>
+        <div class="value">
+          {{ gen01_runtime }}
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="label">Generator 02 Runtime</div>
+        <div class="value">
+          {{ gen02_runtime }}
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="label">Generator Shifts</div>
+        <div class="value">
+          {{ report.generator_summary.mode_change_count|default:0 }}
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="label">Sensor Readings</div>
+        <div class="value">
+          {{ report.sensor_summary.reading_count|default:0 }}
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="label">Temperature</div>
+        <div class="value">
+          {% if report.sensor_summary.temperature_min != None %}
+            {{ report.sensor_summary.temperature_min }}°
+            –
+            {{ report.sensor_summary.temperature_max }}°C
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="label">Humidity</div>
+        <div class="value">
+          {% if report.sensor_summary.humidity_min != None %}
+            {{ report.sensor_summary.humidity_min }}%
+            –
+            {{ report.sensor_summary.humidity_max }}%
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+
+    <form method="post"
+          action="{{ base_path }}/shift-report/{{ report.id }}/refresh-summary/"
+          style="margin-top:.8rem">
+      {% csrf_token %}
+      <button class="btn secondary" type="submit">
+        🔄 Refresh Automatic Summary
+      </button>
+    </form>
+  </div>
+
+  {% if report.shift == "NIGHT" %}
+  <div class="panel">
+    <h2>🌙 Night Shift — Previous Day Summary</h2>
+
+    <div class="summary-grid">
+      <div class="summary">
+        <div class="label">Previous Date</div>
+        <div class="value">
+          {{ report.previous_day_summary.date|default:"—" }}
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="label">Outage Count</div>
+        <div class="value">
+          {{ report.previous_day_summary.outage.count|default:0 }}
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="label">Total Outage</div>
+        <div class="value">
+          {{ report.previous_day_summary.outage.total_duration|default:"0m" }}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <form method="post"
+        action="{{ base_path }}/shift-report/{{ report.id }}/save/">
+
+    {% csrf_token %}
+
+    <div class="panel">
+      <h2>Shift Handover Details</h2>
+
+      <div class="grid">
+
+        <div style="grid-column:1/-1">
+          <label class="form-label">Handover To</label>
+
+          <select name="handover_to" required>
+            {% for contact in contacts %}
+            <option value="{{ contact.id }}"
+              {% if contact.id == report.handover_to_id %}selected{% endif %}>
+              {{ contact.name }}
+              {% if contact.designation %}
+                — {{ contact.designation }}
+              {% endif %}
+              — {{ contact.email }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="form-label">Regular Activities</label>
+          <textarea name="regular_activities">{{ report.regular_activities }}</textarea>
+        </div>
+
+        <div>
+          <label class="form-label">Issues Observed</label>
+          <textarea name="issues_observed">{{ report.issues_observed }}</textarea>
+        </div>
+
+        <div>
+          <label class="form-label">Pending Handover</label>
+          <textarea name="pending_handover">{{ report.pending_handover }}</textarea>
+        </div>
+
+        <div>
+          <label class="form-label">Important Notes</label>
+          <textarea name="important_notes">{{ report.important_notes }}</textarea>
+        </div>
+
+        <div style="grid-column:1/-1">
+          <label class="form-label">Additional CC</label>
+          <input
+            type="text"
+            name="additional_cc"
+            value="{{ report.additional_cc }}"
+            placeholder="Optional extra email addresses"
+          >
+        </div>
+
+        {% if report.shift == "NIGHT" %}
+        <div style="grid-column:1/-1">
+          <label class="form-label">MNOC Notes</label>
+          <textarea name="mnoc_notes">{{ report.mnoc_notes }}</textarea>
+        </div>
+        {% endif %}
+
+      </div>
+
+      <div style="margin-top:1rem">
+        <button class="btn" type="submit">
+          💾 Save Draft
+        </button>
+      </div>
+    </div>
+
+  </form>
+
+  <div class="panel">
+    <h2>Email Recipient Preview</h2>
+
+    <div class="recipient">
+      <strong>TO:</strong>
+      {% for address in preview_to %}
+        {{ address }}{% if not forloop.last %}, {% endif %}
+      {% empty %}
+        <span class="muted">Not fully configured</span>
+      {% endfor %}
+    </div>
+
+    <div class="recipient">
+      <strong>Mandatory + Additional CC:</strong>
+      {% for address in preview_cc %}
+        {{ address }}{% if not forloop.last %}, {% endif %}
+      {% empty %}
+        <span class="muted">None configured</span>
+      {% endfor %}
+    </div>
+
+    <div class="muted">
+      Email sending is intentionally disabled during Phase 2.
+      We will enable Submit/Send only after recipient rules,
+      XLSX generation and SMTP tests pass.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Submit / Send Report</h2>
+
+    {% if report.status == "SENT" %}
+      <div class="recipient">
+        ✅ This Shift Report was sent on
+        {{ report.sent_at|date:"d M Y H:i" }}.
+      </div>
+
+    {% else %}
+
+      {% if report.main_email_sent_at %}
+      <div class="recipient">
+        ✅ Normal handover email sent:
+        {{ report.main_email_sent_at|date:"d M Y H:i" }}
+      </div>
+      {% endif %}
+
+      {% if report.shift == "NIGHT" and report.mnoc_email_sent_at %}
+      <div class="recipient">
+        ✅ MNOC Night email sent:
+        {{ report.mnoc_email_sent_at|date:"d M Y H:i" }}
+      </div>
+      {% endif %}
+
+      {% if report.email_error %}
+      <div class="recipient"
+           style="border-color:#991b1b;color:#fecaca">
+        ⚠️ {{ report.email_error }}
+      </div>
+      {% endif %}
+
+      <div class="muted" style="margin-bottom:.8rem">
+        Sending is allowed only after this shift has ended.
+        The Excel workbook will be attached automatically.
+        {% if report.shift == "NIGHT" %}
+          A separate MNOC email will also be sent.
+        {% endif %}
+      </div>
+
+      <form method="post"
+            action="{{ base_path }}/shift-report/{{ report.id }}/send/"
+            onsubmit="return confirm('Send this Shift Report now?');">
+        {% csrf_token %}
+
+        <button class="btn green" type="submit">
+          📧 Submit / Send Report
+        </button>
+      </form>
+
+    {% endif %}
+  </div>
+
+  {% if report.outage_summary.rows %}
+  <div class="panel">
+    <h2>Outages During Shift</h2>
+
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Generator</th>
+            <th>Duration</th>
+            <th>Type</th>
+            <th>Reason</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for row in report.outage_summary.rows %}
+          <tr>
+            <td>{{ row.generator }}</td>
+            <td>{{ row.duration }}</td>
+            <td>{{ row.cycle_type }}</td>
+            <td>{{ row.alarm_reason|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+</body>
+</html>
