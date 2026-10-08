@@ -229,31 +229,82 @@
       ⚠️ Danger Zone — Service Control
     </div>
 
-    <p style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem;">
-      Restarting the ping service will re-initialize all state from the database.
-      If a fake "Ongoing" cycle exists, close or delete it first, THEN restart —
-      otherwise the service will resume it.
+    <div style="
+      color:#fca5a5;
+      font-weight:700;
+      font-size:.9rem;
+      margin-bottom:.5rem;
+    ">
+      ⚡ Restart Ping Monitoring Service
+    </div>
+
+    <p style="
+      font-size:.8rem;
+      color:var(--muted);
+      line-height:1.55;
+      margin-bottom:.75rem;
+    ">
+      Restarting the Ping Monitor re-initializes outage state from the
+      database. If a fake "Ongoing" cycle exists, close or delete it first,
+      THEN restart — otherwise the service will resume it.
     </p>
 
-    <div class="confirm-row" style="margin-bottom:.75rem;">
+    <div style="
+      font-size:.75rem;
+      color:var(--muted);
+      margin-bottom:.75rem;
+    ">
+      <strong>Service:</strong> sysmonitor-ping.service<br>
+      <strong>Authorization:</strong>
+      SysMonitor Admin role + current user's own password
+    </div>
+
+    <label
+      class="confirm-row"
+      style="
+        display:flex;
+        align-items:flex-start;
+        gap:.5rem;
+        margin-bottom:.75rem;
+      "
+    >
       <input
         type="checkbox"
         id="restart-confirm"
         onchange="toggleRestartForm()"
+        style="margin-top:3px"
       >
-      I understand this will briefly interrupt outage monitoring
-    </div>
 
-    <div id="restart-form" style="display:none;">
-      <div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem;">
-        🔒 Enter your SysMonitor admin password to confirm:
+      <span>
+        I understand this will briefly interrupt outage monitoring.
+      </span>
+    </label>
+
+    <div
+      id="restart-form"
+      style="display:none;"
+    >
+
+      <div style="
+        font-size:.78rem;
+        color:var(--muted);
+        margin-bottom:.4rem;
+      ">
+        🔒 Verify current SysMonitor Admin:
+        <strong>{{ user.username }}</strong>
       </div>
 
-      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+      <div style="
+        display:flex;
+        gap:.5rem;
+        align-items:center;
+        flex-wrap:wrap;
+      ">
+
         <input
           type="password"
           id="restart-password"
-          placeholder="Your admin password"
+          placeholder="Current SysMonitor password"
           autocomplete="current-password"
           style="
             background:#0f172a;
@@ -262,17 +313,19 @@
             padding:.5rem .8rem;
             border-radius:8px;
             font-size:.85rem;
-            width:220px;
+            width:280px;
           "
         >
 
         <button
+          type="button"
           id="restart-btn"
           class="btn btn-danger"
           onclick="restartPing()"
         >
-          🔄 Restart sysmonitor-ping
+          🔄 Restart Ping Monitor
         </button>
+
       </div>
 
       <div
@@ -280,12 +333,72 @@
         style="
           color:var(--red);
           font-size:.75rem;
-          margin-top:.4rem;
+          margin-top:.5rem;
           display:none;
         "
       ></div>
+
     </div>
 
+
+    <div
+      id="restart-ping-progress"
+      style="
+        display:none;
+        margin-top:1rem;
+        padding:.8rem;
+        background:#111827;
+        border:1px solid #374151;
+        border-radius:8px;
+        font-size:.78rem;
+      "
+    >
+
+      <div
+        id="restart-ping-progress-title"
+        style="font-weight:700;"
+      >
+        ⏳ Restarting Ping Monitor…
+      </div>
+
+      <div
+        id="restart-ping-summary"
+        style="
+          margin-top:.7rem;
+          font-family:monospace;
+          white-space:pre-wrap;
+          line-height:1.6;
+        "
+      ></div>
+
+      <div style="
+        margin-top:.8rem;
+        color:var(--muted);
+        font-size:.72rem;
+        font-weight:700;
+      ">
+        TERMINAL OUTPUT
+      </div>
+
+      <div
+        id="restart-ping-terminal"
+        style="
+          margin-top:.35rem;
+          padding:.7rem;
+          max-height:360px;
+          overflow:auto;
+          background:#020617;
+          border:1px solid #334155;
+          border-radius:6px;
+          color:#cbd5e1;
+          font-family:monospace;
+          font-size:.72rem;
+          white-space:pre-wrap;
+          line-height:1.5;
+        "
+      ></div>
+
+    </div>
 
     {% if user.is_superuser %}
 
@@ -597,45 +710,225 @@ function escHtml(s) {
 }
 
 function toggleRestartForm() {
-  const checked = document.getElementById('restart-confirm').checked;
-  document.getElementById('restart-form').style.display = checked ? 'block' : 'none';
+  const checked =
+    document.getElementById(
+      'restart-confirm'
+    ).checked;
+
+  const form =
+    document.getElementById(
+      'restart-form'
+    );
+
+  form.style.display =
+    checked ? 'block' : 'none';
+
   if (!checked) {
-    document.getElementById('restart-password').value = '';
-    document.getElementById('restart-error').style.display = 'none';
+    document.getElementById(
+      'restart-password'
+    ).value = '';
+
+    document.getElementById(
+      'restart-error'
+    ).style.display = 'none';
   }
 }
 
+
 function restartPing() {
-  const password = document.getElementById('restart-password').value;
-  const errEl = document.getElementById('restart-error');
-  if (!password) {
-    errEl.textContent = 'Please enter your password.';
+  const password =
+    document.getElementById(
+      'restart-password'
+    ).value;
+
+  const confirmed =
+    document.getElementById(
+      'restart-confirm'
+    ).checked;
+
+  const errEl =
+    document.getElementById(
+      'restart-error'
+    );
+
+  const btn =
+    document.getElementById(
+      'restart-btn'
+    );
+
+  const progress =
+    document.getElementById(
+      'restart-ping-progress'
+    );
+
+  const title =
+    document.getElementById(
+      'restart-ping-progress-title'
+    );
+
+  const summary =
+    document.getElementById(
+      'restart-ping-summary'
+    );
+
+  const terminal =
+    document.getElementById(
+      'restart-ping-terminal'
+    );
+
+  if (!confirmed) {
+    errEl.textContent =
+      'Please confirm the outage-monitoring interruption warning.';
+
     errEl.style.display = 'block';
     return;
   }
 
-  const btn = document.getElementById('restart-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳ Restarting…';
+  if (!password) {
+    errEl.textContent =
+      'Please enter your current SysMonitor password.';
+
+    errEl.style.display = 'block';
+    return;
+  }
+
+  if (!confirm(
+    'Restart sysmonitor-ping.service?\n\n' +
+    'Outage monitoring will briefly pause and state will be ' +
+    're-initialized from the database.'
+  )) {
+    return;
+  }
+
   errEl.style.display = 'none';
 
-  post('{{ base_path }}/system/restart-ping/', {password}).then(r => {
-    if (r.ok) {
-      toast('✅ Service restarted successfully');
-      btn.textContent = '✅ Restarted';
-      document.getElementById('restart-password').value = '';
-      document.getElementById('restart-confirm').checked = false;
-      document.getElementById('restart-form').style.display = 'none';
-      setTimeout(() => { loadState(); loadJournal(); }, 3000);
-    } else {
-      errEl.textContent = r.error;
-      errEl.style.display = 'block';
-      btn.disabled = false;
-      btn.textContent = '🔄 Restart sysmonitor-ping';
+  btn.disabled = true;
+  btn.textContent =
+    '⏳ Restarting Ping Monitor…';
+
+  progress.style.display = 'block';
+
+  title.textContent =
+    '⏳ Restarting Ping Monitor…';
+
+  summary.textContent =
+    'Waiting for sysmonitor-ping.service to restart and initialize…';
+
+  terminal.textContent =
+    'Waiting for journal output…';
+
+  post(
+    '{{ base_path }}/system/restart-ping/',
+    {
+      password: password,
+      confirmed: true,
     }
+  )
+  .then(response => {
+
+    if (!response.ok) {
+      throw new Error(
+        response.error ||
+        response.message ||
+        'Ping restart failed.'
+      );
+    }
+
+    const healthy =
+      response.state === 'active';
+
+    title.textContent =
+      healthy
+        ? '✅ Ping Service Restart Completed'
+        : '⚠️ Ping Service Restart Completed With Errors';
+
+    let output = '';
+
+    output +=
+      `Started by: ${response.started_by || '{{ user.username }}'}\n`;
+
+    output +=
+      `Service: ${response.service || 'sysmonitor-ping.service'}\n`;
+
+    output +=
+      `Action: ${response.action || 'restarted'}\n`;
+
+    output +=
+      `State: ${response.state || 'unknown'}\n`;
+
+    output +=
+      `Startup initialization: ${
+        response.startup_complete
+          ? 'completed'
+          : 'not confirmed before timeout'
+      }`;
+
+    summary.textContent = output;
+
+    terminal.textContent =
+      response.journal ||
+      'No journal output returned.';
+
+    terminal.scrollTop =
+      terminal.scrollHeight;
+
+    document.getElementById(
+      'restart-password'
+    ).value = '';
+
+    document.getElementById(
+      'restart-confirm'
+    ).checked = false;
+
+    document.getElementById(
+      'restart-form'
+    ).style.display = 'none';
+
+    btn.disabled = false;
+
+    btn.textContent =
+      healthy
+        ? '✅ Restart Completed'
+        : '⚠️ Restart Ping Monitor';
+
+    toast(
+      healthy
+        ? '✅ Ping Monitor restarted successfully'
+        : '⚠️ Ping Monitor restart finished with an error',
+      healthy
+    );
+
+    setTimeout(
+      () => {
+        loadState();
+        loadJournal();
+      },
+      1000
+    );
+
+  })
+  .catch(error => {
+
+    title.textContent =
+      '❌ Ping Service Restart Failed';
+
+    summary.textContent =
+      error.message || String(error);
+
+    terminal.textContent =
+      'No restart journal available.';
+
+    errEl.textContent =
+      error.message || String(error);
+
+    errEl.style.display = 'block';
+
+    btn.disabled = false;
+
+    btn.textContent =
+      '🔄 Restart Ping Monitor';
   });
 }
-
 
 function toggleRestartAllForm() {
   const checked =

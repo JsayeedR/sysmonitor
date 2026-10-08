@@ -4288,57 +4288,272 @@ def system_recent_cycles(request):
 
 @role_required('admin')
 def system_restart_ping(request):
-    """Restart the sysmonitor-ping service.
-    Restricted to Django superusers only (not just role=admin).
-    Requires the superuser's own password to confirm.
     """
-    # Extra guard: only Django superusers can restart the service
-    # This means only the 'admin' account — not other role=admin users
-    if not request.user.is_superuser:
-        return JsonResponse({'ok': False,
-            'error': 'Only the system superuser (admin) can restart the ping service.'})
+    Restart sysmonitor-ping on the MASTER.
+
+    Any user whose effective SysMonitor role is ``admin`` may perform
+    this action, but must confirm using their own current Django password.
+
+    No Linux/server password is accepted by the web application.
+    """
+
+    if settings.IS_MIRROR:
+        return JsonResponse({
+            'ok': False,
+            'error': (
+                'Ping service restart is available on the MASTER '
+                'SysMonitor only.'
+            ),
+        }, status=403)
+
     if request.method != 'POST':
-        return JsonResponse({'ok': False, 'error': 'POST required'})
+        return JsonResponse({
+            'ok': False,
+            'error': 'POST required.',
+        }, status=405)
+
     import json as _json
     import subprocess
-    from django.contrib.auth import authenticate
+    import time
 
-    try:
-        d = _json.loads(request.body)
-    except Exception:
-        return JsonResponse({'ok': False, 'error': 'Invalid request'})
-
-    password = d.get('password', '').strip()
-    if not password:
-        return JsonResponse({'ok': False, 'error': 'Password is required to confirm this action.'})
-
-    # Triple-check: verify password hash directly against current user object
-    # AND re-fetch from DB to ensure no stale session data
+    from datetime import datetime, timezone as dt_timezone
     from django.contrib.auth.models import User as AuthUser
-    from django.contrib.auth.hashers import check_password as check_pw
+    from django.contrib.auth.hashers import (
+        check_password as check_pw,
+    )
+
     try:
-        fresh_user = AuthUser.objects.get(pk=request.user.pk)
+        data = _json.loads(
+            request.body.decode('utf-8')
+        )
+    except Exception:
+        return JsonResponse({
+            'ok': False,
+            'error': 'Invalid request.',
+        }, status=400)
+
+    password = (
+        data.get('password')
+        or ''
+    ).strip()
+
+    confirmed = bool(
+        data.get('confirmed')
+    )
+
+    if not confirmed:
+        return JsonResponse({
+            'ok': False,
+            'error': (
+                'You must confirm that outage monitoring will '
+                'briefly be interrupted.'
+            ),
+        }, status=400)
+
+    if not password:
+        return JsonResponse({
+            'ok': False,
+            'error': (
+                'Your current SysMonitor password is required.'
+            ),
+        }, status=400)
+
+    try:
+        fresh_user = AuthUser.objects.get(
+            pk=request.user.pk
+        )
     except AuthUser.DoesNotExist:
-        return JsonResponse({'ok': False, 'error': 'User not found.'})
-    if not check_pw(password, fresh_user.password):
-        log_activity(request.user, 'SERVICE_RESTART_DENIED',
-            f'Failed password confirmation for ping restart (user: {request.user.username})',
-            get_ip(request))
-        return JsonResponse({'ok': False, 'error': f'Incorrect password for user "{request.user.username}". Action denied.'})
+        return JsonResponse({
+            'ok': False,
+            'error': 'User not found.',
+        }, status=403)
+
+    # role_required('admin') already guarantees effective role=admin.
+    # Here we additionally verify the current user's own password.
+    if not check_pw(
+        password,
+        fresh_user.password,
+    ):
+        log_activity(
+            request.user,
+            'SERVICE_RESTART_DENIED',
+            (
+                'Failed password confirmation for ping restart '
+                f'(user: {request.user.username})'
+            ),
+            get_ip(request),
+        )
+
+        return JsonResponse({
+            'ok': False,
+            'error': (
+                f'Incorrect password for user '
+                f'"{request.user.username}". Action denied.'
+            ),
+        }, status=403)
+
+    restart_started = datetime.now(
+        dt_timezone.utc
+    )
 
     try:
         result = subprocess.run(
-            ['sudo', 'systemctl', 'restart', 'sysmonitor-ping'],
-            capture_output=True, text=True, timeout=15
+            [
+                'sudo',
+                '-n',
+                '/bin/systemctl',
+                'restart',
+                'sysmonitor-ping',
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
-        if result.returncode == 0:
-            log_activity(request.user, 'SERVICE_RESTART',
-                'Admin restarted sysmonitor-ping service (password confirmed)', get_ip(request))
-            return JsonResponse({'ok': True})
-        else:
-            return JsonResponse({'ok': False, 'error': result.stderr})
-    except Exception as e:
-        return JsonResponse({'ok': False, 'error': str(e)})
+    except Exception as exc:
+        return JsonResponse({
+            'ok': False,
+            'error': (
+                'Unable to restart sysmonitor-ping: '
+                f'{exc}'
+            ),
+        }, status=500)
+
+    if result.returncode != 0:
+        return JsonResponse({
+            'ok': False,
+            'error': (
+                result.stderr.strip()
+                or 'systemctl restart failed.'
+            ),
+        }, status=500)
+
+    # Allow ping_monitor startup confirmation to complete so the browser
+    # can show meaningful initialization output, not just systemctl success.
+    state = 'unknown'
+    startup_complete = False
+
+    for _ in range(14):
+        try:
+            active = subprocess.run(
+                [
+                    '/bin/systemctl',
+                    'is-active',
+                    'sysmonitor-ping.service',
+                ],
+                capture_output=True,
+                text=True,
+                timeout=3,
+            )
+
+            state = (
+                active.stdout.strip()
+                or 'unknown'
+            )
+
+        except Exception:
+            state = 'unknown'
+
+        try:
+            since = restart_started.strftime(
+                '%Y-%m-%d %H:%M:%S UTC'
+            )
+
+            journal_probe = subprocess.run(
+                [
+                    'sudo',
+                    '-n',
+                    '/usr/bin/journalctl',
+                    '-u',
+                    'sysmonitor-ping.service',
+                    '--since',
+                    since,
+                    '--no-pager',
+                    '-o',
+                    'short-iso',
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+
+            if (
+                'Monitoring started.'
+                in journal_probe.stdout
+            ):
+                startup_complete = True
+                break
+
+        except Exception:
+            pass
+
+        time.sleep(1)
+
+    try:
+        since = restart_started.strftime(
+            '%Y-%m-%d %H:%M:%S UTC'
+        )
+
+        journal = subprocess.run(
+            [
+                'sudo',
+                '-n',
+                '/usr/bin/journalctl',
+                '-u',
+                'sysmonitor-ping.service',
+                '--since',
+                since,
+                '--no-pager',
+                '-o',
+                'short-iso',
+            ],
+            capture_output=True,
+            text=True,
+            timeout=8,
+        )
+
+        journal_text = (
+            journal.stdout.strip()
+            if journal.returncode == 0
+            else journal.stderr.strip()
+        )
+
+    except Exception as exc:
+        journal_text = (
+            'Journal output unavailable: '
+            f'{exc}'
+        )
+
+    healthy = (
+        state == 'active'
+    )
+
+    log_activity(
+        request.user,
+        'SERVICE_RESTART',
+        (
+            'Admin restarted sysmonitor-ping service '
+            f'(user={request.user.username}, '
+            f'state={state}, '
+            f'startup_complete={startup_complete}, '
+            'password confirmed)'
+        ),
+        get_ip(request),
+    )
+
+    return JsonResponse({
+        'ok': healthy,
+        'service': 'sysmonitor-ping.service',
+        'action': 'restarted',
+        'state': state,
+        'startup_complete': startup_complete,
+        'started_by': request.user.username,
+        'journal': journal_text,
+        'message': (
+            'Ping service restarted successfully.'
+            if healthy
+            else 'Ping restart completed but service is not active.'
+        ),
+    })
 
 
 #------- Uptime KUMA
