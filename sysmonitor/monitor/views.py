@@ -6779,3 +6779,264 @@ def page_access_manage(request):
         'role': get_role(request.user),
         'user': request.user,
     })
+
+
+# ============================================================================
+# SYSMONITOR — RESTART ALL MASTER SERVICES
+# ============================================================================
+
+SYSMONITOR_RESTART_ALL_RESULT = (
+    '/run/sysmonitor-restart-all-result.json'
+)
+
+
+@role_required('admin')
+def system_restart_all(request):
+    """
+    Launch the fixed MASTER service-restart helper.
+
+    Security:
+      - Admin role required by decorator.
+      - Django superuser additionally required.
+      - Current user's own Django password must be confirmed.
+      - No Linux password is accepted or handled here.
+      - Only the fixed root-owned helper may be executed.
+    """
+    if settings.IS_MIRROR:
+        return JsonResponse({
+            'ok': False,
+            'error': (
+                'Restart All is available on the MASTER '
+                'SysMonitor only.'
+            ),
+        }, status=403)
+
+    if not request.user.is_superuser:
+        return JsonResponse({
+            'ok': False,
+            'error': (
+                'Only the system superuser (admin) can restart '
+                'all SysMonitor services.'
+            ),
+        }, status=403)
+
+    if request.method != 'POST':
+        return JsonResponse({
+            'ok': False,
+            'error': 'POST required',
+        }, status=405)
+
+    import json as _json
+    import os
+    import subprocess
+
+    from django.contrib.auth.models import User as AuthUser
+    from django.contrib.auth.hashers import (
+        check_password as check_pw,
+    )
+
+    try:
+        data = _json.loads(
+            request.body.decode('utf-8')
+        )
+    except Exception:
+        return JsonResponse({
+            'ok': False,
+            'error': 'Invalid request.',
+        }, status=400)
+
+    password = (
+        data.get('password')
+        or ''
+    ).strip()
+
+    confirmed = bool(
+        data.get('confirmed')
+    )
+
+    if not confirmed:
+        return JsonResponse({
+            'ok': False,
+            'error': (
+                'You must confirm that you understand '
+                'monitoring will be briefly interrupted.'
+            ),
+        }, status=400)
+
+    if not password:
+        return JsonResponse({
+            'ok': False,
+            'error': (
+                'Your SysMonitor admin password is required.'
+            ),
+        }, status=400)
+
+    try:
+        fresh_user = AuthUser.objects.get(
+            pk=request.user.pk
+        )
+    except AuthUser.DoesNotExist:
+        return JsonResponse({
+            'ok': False,
+            'error': 'User not found.',
+        }, status=403)
+
+    if (
+        not fresh_user.is_superuser
+        or not check_pw(
+            password,
+            fresh_user.password,
+        )
+    ):
+        log_activity(
+            request.user,
+            'SERVICE_RESTART_DENIED',
+            (
+                'Failed password confirmation for '
+                'restart-all SysMonitor services '
+                f'(user: {request.user.username})'
+            ),
+            get_ip(request),
+        )
+
+        return JsonResponse({
+            'ok': False,
+            'error': (
+                f'Incorrect password for user '
+                f'"{request.user.username}". Action denied.'
+            ),
+        }, status=403)
+
+    # Remove the result from a previous run so browser polling cannot
+    # accidentally display stale success information.
+    try:
+        if os.path.exists(
+            SYSMONITOR_RESTART_ALL_RESULT
+        ):
+            os.remove(
+                SYSMONITOR_RESTART_ALL_RESULT
+            )
+    except OSError:
+        # A root-owned result may not be removable by Django.
+        # The helper overwrites it atomically anyway.
+        pass
+
+    try:
+        process = subprocess.Popen(
+            [
+                'sudo',
+                '-n',
+                '/bin/systemctl',
+                'start',
+                'sysmonitor-restart-all.service',
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            close_fds=True,
+        )
+
+    except Exception as exc:
+        return JsonResponse({
+            'ok': False,
+            'error': (
+                'Unable to launch service restart helper: '
+                f'{exc}'
+            ),
+        }, status=500)
+
+    log_activity(
+        request.user,
+        'SERVICE_RESTART',
+        (
+            'Admin initiated restart of all SysMonitor '
+            'MASTER services and timers '
+            '(SysMonitor password confirmed).'
+        ),
+        get_ip(request),
+    )
+
+    return JsonResponse({
+        'ok': True,
+        'started': True,
+        'pid': process.pid,
+        'message': (
+            'Restart started. SysMonitor will briefly disconnect '
+            'while the web service is restarted.'
+        ),
+    })
+
+
+@role_required('admin')
+def system_restart_all_status(request):
+    """
+    Return summarized status generated by the root-owned restart helper.
+    Read-only and superuser-only.
+    """
+    if settings.IS_MIRROR:
+        return JsonResponse({
+            'ok': False,
+            'error': (
+                'Restart All status is available on the MASTER '
+                'SysMonitor only.'
+            ),
+        }, status=403)
+
+    if not request.user.is_superuser:
+        return JsonResponse({
+            'ok': False,
+            'error': (
+                'Only the system superuser (admin) can view '
+                'restart-all results.'
+            ),
+        }, status=403)
+
+    if request.method != 'GET':
+        return JsonResponse({
+            'ok': False,
+            'error': 'GET required',
+        }, status=405)
+
+    import json as _json
+    import os
+
+    path = SYSMONITOR_RESTART_ALL_RESULT
+
+    if not os.path.exists(path):
+        return JsonResponse({
+            'ok': True,
+            'complete': False,
+            'message': 'Restart is still in progress.',
+        })
+
+    try:
+        with open(
+            path,
+            'r',
+            encoding='utf-8',
+        ) as handle:
+            data = _json.load(handle)
+
+    except Exception as exc:
+        return JsonResponse({
+            'ok': False,
+            'complete': False,
+            'error': (
+                'Unable to read restart result: '
+                f'{exc}'
+            ),
+        }, status=500)
+
+    if data.get('overall') == 'running':
+        return JsonResponse({
+            'ok': True,
+            'complete': False,
+            'message': 'Restart is still in progress.',
+        })
+
+    return JsonResponse({
+        'ok': True,
+        'complete': True,
+        'result': data,
+    })

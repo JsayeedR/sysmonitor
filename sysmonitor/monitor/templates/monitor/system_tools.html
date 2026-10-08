@@ -225,29 +225,224 @@
 
   <!-- Danger Zone -->
   <div class="danger-zone">
-    <div class="danger-title">⚠️ Danger Zone — Service Control</div>
+    <div class="danger-title">
+      ⚠️ Danger Zone — Service Control
+    </div>
+
     <p style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem;">
-      Restarting the ping service will re-initialize all state from the database. If a fake "Ongoing" cycle exists, close or delete it first, THEN restart — otherwise the service will resume it.
+      Restarting the ping service will re-initialize all state from the database.
+      If a fake "Ongoing" cycle exists, close or delete it first, THEN restart —
+      otherwise the service will resume it.
     </p>
+
     <div class="confirm-row" style="margin-bottom:.75rem;">
-      <input type="checkbox" id="restart-confirm" onchange="toggleRestartForm()">
+      <input
+        type="checkbox"
+        id="restart-confirm"
+        onchange="toggleRestartForm()"
+      >
       I understand this will briefly interrupt outage monitoring
     </div>
+
     <div id="restart-form" style="display:none;">
       <div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem;">
-        🔒 Enter your admin password to confirm:
+        🔒 Enter your SysMonitor admin password to confirm:
       </div>
+
       <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
-        <input type="password" id="restart-password"
-               placeholder="Your admin password"
-               style="background:#0f172a;border:1px solid #7f1d1d;color:var(--text);
-                      padding:.5rem .8rem;border-radius:8px;font-size:.85rem;width:220px;">
-        <button id="restart-btn" class="btn btn-danger" onclick="restartPing()">
+        <input
+          type="password"
+          id="restart-password"
+          placeholder="Your admin password"
+          autocomplete="current-password"
+          style="
+            background:#0f172a;
+            border:1px solid #7f1d1d;
+            color:var(--text);
+            padding:.5rem .8rem;
+            border-radius:8px;
+            font-size:.85rem;
+            width:220px;
+          "
+        >
+
+        <button
+          id="restart-btn"
+          class="btn btn-danger"
+          onclick="restartPing()"
+        >
           🔄 Restart sysmonitor-ping
         </button>
       </div>
-      <div id="restart-error" style="color:var(--red);font-size:.75rem;margin-top:.4rem;display:none;"></div>
+
+      <div
+        id="restart-error"
+        style="
+          color:var(--red);
+          font-size:.75rem;
+          margin-top:.4rem;
+          display:none;
+        "
+      ></div>
     </div>
+
+
+    {% if user.is_superuser %}
+
+    <div style="
+      margin-top:1.25rem;
+      padding-top:1.1rem;
+      border-top:1px solid #7f1d1d;
+    ">
+
+      <div style="
+        color:#fca5a5;
+        font-weight:700;
+        font-size:.9rem;
+        margin-bottom:.5rem;
+      ">
+        🔥 Restart All SysMonitor Services
+      </div>
+
+      <p style="
+        font-size:.78rem;
+        color:var(--muted);
+        line-height:1.55;
+        margin-bottom:.7rem;
+      ">
+        This restarts all long-running SysMonitor MASTER services and all
+        SysMonitor timers. The scheduled one-shot jobs are not manually run.
+        The web service is restarted last, so this page will temporarily
+        disconnect and automatically reconnect.
+      </p>
+
+      <div style="
+        font-size:.75rem;
+        color:var(--muted);
+        line-height:1.55;
+        margin-bottom:.75rem;
+      ">
+        <strong>Services:</strong>
+        Web, Ping Monitor, PAC Monitor, Other Devices, Mirror Tunnel,
+        CCTV Tunnel and MediaMTX.<br>
+
+        <strong>Timers:</strong>
+        Tuya Poll, Colocation 3-Hour Report, Daily Summary, Backup,
+        Mirror Push and Mirror Full.
+      </div>
+
+      <label
+        class="confirm-row"
+        style="
+          display:flex;
+          align-items:flex-start;
+          gap:.5rem;
+          margin-bottom:.75rem;
+        "
+      >
+        <input
+          type="checkbox"
+          id="restart-all-confirm"
+          onchange="toggleRestartAllForm()"
+          style="margin-top:3px"
+        >
+
+        <span>
+          I understand this will briefly interrupt SysMonitor monitoring
+          and the web interface.
+        </span>
+      </label>
+
+
+      <div id="restart-all-form" style="display:none;">
+
+        <div style="
+          font-size:.78rem;
+          color:var(--muted);
+          margin-bottom:.4rem;
+        ">
+          🔒 Verify current SysMonitor admin:
+          <strong>{{ user.username }}</strong>
+        </div>
+
+        <div style="
+          display:flex;
+          gap:.5rem;
+          align-items:center;
+          flex-wrap:wrap;
+        ">
+
+          <input
+            type="password"
+            id="restart-all-password"
+            placeholder="Current SysMonitor admin password"
+            autocomplete="current-password"
+            style="
+              background:#0f172a;
+              border:1px solid #7f1d1d;
+              color:var(--text);
+              padding:.5rem .8rem;
+              border-radius:8px;
+              font-size:.85rem;
+              width:280px;
+            "
+          >
+
+          <button
+            type="button"
+            id="restart-all-btn"
+            class="btn btn-danger"
+            onclick="restartAllServices()"
+          >
+            🔄 Restart Everything
+          </button>
+
+        </div>
+
+        <div
+          id="restart-all-error"
+          style="
+            color:var(--red);
+            font-size:.75rem;
+            margin-top:.5rem;
+            display:none;
+          "
+        ></div>
+
+      </div>
+
+
+      <div
+        id="restart-all-progress"
+        style="
+          display:none;
+          margin-top:1rem;
+          padding:.8rem;
+          background:#111827;
+          border:1px solid #374151;
+          border-radius:8px;
+          font-size:.78rem;
+        "
+      >
+        <div id="restart-all-progress-title">
+          ⏳ Restarting SysMonitor…
+        </div>
+
+        <div
+          id="restart-all-result"
+          style="
+            margin-top:.7rem;
+            font-family:monospace;
+            white-space:pre-wrap;
+            line-height:1.6;
+          "
+        ></div>
+      </div>
+
+    </div>
+
+    {% endif %}
+
   </div>
 
 </div>
@@ -440,6 +635,304 @@ function restartPing() {
     }
   });
 }
+
+
+function toggleRestartAllForm() {
+  const checked =
+    document.getElementById(
+      'restart-all-confirm'
+    ).checked;
+
+  const form =
+    document.getElementById(
+      'restart-all-form'
+    );
+
+  form.style.display =
+    checked ? 'block' : 'none';
+
+  if (!checked) {
+    document.getElementById(
+      'restart-all-password'
+    ).value = '';
+
+    document.getElementById(
+      'restart-all-error'
+    ).style.display = 'none';
+  }
+}
+
+
+let restartAllPollTimer = null;
+let restartAllPollCount = 0;
+
+
+function restartAllServices() {
+  const password =
+    document.getElementById(
+      'restart-all-password'
+    ).value;
+
+  const confirmed =
+    document.getElementById(
+      'restart-all-confirm'
+    ).checked;
+
+  const errorBox =
+    document.getElementById(
+      'restart-all-error'
+    );
+
+  const button =
+    document.getElementById(
+      'restart-all-btn'
+    );
+
+  if (!confirmed) {
+    errorBox.textContent =
+      'Please confirm the interruption warning.';
+    errorBox.style.display = 'block';
+    return;
+  }
+
+  if (!password) {
+    errorBox.textContent =
+      'Please enter your SysMonitor admin password.';
+    errorBox.style.display = 'block';
+    return;
+  }
+
+  if (!confirm(
+    'Restart ALL SysMonitor MASTER services and timers?\n\n' +
+    'The web interface and monitoring will briefly disconnect.'
+  )) {
+    return;
+  }
+
+  errorBox.style.display = 'none';
+
+  button.disabled = true;
+  button.textContent = '⏳ Starting restart…';
+
+  const progress =
+    document.getElementById(
+      'restart-all-progress'
+    );
+
+  const title =
+    document.getElementById(
+      'restart-all-progress-title'
+    );
+
+  const result =
+    document.getElementById(
+      'restart-all-result'
+    );
+
+  progress.style.display = 'block';
+
+  title.textContent =
+    '⏳ Restarting all SysMonitor services…';
+
+  result.textContent =
+    'The web page may disconnect for a few seconds.\n' +
+    'Waiting for SysMonitor to return…';
+
+  post(
+    '{{ base_path }}/system/restart-all/',
+    {
+      password: password,
+      confirmed: true,
+    }
+  )
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(
+        response.error || 'Restart request failed.'
+      );
+    }
+
+    document.getElementById(
+      'restart-all-password'
+    ).value = '';
+
+    restartAllPollCount = 0;
+
+    // Give the helper a moment to begin before polling.
+    setTimeout(
+      pollRestartAllStatus,
+      2500
+    );
+  })
+  .catch(error => {
+    errorBox.textContent =
+      error.message || String(error);
+
+    errorBox.style.display = 'block';
+
+    button.disabled = false;
+    button.textContent =
+      '🔄 Restart Everything';
+  });
+}
+
+
+function pollRestartAllStatus() {
+  restartAllPollCount += 1;
+
+  const title =
+    document.getElementById(
+      'restart-all-progress-title'
+    );
+
+  const resultBox =
+    document.getElementById(
+      'restart-all-result'
+    );
+
+  const button =
+    document.getElementById(
+      'restart-all-btn'
+    );
+
+  fetch(
+    '{{ base_path }}/system/restart-all/status/',
+    {
+      cache: 'no-store',
+      credentials: 'same-origin',
+    }
+  )
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(
+        'SysMonitor is still restarting.'
+      );
+    }
+
+    return response.json();
+  })
+  .then(data => {
+
+    if (
+      !data.ok
+      || !data.complete
+    ) {
+      throw new Error(
+        data.error ||
+        data.message ||
+        'Restart still in progress.'
+      );
+    }
+
+    const info = data.result || {};
+    const units = info.units || [];
+
+    const serviceLines = [];
+    const timerLines = [];
+
+    units.forEach(unit => {
+      const healthy =
+        unit.action === 'restarted'
+        && unit.state === 'active';
+
+      const icon =
+        healthy ? '✅' : '❌';
+
+      const line =
+        `${icon} ${unit.name.padEnd(40, ' ')} ` +
+        `${unit.action} / ${unit.state}`;
+
+      if (unit.type === 'timer') {
+        timerLines.push(line);
+      } else {
+        serviceLines.push(line);
+      }
+    });
+
+    const success =
+      info.overall === 'success';
+
+    title.textContent =
+      success
+        ? '✅ SysMonitor Restart Completed'
+        : '⚠️ SysMonitor Restart Completed With Errors';
+
+    let output = '';
+
+    output +=
+      `Started by: {{ user.username }}\n`;
+
+    output +=
+      `Started: ${info.started_at || '—'}\n`;
+
+    output +=
+      `Completed: ${info.completed_at || '—'}\n`;
+
+    output +=
+      `Overall: ${(info.overall || 'unknown').toUpperCase()}\n\n`;
+
+    output += 'LONG-RUNNING SERVICES\n';
+
+    output +=
+      serviceLines.join('\n') || '—';
+
+    output += '\n\nSCHEDULED TIMERS\n';
+
+    output +=
+      timerLines.join('\n') || '—';
+
+    resultBox.textContent = output;
+
+    button.disabled = false;
+    button.textContent =
+      success
+        ? '✅ Restart Completed'
+        : '⚠️ Restart Again';
+
+    document.getElementById(
+      'restart-all-confirm'
+    ).checked = false;
+
+    document.getElementById(
+      'restart-all-form'
+    ).style.display = 'none';
+
+    toast(
+      success
+        ? '✅ All SysMonitor services restarted successfully'
+        : '⚠️ Restart finished with one or more errors',
+      success
+    );
+
+    loadState();
+
+  })
+  .catch(() => {
+
+    if (restartAllPollCount >= 45) {
+      title.textContent =
+        '⚠️ Restart status timed out';
+
+      resultBox.textContent +=
+        '\n\nCould not retrieve final restart status. ' +
+        'Check System Tools again or verify services manually.';
+
+      button.disabled = false;
+      button.textContent =
+        '🔄 Restart Everything';
+
+      return;
+    }
+
+    // The web service itself is deliberately restarted, so failed fetches
+    // for several seconds are expected.
+    restartAllPollTimer = setTimeout(
+      pollRestartAllStatus,
+      2000
+    );
+  });
+}
+
 
 // Load state on page open, auto-refresh every 15 seconds
 loadState();
