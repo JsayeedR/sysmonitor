@@ -6,6 +6,7 @@ from .models import (
     ShiftReport,
     ShiftReportConfig,
     MnocPfeReport,
+    ShiftReportActivity,
 )
 
 
@@ -89,4 +90,24 @@ class MnocPfeReportAdmin(admin.ModelAdmin):
         'prepared_by__last_name',
         'remark',
         'alarm_status',
+    )
+
+
+
+@admin.register(ShiftReportActivity)
+class ShiftReportActivityAdmin(admin.ModelAdmin):
+    list_display = (
+        'report',
+        'activity_type',
+        'client_vendor',
+        'status',
+        'display_order',
+    )
+
+    search_fields = (
+        'activity_type',
+        'client_vendor',
+        'details',
+        'status',
+        'remarks',
     )

@@ -15,6 +15,7 @@ from .models import (
     ShiftReport,
     ShiftReportConfig,
     MnocPfeReport,
+    ShiftReportActivity,
 )
 from .services import (
     BDT,
@@ -22,7 +23,9 @@ from .services import (
     build_shift_snapshot,
     current_shift,
     latest_completed_shift,
+    load_shedding_text,
     parse_email_list,
+    report_composer_defaults,
     shift_window,
 )
 
@@ -57,6 +60,138 @@ def _config():
 
 def _parse_date(value):
     return datetime.strptime(value, '%Y-%m-%d').date()
+
+
+def _activity_rows_from_post(request):
+    """
+    Read Section C repeating rows from the report composer.
+    Empty rows are ignored.
+    """
+    types = request.POST.getlist('activity_type')
+    clients = request.POST.getlist('client_vendor')
+    details = request.POST.getlist('activity_details')
+    statuses = request.POST.getlist('activity_status')
+    remarks = request.POST.getlist('activity_remarks')
+
+    length = max(
+        len(types),
+        len(clients),
+        len(details),
+        len(statuses),
+        len(remarks),
+        0,
+    )
+
+    rows = []
+
+    for index in range(length):
+        row = {
+            'activity_type': (
+                types[index].strip()
+                if index < len(types)
+                else ''
+            ),
+            'client_vendor': (
+                clients[index].strip()
+                if index < len(clients)
+                else ''
+            ),
+            'details': (
+                details[index].strip()
+                if index < len(details)
+                else ''
+            ),
+            'status': (
+                statuses[index].strip()
+                if index < len(statuses)
+                else ''
+            ),
+            'remarks': (
+                remarks[index].strip()
+                if index < len(remarks)
+                else ''
+            ),
+        }
+
+        if any(row.values()):
+            rows.append(row)
+
+    return rows
+
+
+def _replace_activity_rows(report, rows):
+    report.activity_rows.all().delete()
+
+    objects = []
+
+    for index, row in enumerate(rows, start=1):
+        objects.append(
+            ShiftReportActivity(
+                report=report,
+                activity_type=row['activity_type'],
+                client_vendor=row['client_vendor'],
+                details=row['details'],
+                status=row['status'],
+                remarks=row['remarks'],
+                display_order=index * 10,
+            )
+        )
+
+    if objects:
+        ShiftReportActivity.objects.bulk_create(objects)
+
+
+def _apply_structured_report_fields(report, request):
+    report.ac_shifting = request.POST.get(
+        'ac_shifting',
+        '',
+    ).strip()
+
+    report.network_status = (
+        request.POST.get('network_status', '').strip()
+        or 'Normal'
+    )
+
+    report.cable_status = (
+        request.POST.get('cable_status', '').strip()
+        or 'Normal'
+    )
+
+    report.pfe_status = request.POST.get(
+        'pfe_status',
+        '',
+    ).strip()
+
+    report.dwdm_status = (
+        request.POST.get('dwdm_status', '').strip()
+        or 'Normal'
+    )
+
+    report.maintenance_activity = (
+        request.POST.get(
+            'maintenance_activity',
+            '',
+        ).strip()
+        or 'None'
+    )
+
+    report.generator_status_text = request.POST.get(
+        'generator_status_text',
+        '',
+    ).strip()
+
+    report.rain_water_leakage = (
+        request.POST.get(
+            'rain_water_leakage',
+            '',
+        ).strip()
+        or 'No significant rain was observed'
+    )
+
+    report.bandwidth_status = request.POST.get(
+        'bandwidth_status',
+        '',
+    ).strip()
 
 
 @login_required
@@ -100,6 +235,11 @@ def shift_report_home(request):
         .first()
     )
 
+    composer_defaults = report_composer_defaults(
+        due_date,
+        due_code,
+    )
+
     issues = (
         ShiftImportantIssue.objects
         .exclude(status='RESOLVED')
@@ -123,6 +263,11 @@ def shift_report_home(request):
             'due_shift_start': due_start,
             'due_shift_end': due_end,
             'due_existing': due_existing,
+
+            'composer_defaults': composer_defaults,
+            'load_shedding_text': load_shedding_text(
+                composer_defaults['snapshot']['outage']
+            ),
 
             'contacts': contacts,
             'reports': reports,
@@ -222,6 +367,11 @@ def shift_report_create(request):
             report_date
         )
 
+    defaults = report_composer_defaults(
+        report_date,
+        shift,
+    )
+
     report = ShiftReport.objects.create(
         report_date=report_date,
         shift=shift,
@@ -229,6 +379,60 @@ def shift_report_create(request):
         shift_end=snapshot['end'],
         prepared_by=request.user,
         handover_to=handover,
+
+        ac_shifting=request.POST.get(
+            'ac_shifting',
+            defaults['ac_shifting'],
+        ).strip(),
+
+        network_status=(
+            request.POST.get(
+                'network_status',
+                defaults['network_status'],
+            ).strip()
+            or 'Normal'
+        ),
+
+        cable_status=(
+            request.POST.get(
+                'cable_status',
+                defaults['cable_status'],
+            ).strip()
+            or 'Normal'
+        ),
+
+        pfe_status=request.POST.get(
+            'pfe_status',
+            defaults['pfe_status'],
+        ).strip(),
+
+        dwdm_status=(
+            request.POST.get(
+                'dwdm_status',
+                defaults['dwdm_status'],
+            ).strip()
+            or 'Normal'
+        ),
+
+        maintenance_activity=request.POST.get(
+            'maintenance_activity',
+            defaults['maintenance_activity'],
+        ).strip(),
+
+        generator_status_text=request.POST.get(
+            'generator_status_text',
+            defaults['generator_status_text'],
+        ).strip(),
+
+        rain_water_leakage=request.POST.get(
+            'rain_water_leakage',
+            defaults['rain_water_leakage'],
+        ).strip(),
+
+        bandwidth_status=request.POST.get(
+            'bandwidth_status',
+            defaults['bandwidth_status'],
+        ).strip(),
 
         regular_activities=request.POST.get(
             'regular_activities',
@@ -259,6 +463,11 @@ def shift_report_create(request):
         generator_summary=snapshot['generator'],
         sensor_summary=snapshot['sensor'],
         previous_day_summary=previous_day,
+    )
+
+    _replace_activity_rows(
+        report,
+        _activity_rows_from_post(request),
     )
 
     log_activity(
@@ -372,6 +581,19 @@ def shift_report_edit(request, report_id):
             'unknown_generator_runtime': (
                 report.generator_summary or {}
             ).get('Unknown', '0m'),
+
+            'load_shedding_text': load_shedding_text(
+                report.outage_summary
+            ),
+
+            'temperature_text': (
+                report_composer_defaults(
+                    report.report_date,
+                    report.shift,
+                )['temperature_text']
+            ),
+
+            'activity_rows': report.activity_rows.all(),
         },
     )
 
@@ -422,6 +644,12 @@ def shift_report_save(request, report_id):
         )
 
     report.handover_to = handover
+
+    _apply_structured_report_fields(
+        report,
+        request,
+    )
+
     report.regular_activities = request.POST.get(
         'regular_activities',
         '',
@@ -448,6 +676,11 @@ def shift_report_save(request, report_id):
     ).strip()
 
     report.save()
+
+    _replace_activity_rows(
+        report,
+        _activity_rows_from_post(request),
+    )
 
     log_activity(
         request.user,
@@ -756,20 +989,59 @@ def shift_issue_add(request):
 
     from django.utils import timezone
 
-    title = request.POST.get('title', '').strip()
-    description = request.POST.get('description', '').strip()
+    category_1 = request.POST.get(
+        'category_1',
+        '',
+    ).strip()
 
-    if not title or not description:
+    category_2 = request.POST.get(
+        'category_2',
+        '',
+    ).strip()
+
+    details = request.POST.get(
+        'details',
+        '',
+    ).strip()
+
+    remarks = request.POST.get(
+        'remarks',
+        '',
+    ).strip()
+
+    event_type = request.POST.get(
+        'event_type',
+        '',
+    ).strip()
+
+    if not category_1 and not category_2 and not details:
         messages.error(
             request,
-            'Issue title and description are required.'
+            'Historical issue details are required.'
         )
         return redirect('shiftreport:home')
 
-    ShiftImportantIssue.objects.create(
-        title=title,
-        description=description,
-        status='OPEN',
+    issue = ShiftImportantIssue.objects.create(
+        category_1=category_1,
+        category_2=category_2,
+
+        # Retain compatibility with existing views/admin.
+        title=(
+            category_2
+            or category_1
+            or 'Historical Issue'
+        ),
+
+        description=details,
+        remarks=remarks,
+        event_type=event_type,
+
+        status=(
+            'MONITORING'
+            if event_type.casefold() == 'followup'
+            else 'OPEN'
+        ),
+
         opened_at=timezone.now(),
         added_by=request.user,
     )
@@ -777,13 +1049,16 @@ def shift_issue_add(request):
     log_activity(
         request.user,
         'SHIFT_ISSUE_ADD',
-        f'Shift important issue added: {title}'[:300],
+        (
+            f'Historical Shift issue added: '
+            f'{issue.category_1} / {issue.category_2}.'
+        )[:300],
         get_ip(request),
     )
 
     messages.success(
         request,
-        'Important issue added.'
+        'Historical important issue added.'
     )
 
     return redirect('shiftreport:home')
@@ -966,7 +1241,10 @@ def shift_report_send(request, report_id):
         try:
             send_smtp_email(
                 subject=subject,
-                html_body=build_html_body(report),
+                html_body=build_html_body(
+                    report,
+                    cfg,
+                ),
                 to_list=to_list,
                 cc_list=cc_list,
                 attachment=(

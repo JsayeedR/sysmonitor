@@ -41,265 +41,97 @@ def _autosize(ws):
 
 def build_shift_report_xlsx(report):
     """
-    Build the Shift Report workbook completely in memory.
+    Build the historical-issues attachment.
 
-    Sheets:
-      - Shift Summary
-      - Outages
-      - Generator Shifts
-      - Important Issues
-      - Previous Day (Night only)
+    The sheet structure follows the supplied Historical Important Issues.xlsx:
+
+        Historical Data
+        Category-1 | Category-2 | Details | Remarks | Event Type
     """
     wb = Workbook()
 
     ws = wb.active
-    ws.title = 'Shift Summary'
+    # Match the supplied Historical Important Issues.xlsx workbook.
+    ws.title = 'Sheet1'
 
-    rows = [
-        ['SysMonitor Shift Report', ''],
-        ['Operational Date', report.report_date.isoformat()],
-        ['Shift', report.get_shift_display()],
-        [
-            'Shift Window',
-            (
-                f'{report.shift_start.astimezone(BDT):%d-%m-%Y %H:%M}'
-                f' to '
-                f'{report.shift_end.astimezone(BDT):%d-%m-%Y %H:%M}'
-            ),
-        ],
-        ['Prepared By', _display_name(report.prepared_by)],
-        ['Handover To', report.handover_to.name],
-        ['Handover Email', report.handover_to.email],
-        ['', ''],
-        ['PDB Outage Count', report.outage_summary.get('count', 0)],
-        [
-            'Total PDB Outage',
-            report.outage_summary.get('total_duration', '0m'),
-        ],
-        [
-            'Generator 01 Runtime',
-            report.generator_summary.get('Gen-01', '0m'),
-        ],
-        [
-            'Generator 02 Runtime',
-            report.generator_summary.get('Gen-02', '0m'),
-        ],
-        [
-            'Generator Mode Changes',
-            report.generator_summary.get('mode_change_count', 0),
-        ],
-        [
-            'Temperature Min',
-            report.sensor_summary.get('temperature_min'),
-        ],
-        [
-            'Temperature Max',
-            report.sensor_summary.get('temperature_max'),
-        ],
-        [
-            'Temperature Avg',
-            report.sensor_summary.get('temperature_avg'),
-        ],
-        [
-            'Humidity Min',
-            report.sensor_summary.get('humidity_min'),
-        ],
-        [
-            'Humidity Max',
-            report.sensor_summary.get('humidity_max'),
-        ],
-        [
-            'Humidity Avg',
-            report.sensor_summary.get('humidity_avg'),
-        ],
-        ['', ''],
-        ['Regular Activities', report.regular_activities],
-        ['Issues Observed', report.issues_observed],
-        ['Pending Handover', report.pending_handover],
-        ['Important Notes', report.important_notes],
-    ]
+    ws.merge_cells('A1:E1')
+    ws['A1'] = 'Historical Data'
+    ws['A1'].font = Font(
+        bold=True,
+        size=14,
+    )
 
-    if report.shift == 'NIGHT':
-        rows.append(['MNOC Notes', report.mnoc_notes])
+    ws.append([
+        'Category-1',
+        'Category-2',
+        'Details',
+        'Remarks',
+        'Event Type',
+    ])
 
-    for row in rows:
-        ws.append(row)
-
-    ws['A1'].font = Font(bold=True, size=14)
-
-    for cell in ws['A']:
-        cell.font = Font(bold=True)
-        cell.alignment = Alignment(vertical='top')
-
-    for cell in ws['B']:
-        cell.alignment = Alignment(
-            vertical='top',
-            wrap_text=True,
+    for cell in ws[2]:
+        cell.font = Font(
+            bold=True,
         )
 
-    _autosize(ws)
-
-    # ----------------------------------------------------------
-    # OUTAGES
-    # ----------------------------------------------------------
-    ws = wb.create_sheet('Outages')
-
-    ws.append([
-        'ID',
-        'Start',
-        'End',
-        'Duration',
-        'Generator',
-        'Cycle Type',
-        'Manual',
-        'Alarm / Reason',
-    ])
-
-    for cell in ws[1]:
-        cell.font = Font(bold=True)
-
-    for row in report.outage_summary.get('rows', []):
-        ws.append([
-            row.get('id'),
-            row.get('start'),
-            row.get('end'),
-            row.get('duration'),
-            row.get('generator'),
-            row.get('cycle_type'),
-            'Yes' if row.get('manual') else 'No',
-            row.get('alarm_reason') or '',
-        ])
-
-    _autosize(ws)
-
-    # ----------------------------------------------------------
-    # GENERATOR MODE CHANGES
-    # ----------------------------------------------------------
-    ws = wb.create_sheet('Generator Shifts')
-
-    ws.append([
-        'ID',
-        'Generator',
-        'Switched At',
-        'Note',
-        'Added By',
-    ])
-
-    for cell in ws[1]:
-        cell.font = Font(bold=True)
-
-    for row in report.generator_summary.get('mode_changes', []):
-        ws.append([
-            row.get('id'),
-            row.get('generator'),
-            row.get('switched_at'),
-            row.get('note'),
-            row.get('added_by'),
-        ])
-
-    _autosize(ws)
-
-    # ----------------------------------------------------------
-    # IMPORTANT ISSUES HISTORY
-    # ----------------------------------------------------------
-    ws = wb.create_sheet('Important Issues')
-
-    ws.append([
-        'Status',
-        'Title',
-        'Description',
-        'Opened At',
-        'Resolved At',
-        'Added By',
-    ])
-
-    for cell in ws[1]:
-        cell.font = Font(bold=True)
-
-    issues = ShiftImportantIssue.objects.all().order_by(
-        '-opened_at',
-        '-id',
+    issues = (
+        ShiftImportantIssue.objects
+        .all()
+        .order_by('-opened_at', '-id')
     )
 
     for issue in issues:
+
+        category_1 = (
+            issue.category_1
+            or ''
+        )
+
+        category_2 = (
+            issue.category_2
+            or issue.title
+            or ''
+        )
+
+        details = (
+            issue.description
+            or ''
+        )
+
+        remarks = (
+            issue.remarks
+            or ''
+        )
+
+        event_type = (
+            issue.event_type
+            or issue.get_status_display()
+        )
+
         ws.append([
-            issue.get_status_display(),
-            issue.title,
-            issue.description,
-            (
-                issue.opened_at.astimezone(BDT).strftime(
-                    '%d-%m-%Y %H:%M'
-                )
-                if issue.opened_at
-                else ''
-            ),
-            (
-                issue.resolved_at.astimezone(BDT).strftime(
-                    '%d-%m-%Y %H:%M'
-                )
-                if issue.resolved_at
-                else ''
-            ),
-            (
-                _display_name(issue.added_by)
-                if issue.added_by
-                else ''
-            ),
+            category_1,
+            category_2,
+            details,
+            remarks,
+            event_type,
         ])
+
+    for row in ws.iter_rows():
+        for cell in row:
+            cell.alignment = Alignment(
+                vertical='top',
+                wrap_text=True,
+            )
 
     _autosize(ws)
-
-    # ----------------------------------------------------------
-    # NIGHT PREVIOUS-DAY SUMMARY
-    # ----------------------------------------------------------
-    if report.shift == 'NIGHT':
-        ws = wb.create_sheet('Previous Day')
-
-        prev = report.previous_day_summary or {}
-        outage = prev.get('outage', {})
-
-        ws.append(['Previous Calendar Date', prev.get('date', '')])
-        ws.append(['Outage Count', outage.get('count', 0)])
-        ws.append([
-            'Total Outage',
-            outage.get('total_duration', '0m'),
-        ])
-
-        ws.append([])
-        ws.append([
-            'ID',
-            'Start',
-            'End',
-            'Duration',
-            'Generator',
-            'Cycle Type',
-        ])
-
-        for cell in ws[5]:
-            cell.font = Font(bold=True)
-
-        for row in outage.get('rows', []):
-            ws.append([
-                row.get('id'),
-                row.get('start'),
-                row.get('end'),
-                row.get('duration'),
-                row.get('generator'),
-                row.get('cycle_type'),
-            ])
-
-        _autosize(ws)
 
     stream = BytesIO()
     wb.save(stream)
 
-    filename = (
-        f'shift_report_{report.report_date.isoformat()}_'
-        f'{report.shift.lower()}.xlsx'
+    return (
+        'Historical Important Issues.xlsx',
+        stream.getvalue(),
     )
-
-    return filename, stream.getvalue()
-
 
 def build_recipient_lists(report, config):
     """
@@ -363,58 +195,392 @@ def build_subject(report):
     )
 
 
-def build_html_body(report):
-    outage = report.outage_summary or {}
-    generator = report.generator_summary or {}
-    sensor = report.sensor_summary or {}
+def _html_lines(value):
+    return html.escape(
+        value or ''
+    ).replace('\n', '<br>')
 
-    prepared = html.escape(_display_name(report.prepared_by))
-    handover = html.escape(report.handover_to.name)
 
-    body = f"""
+def _outage_rows_html(report):
+    rows = (
+        report.outage_summary or {}
+    ).get('rows', [])
+
+    if not rows:
+        return (
+            '<div>No load shedding occurred during the shift.</div>'
+        )
+
+    body = []
+
+    for row in rows:
+        start = html.escape(
+            str(row.get('start', ''))
+        )
+        end = html.escape(
+            str(row.get('end', ''))
+        )
+        duration = html.escape(
+            str(row.get('duration', ''))
+        )
+        generator = html.escape(
+            str(row.get('generator', ''))
+        )
+        cycle_type = html.escape(
+            str(row.get('cycle_type', ''))
+        )
+
+        body.append(
+            '<tr>'
+            f'<td>{start}</td>'
+            f'<td>{end}</td>'
+            f'<td>{duration}</td>'
+            f'<td>{generator}</td>'
+            f'<td>{cycle_type}</td>'
+            '</tr>'
+        )
+
+    total = html.escape(
+        str(
+            (report.outage_summary or {})
+            .get('total_duration', '0m')
+        )
+    )
+
+    return (
+        '<table style="width:100%;border-collapse:collapse;margin:4px 0">'
+        '<tr>'
+        '<th style="border:1px solid #777;padding:4px">Start</th>'
+        '<th style="border:1px solid #777;padding:4px">End</th>'
+        '<th style="border:1px solid #777;padding:4px">Duration</th>'
+        '<th style="border:1px solid #777;padding:4px">GEN</th>'
+        '<th style="border:1px solid #777;padding:4px">Type</th>'
+        '</tr>'
+        + ''.join(body)
+        + '</table>'
+        f'<strong>Total Outage Duration:</strong> {total}'
+    )
+
+
+def _activity_rows_html(report):
+    rows = list(
+        report.activity_rows.all()
+    )
+
+    if not rows:
+        return (
+            '<tr>'
+            '<td style="border:1px solid #777;padding:6px">-</td>'
+            '<td style="border:1px solid #777;padding:6px">-</td>'
+            '<td style="border:1px solid #777;padding:6px">-</td>'
+            '<td style="border:1px solid #777;padding:6px">-</td>'
+            '<td style="border:1px solid #777;padding:6px">-</td>'
+            '</tr>'
+        )
+
+    result = []
+
+    for row in rows:
+        result.append(
+            '<tr>'
+            f'<td style="border:1px solid #777;padding:6px;vertical-align:top">'
+            f'{_html_lines(row.activity_type)}</td>'
+            f'<td style="border:1px solid #777;padding:6px;vertical-align:top">'
+            f'{_html_lines(row.client_vendor)}</td>'
+            f'<td style="border:1px solid #777;padding:6px;vertical-align:top">'
+            f'{_html_lines(row.details)}</td>'
+            f'<td style="border:1px solid #777;padding:6px;vertical-align:top">'
+            f'{_html_lines(row.status)}</td>'
+            f'<td style="border:1px solid #777;padding:6px;vertical-align:top">'
+            f'{_html_lines(row.remarks)}</td>'
+            '</tr>'
+        )
+
+    return ''.join(result)
+
+
+def build_html_body(report, config):
+    """
+    Final Shift Report email body.
+
+    Its structure intentionally follows the operational Morning/Evening/Night
+    report examples:
+      Dear Sir
+      A. Shift Details
+      B. Regular Shift Activities
+      C. Shift Activities and the Issues
+      Automatic Prepared By signature
+    """
+    from .services import (
+        automatic_temperature_text,
+    )
+
+    signature = build_prepared_by_signature(
+        report.prepared_by,
+        config,
+    )
+
+    temp_text = automatic_temperature_text(
+        report.sensor_summary or {}
+    )
+
+    shift_name = html.escape(
+        report.get_shift_display().replace(
+            ' Shift',
+            '',
+        )
+    )
+
+    handover = html.escape(
+        report.handover_to.name
+    )
+
+    prepared_by = html.escape(
+        _display_name(report.prepared_by)
+    )
+
+    return f"""
     <html>
-      <body>
-        <h2>SysMonitor NOC Shift Report</h2>
+      <body style="font-family:Calibri,Arial,sans-serif;font-size:11pt">
+
+        <p>Dear Sir,</p>
 
         <p>
-          <strong>Date:</strong> {report.report_date:%d %b %Y}<br>
-          <strong>Shift:</strong> {html.escape(report.get_shift_display())}<br>
-          <strong>Prepared By:</strong> {prepared}<br>
-          <strong>Handover To:</strong> {handover}
+          Please find the report in the below table along with the
+          historical issues attached:
         </p>
 
-        <h3>Automatic Operational Summary</h3>
-        <ul>
-          <li>PDB outages: {outage.get('count', 0)}</li>
-          <li>Total PDB outage: {html.escape(str(outage.get('total_duration', '0m')))}</li>
-          <li>Generator 01 runtime: {html.escape(str(generator.get('Gen-01', '0m')))}</li>
-          <li>Generator 02 runtime: {html.escape(str(generator.get('Gen-02', '0m')))}</li>
-          <li>Generator shifts: {generator.get('mode_change_count', 0)}</li>
-          <li>Sensor readings: {sensor.get('reading_count', 0)}</li>
-        </ul>
+        <table
+          style="
+            width:100%;
+            border-collapse:collapse;
+            border:1px solid #555;
+          "
+        >
+          <tr>
+            <th
+              colspan="2"
+              style="
+                border:1px solid #555;
+                padding:7px;
+                text-align:left;
+                background:#c6d9f1;
+                font-size:12pt;
+              "
+            >
+              COXCLS NOC SHIFT REPORT
+            </th>
+          </tr>
 
-        <h3>Regular Activities</h3>
-        <p>{html.escape(report.regular_activities or '—').replace(chr(10), '<br>')}</p>
+          <tr>
+            <th
+              colspan="2"
+              style="
+                border:1px solid #555;
+                padding:7px;
+                text-align:left;
+                background:#eef3f8;
+              "
+            >
+              A. Shift Details
+            </th>
+          </tr>
 
-        <h3>Issues Observed</h3>
-        <p>{html.escape(report.issues_observed or '—').replace(chr(10), '<br>')}</p>
+          <tr>
+            <td style="border:1px solid #555;padding:6px;width:26%">
+              <strong>Date:</strong>
+            </td>
+            <td style="border:1px solid #555;padding:6px">
+              {report.report_date:%d-%m-%Y}
+            </td>
+          </tr>
 
-        <h3>Pending Handover</h3>
-        <p>{html.escape(report.pending_handover or '—').replace(chr(10), '<br>')}</p>
+          <tr>
+            <td style="border:1px solid #555;padding:6px">
+              <strong>Shift:</strong>
+            </td>
+            <td style="border:1px solid #555;padding:6px">
+              {shift_name}
+            </td>
+          </tr>
 
-        <h3>Important Notes</h3>
-        <p>{html.escape(report.important_notes or '—').replace(chr(10), '<br>')}</p>
+          <tr>
+            <td style="border:1px solid #555;padding:6px">
+              <strong>Prepared By:</strong>
+            </td>
+            <td style="border:1px solid #555;padding:6px">
+              {prepared_by}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="border:1px solid #555;padding:6px">
+              <strong>Handover To:</strong>
+            </td>
+            <td style="border:1px solid #555;padding:6px">
+              {handover}
+            </td>
+          </tr>
+
+          <tr>
+            <th
+              colspan="2"
+              style="
+                border:1px solid #555;
+                padding:7px;
+                text-align:left;
+                background:#c6e0b4;
+              "
+            >
+              B. Regular Shift Activities
+            </th>
+          </tr>
+
+          <tr>
+            <td style="border:1px solid #555;padding:6px">
+              <strong>AC Shifting</strong>
+            </td>
+            <td style="border:1px solid #555;padding:6px">
+              {_html_lines(report.ac_shifting)}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="border:1px solid #555;padding:6px">
+              <strong>Network</strong>
+            </td>
+            <td style="border:1px solid #555;padding:6px">
+              {_html_lines(report.network_status)}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="border:1px solid #555;padding:6px">
+              <strong>Cable</strong>
+            </td>
+            <td style="border:1px solid #555;padding:6px">
+              {_html_lines(report.cable_status)}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="border:1px solid #555;padding:6px">
+              <strong>PFE</strong>
+            </td>
+            <td style="border:1px solid #555;padding:6px">
+              {_html_lines(report.pfe_status)}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="border:1px solid #555;padding:6px">
+              <strong>DWDM</strong>
+            </td>
+            <td style="border:1px solid #555;padding:6px">
+              {_html_lines(report.dwdm_status)}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="border:1px solid #555;padding:6px">
+              <strong>This Month's Maintenance Activity</strong>
+            </td>
+            <td style="border:1px solid #555;padding:6px">
+              {_html_lines(report.maintenance_activity)}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="border:1px solid #555;padding:6px">
+              <strong>Generator Status</strong>
+            </td>
+            <td style="border:1px solid #555;padding:6px">
+              {_html_lines(report.generator_status_text)}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="border:1px solid #555;padding:6px">
+              <strong>Load Shedding</strong>
+            </td>
+            <td style="border:1px solid #555;padding:6px">
+              {_outage_rows_html(report)}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="border:1px solid #555;padding:6px">
+              <strong>Colocation Room Temperature</strong>
+            </td>
+            <td style="border:1px solid #555;padding:6px">
+              {_html_lines(temp_text)}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="border:1px solid #555;padding:6px">
+              <strong>Rain Water Leakage</strong>
+            </td>
+            <td style="border:1px solid #555;padding:6px">
+              {_html_lines(report.rain_water_leakage)}
+            </td>
+          </tr>
+
+          <tr>
+            <td style="border:1px solid #555;padding:6px">
+              <strong>SMW4 CIRCUIT &amp; BANDWIDTH STATUS</strong>
+            </td>
+            <td style="border:1px solid #555;padding:6px">
+              {_html_lines(report.bandwidth_status)}
+            </td>
+          </tr>
+        </table>
+
+        <br>
+
+        <table
+          style="
+            width:100%;
+            border-collapse:collapse;
+            border:1px solid #555;
+          "
+        >
+          <tr>
+            <th
+              colspan="5"
+              style="
+                border:1px solid #555;
+                padding:7px;
+                text-align:left;
+                background:#eef3f8;
+              "
+            >
+              C. Shift Activities and the Issues.
+            </th>
+          </tr>
+
+          <tr>
+            <th style="border:1px solid #555;padding:6px">Type</th>
+            <th style="border:1px solid #555;padding:6px">Client/Vendor</th>
+            <th style="border:1px solid #555;padding:6px">
+              Details of the issue
+            </th>
+            <th style="border:1px solid #555;padding:6px">Status</th>
+            <th style="border:1px solid #555;padding:6px">Remarks</th>
+          </tr>
+
+          {_activity_rows_html(report)}
+        </table>
 
         <p>
-          Detailed operational data and Important Issues history are attached
-          in the Excel workbook.
+          -------------------------------------------<br>
+          Regards,<br>
+          {signature}
         </p>
+
       </body>
     </html>
     """
-
-    return body
-
 
 def build_mnoc_html_body(report):
     previous = report.previous_day_summary or {}

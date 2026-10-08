@@ -426,3 +426,184 @@ def latest_completed_shift(now=None):
     )
 
     return report_date, shift, start, end
+
+
+DEFAULT_BANDWIDTH_STATUS = (
+    'Total Capacity: 4,650 Gbps\n'
+    'Used Capacity: 2413.875 Gbps (51.91%) '
+    '(Currently Carrying Traffic)\n'
+    'Free Capacity: 2,236.125 Gbps (48.09%)\n'
+    'Assigned Capacity: Approx. 2,725 Gbps '
+    '(Ready for service)\n'
+    'Total Active Circuits: 80\n'
+    '100G: 19\n'
+    '10G: 51\n'
+    'STM-16: 1\n'
+    'STM-1: 9'
+)
+
+
+def automatic_pfe_status(report_date, shift):
+    """
+    Generate a friendly PFE status for the Shift Handover.
+
+    MNOC PFE is a separate workflow. A sent PFE record is reflected here
+    automatically so the engineer does not need to type the same fact again.
+    """
+    from .models import MnocPfeReport
+
+    candidate_dates = [report_date]
+
+    _, shift_end = shift_window(
+        report_date,
+        shift,
+    )
+
+    end_date = shift_end.astimezone(BDT).date()
+
+    if end_date not in candidate_dates:
+        candidate_dates.append(end_date)
+
+    sent = (
+        MnocPfeReport.objects
+        .filter(
+            report_date__in=candidate_dates,
+            status='SENT',
+        )
+        .order_by('-report_date', '-id')
+        .first()
+    )
+
+    if sent:
+        return 'Normal. Data sent to MNOC.'
+
+    return 'Not sent to MNOC.'
+
+
+def automatic_generator_status(start, end):
+    """
+    Produce a useful starting text from the generator mode history.
+    The engineer may edit the text before sending.
+    """
+    latest = (
+        GeneratorModeLog.objects
+        .filter(switched_at__lte=end)
+        .order_by('-switched_at', '-id')
+        .first()
+    )
+
+    if not latest:
+        return 'No generator mode information available.'
+
+    generator = latest.generator or 'Generator'
+
+    when = latest.switched_at.astimezone(BDT)
+
+    lines = [
+        f'{generator} is the latest selected generator.',
+        f'Last generator mode record: {when:%I:%M %p, %d %b %Y}.',
+    ]
+
+    if latest.note:
+        lines.append(latest.note)
+
+    return '\n'.join(lines)
+
+
+def automatic_temperature_text(sensor_summary):
+    """
+    Convert sensor summary into the wording used in the report composer.
+    """
+    if not sensor_summary:
+        return 'No colocation sensor readings were recorded during the shift.'
+
+    low = sensor_summary.get('temperature_min')
+    high = sensor_summary.get('temperature_max')
+
+    if low is None or high is None:
+        return 'No colocation sensor readings were recorded during the shift.'
+
+    return (
+        'No temperature anomalies were observed during the shift; '
+        f'the recorded temperature remained around {low}~{high}°C.'
+    )
+
+
+def automatic_ac_shifting(shift):
+    """
+    Prefill the AC rotational-turn wording used in the supplied
+    Morning / Evening / Night Shift Report formats.
+    """
+    if shift == 'NIGHT':
+        rotation = 'N-3-5-9-12-15-16'
+    else:
+        rotation = 'E: 3-5-8-11-14-17'
+
+    return (
+        'Shifting of active AC as per rotational turn was performed. '
+        f'({rotation})'
+    )
+
+
+def report_composer_defaults(report_date, shift):
+    """
+    Prefill most of Section B automatically.
+    """
+    snapshot = build_shift_snapshot(
+        report_date,
+        shift,
+    )
+
+    return {
+        'snapshot': snapshot,
+
+        'ac_shifting': automatic_ac_shifting(
+            shift
+        ),
+
+        'network_status': 'Normal',
+        'cable_status': 'Normal',
+
+        'pfe_status': automatic_pfe_status(
+            report_date,
+            shift,
+        ),
+
+        'dwdm_status': 'Normal',
+
+        'maintenance_activity': 'None',
+
+        'generator_status_text': automatic_generator_status(
+            snapshot['start'],
+            snapshot['end'],
+        ),
+
+        'temperature_text': automatic_temperature_text(
+            snapshot['sensor'],
+        ),
+
+        'rain_water_leakage': (
+            'No significant rain was observed'
+        ),
+
+        'bandwidth_status': DEFAULT_BANDWIDTH_STATUS,
+    }
+
+
+def load_shedding_text(outage_summary):
+    """
+    Text fallback for the email composer.
+    The HTML email also renders the detailed outage table.
+    """
+    outage_summary = outage_summary or {}
+
+    rows = outage_summary.get('rows', [])
+
+    if not rows:
+        return 'No load shedding occurred during the shift.'
+
+    return (
+        f'{len(rows)} outage cycle(s) recorded during the shift. '
+        f'Total outage duration: '
+        f'{outage_summary.get("total_duration", "0m")}.'
+    )

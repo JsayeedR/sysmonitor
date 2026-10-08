@@ -1,421 +1,924 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SysMonitor — Shift Report</title>
-  <style>
-    :root{
-      --bg:#0f172a;--surface:#1e293b;--surface2:#162032;
-      --border:#334155;--text:#f1f5f9;--muted:#94a3b8;
-      --blue:#3b82f6;--green:#22c55e;--yellow:#fbbf24;
-      --red:#ef4444;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;background:var(--bg);color:var(--text);
-      font-family:'Segoe UI',system-ui,sans-serif
-    }
-    .wrap{max-width:1150px;margin:0 auto;padding:1.6rem 1.25rem 3rem}
-    .head{
-      display:flex;justify-content:space-between;align-items:flex-start;
-      gap:1rem;flex-wrap:wrap;margin-bottom:1.2rem
-    }
-    h1{margin:0;font-size:1.4rem}
-    h2{font-size:1rem;margin:0 0 .8rem}
-    .muted{color:var(--muted);font-size:.8rem}
-    .panel{
-      background:var(--surface);border:1px solid var(--border);
-      border-radius:12px;padding:1rem;margin-bottom:1rem
-    }
-    .cards{
-      display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
-      gap:.7rem;margin-bottom:1rem
-    }
-    .card{
-      background:var(--surface2);border:1px solid var(--border);
-      border-radius:10px;padding:.8rem
-    }
-    .label{
-      color:var(--muted);font-size:.7rem;text-transform:uppercase;
-      letter-spacing:.04em;margin-bottom:.3rem
-    }
-    .value{font-size:.92rem;font-weight:700}
-    .grid{
-      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:.8rem
-    }
-    .full{grid-column:1/-1}
-    label.form-label{
-      display:block;font-size:.72rem;color:var(--muted);
-      margin-bottom:.3rem
-    }
-    input,select,textarea{
-      width:100%;background:#0f172a;color:var(--text);
-      border:1px solid var(--border);border-radius:8px;
-      padding:.6rem .7rem;font:inherit;font-size:.82rem
-    }
-    textarea{min-height:95px;resize:vertical}
-    .btn{
-      display:inline-block;border:0;border-radius:8px;
-      padding:.58rem .85rem;background:var(--blue);
-      color:#fff;text-decoration:none;font-size:.8rem;
-      font-weight:700;cursor:pointer
-    }
-    .btn-secondary{
-      background:#334155
-    }
-    .msg{
-      border:1px solid #166534;background:#052e16;color:#86efac;
-      border-radius:8px;padding:.65rem .8rem;margin-bottom:.8rem;
-      font-size:.8rem
-    }
-    table{
-      width:100%;border-collapse:collapse;font-size:.76rem
-    }
-    th,td{
-      padding:.65rem;border-bottom:1px solid var(--border);
-      text-align:left;vertical-align:top
-    }
-    th{color:#bfdbfe;background:var(--surface2)}
-    .status{
-      font-size:.7rem;border:1px solid var(--border);
-      border-radius:20px;padding:.15rem .45rem;white-space:nowrap
-    }
-    .issue{
-      padding:.55rem .65rem;border:1px solid var(--border);
-      border-radius:8px;margin-bottom:.45rem;font-size:.78rem
-    }
-    @media(max-width:700px){
-      .grid{grid-template-columns:1fr}
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<title>SysMonitor — Shift Report</title>
+
+<style>
+:root{
+  --bg:#0f172a;
+  --surface:#1e293b;
+  --surface2:#162032;
+  --border:#475569;
+  --text:#f1f5f9;
+  --muted:#94a3b8;
+  --blue:#3b82f6;
+  --green:#c6e0b4;
+  --lightblue:#c6d9f1;
+  --email:#ffffff;
+  --emailtext:#111827;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:"Segoe UI",Arial,sans-serif;
+}
+
+.wrap{
+  max-width:1250px;
+  margin:0 auto;
+  padding:1.4rem 1rem 3rem;
+}
+
+.tabs{
+  display:flex;
+  gap:.55rem;
+  flex-wrap:wrap;
+  margin-bottom:1rem;
+}
+
+.btn{
+  border:0;
+  border-radius:8px;
+  padding:.58rem .9rem;
+  background:var(--blue);
+  color:white;
+  text-decoration:none;
+  font-weight:700;
+  cursor:pointer;
+  font-size:.82rem;
+}
+
+.secondary{background:#334155}
+
+.heading{
+  display:flex;
+  justify-content:space-between;
+  gap:1rem;
+  flex-wrap:wrap;
+  margin-bottom:1rem;
+}
+
+.muted{
+  color:var(--muted);
+  font-size:.78rem;
+}
+
+.msg{
+  border:1px solid #166534;
+  background:#052e16;
+  color:#86efac;
+  border-radius:8px;
+  padding:.65rem .8rem;
+  margin-bottom:.8rem;
+}
+
+.email-paper{
+  background:var(--email);
+  color:var(--emailtext);
+  border-radius:10px;
+  padding:24px;
+  box-shadow:0 8px 25px rgba(0,0,0,.25);
+  margin-bottom:1.2rem;
+}
+
+.email-intro{
+  margin-bottom:18px;
+  line-height:1.5;
+}
+
+.report-table{
+  width:100%;
+  border-collapse:collapse;
+  font-family:Calibri,Arial,sans-serif;
+  font-size:14px;
+}
+
+.report-table td,
+.report-table th{
+  border:1px solid #555;
+  padding:7px;
+  vertical-align:top;
+}
+
+.title-row{
+  background:var(--lightblue);
+  font-size:17px;
+  font-weight:700;
+  text-align:left;
+}
+
+.section-a{
+  background:#eef3f8;
+  text-align:left;
+  font-weight:700;
+}
+
+.section-b{
+  background:var(--green);
+  text-align:left;
+  font-weight:700;
+}
+
+.label-cell{
+  width:25%;
+  font-weight:700;
+}
+
+.edit-cell input,
+.edit-cell select,
+.edit-cell textarea{
+  width:100%;
+  border:1px solid transparent;
+  background:transparent;
+  color:#111827;
+  padding:7px;
+  font:inherit;
+  border-radius:4px;
+}
+
+.edit-cell textarea{
+  resize:vertical;
+}
+
+.edit-cell input:hover,
+.edit-cell select:hover,
+.edit-cell textarea:hover,
+.issue-table input:hover,
+.issue-table textarea:hover,
+.edit-cell input:focus,
+.edit-cell select:focus,
+.edit-cell textarea:focus,
+.issue-table input:focus,
+.issue-table textarea:focus{
+  border-color:#3b82f6;
+  background:#fffdf5;
+  outline:none;
+  min-height:58px;
+}
+
+.readonly-box{
+  white-space:pre-wrap;
+  line-height:1.45;
+}
+
+.issue-table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:18px;
+  font-family:Calibri,Arial,sans-serif;
+  font-size:13px;
+}
+
+.issue-table td,
+.issue-table th{
+  border:1px solid #555;
+  padding:6px;
+  vertical-align:top;
+}
+
+.issue-table input,
+.issue-table textarea{
+  width:100%;
+  min-width:100px;
+  padding:6px;
+  border:1px solid #94a3b8;
+  font:inherit;
+}
+
+.issue-table textarea{
+  min-height:80px;
+  resize:vertical;
+}
+
+.issue-heading{
+  background:#eef3f8;
+  text-align:left;
+}
+
+.actions{
+  display:flex;
+  gap:.6rem;
+  flex-wrap:wrap;
+  margin-top:1rem;
+}
+
+.signature-preview{
+  margin-top:20px;
+  line-height:1.45;
+}
+
+.panel{
+  background:var(--surface);
+  border:1px solid #334155;
+  border-radius:10px;
+  padding:1rem;
+  margin-bottom:1rem;
+}
+
+table.history{
+  width:100%;
+  border-collapse:collapse;
+  font-size:.78rem;
+}
+
+table.history th,
+table.history td{
+  border-bottom:1px solid #334155;
+  padding:.6rem;
+  text-align:left;
+}
+
+table.history th{
+  color:#bfdbfe;
+}
+
+.historical-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:.65rem;
+}
+
+.historical-grid input,
+.historical-grid textarea,
+.historical-grid select{
+  width:100%;
+  background:#0f172a;
+  border:1px solid #475569;
+  color:#fff;
+  border-radius:6px;
+  padding:.55rem;
+}
+
+.historical-grid textarea{
+  min-height:80px;
+}
+
+@media(max-width:800px){
+  .email-paper{padding:10px}
+  .report-table{font-size:12px}
+  .label-cell{width:32%}
+  .historical-grid{grid-template-columns:1fr}
+}
+
+@media print{
+  body{
+    background:#fff !important;
+    color:#111 !important;
+  }
+
+  nav,
+  .tabs,
+  .heading,
+  .panel,
+  .actions,
+  button{
+    display:none !important;
+  }
+
+  .wrap{
+    max-width:none !important;
+    padding:0 !important;
+  }
+
+  .email-paper{
+    box-shadow:none !important;
+    border-radius:0 !important;
+    padding:0 !important;
+  }
+
+  input,
+  textarea,
+  select{
+    border:0 !important;
+    background:transparent !important;
+    color:#111 !important;
+    box-shadow:none !important;
+    outline:none !important;
+    resize:none !important;
+    -webkit-appearance:none !important;
+    appearance:none !important;
+  }
+
+  textarea{
+    overflow:visible !important;
+  }
+
+  .issue-table button{
+    display:none !important;
+  }
+
+  .issue-table th:last-child,
+  .issue-table td:last-child{
+    display:none !important;
+  }
+}
+
+</style>
 </head>
+
 <body>
 
 {% include "monitor/navbar.html" %}
 
 <div class="wrap">
 
-  <div style="display:flex;gap:.55rem;flex-wrap:wrap;margin-bottom:1rem">
-    <a class="btn"
-       href="{{ base_path }}/shift-report/">
+  <div class="tabs">
+    <a class="btn" href="{{ base_path }}/shift-report/">
       📝 Shift Handover
     </a>
 
-    <a class="btn btn-secondary"
+    <a class="btn secondary"
        href="{{ base_path }}/shift-report/mnoc-pfe/">
       ⚡ MNOC PFE Report
     </a>
-  </div>
-
-  <div class="head">
-    <div>
-      <h1>📝 Shift Report</h1>
-      <div class="muted">
-        NOC operational shift handover and reporting.
-      </div>
-    </div>
 
     {% if role == "admin" %}
-      <a href="{{ base_path }}/shift-report/config/settings/"
-         class="btn btn-secondary">
-        ⚙️ Shift Report Configuration
-      </a>
+    <a class="btn secondary"
+       href="{{ base_path }}/shift-report/config/settings/">
+      ⚙️ Configuration
+    </a>
     {% endif %}
+  </div>
+
+  <div class="heading">
+    <div>
+      <h2 style="margin:0">COXCLS NOC Shift Report Preparation</h2>
+      <div class="muted">
+        The preparation page below follows the final email layout.
+      </div>
+    </div>
   </div>
 
   {% for message in messages %}
-    <div class="msg">{{ message }}</div>
+  <div class="msg">{{ message }}</div>
   {% endfor %}
 
-  <div class="cards">
-    <div class="card">
-      <div class="label">Current Shift</div>
-      <div class="value">
-        {{ current_shift|title }}
+
+  {% if due_existing %}
+
+    <div class="panel">
+      <strong>🔒 {{ due_shift|title }} Shift report already exists.</strong>
+
+      <div class="muted" style="margin-top:.35rem">
+        Prepared by
+        {{ due_existing.prepared_by.get_full_name|default:due_existing.prepared_by.username }}.
+        Only one report can exist for this completed shift.
       </div>
+
+      {% if due_existing.prepared_by_id == user.id or role == "admin" %}
+      <div style="margin-top:.8rem">
+        <a class="btn"
+           href="{{ base_path }}/shift-report/{{ due_existing.id }}/">
+          Open Report
+        </a>
+      </div>
+      {% endif %}
     </div>
 
-    <div class="card">
-      <div class="label">Operational Date</div>
-      <div class="value">
-        {{ current_report_date|date:"d M Y" }}
+  {% else %}
+
+  <form method="post"
+        action="{{ base_path }}/shift-report/create/"
+        id="reportComposer">
+
+    {% csrf_token %}
+
+    <div class="email-paper">
+
+      <div class="email-intro">
+        <p><strong>Dear Sir,</strong></p>
+
+        <p>
+          Please find the report in the below table
+          along with the historical issues attached:
+        </p>
       </div>
-    </div>
 
-    <div class="card">
-      <div class="label">Current Window</div>
-      <div class="value">
-        {{ current_shift_start|date:"H:i" }}
-        –
-        {{ current_shift_end|date:"H:i" }}
-      </div>
-    </div>
+      <table class="report-table">
 
-    <div class="card">
-      <div class="label">Prepared By</div>
-      <div class="value">
-        {{ user.get_full_name|default:user.username }}
-      </div>
-    </div>
-  </div>
+        <tr>
+          <th colspan="2" class="title-row">
+            COXCLS NOC SHIFT REPORT
+          </th>
+        </tr>
 
-  <div class="panel">
-    <h2>Create Shift Report Draft</h2>
+        <tr>
+          <th colspan="2" class="section-a">
+            A. Shift Details
+          </th>
+        </tr>
 
-    {% if due_existing %}
-      <div class="msg">
-        🔒 This completed shift already has a report.
-        Prepared by:
-        <strong>
-          {{ due_existing.prepared_by.get_full_name|default:due_existing.prepared_by.username }}
-        </strong>.
-        No second Shift Report can be generated.
-      </div>
-    {% endif %}
+        <tr>
+          <td class="label-cell">Date:</td>
+          <td>{{ due_report_date|date:"d-m-Y" }}</td>
+        </tr>
 
-    {% if contacts and not due_existing %}
-    <form method="post"
-          action="{{ base_path }}/shift-report/create/">
+        <tr>
+          <td class="label-cell">Shift:</td>
+          <td>{{ due_shift|title }}</td>
+        </tr>
 
-      {% csrf_token %}
+        <tr>
+          <td class="label-cell">Prepared By:</td>
+          <td>
+            {{ user.get_full_name|default:user.username }}
+          </td>
+        </tr>
 
-      <div class="grid">
+        <tr>
+          <td class="label-cell">Handover To:</td>
+          <td class="edit-cell">
 
-        <div>
-          <label class="form-label">Report Due</label>
-          <input
-            value="{{ due_report_date|date:'d M Y' }}"
-            readonly
-          >
-        </div>
+            <select name="handover_to" required>
+              <option value="">Select next Shift Engineer…</option>
 
-        <div>
-          <label class="form-label">Completed Shift</label>
-          <input
-            value="{{ due_shift|title }} — {{ due_shift_start|date:'H:i' }} to {{ due_shift_end|date:'H:i' }}"
-            readonly
-          >
-        </div>
-
-        <div class="full">
-          <label class="form-label">
-            Handover To
-          </label>
-          <select name="handover_to" required>
-            <option value="">Select next shift officer…</option>
-            {% for contact in contacts %}
+              {% for contact in contacts %}
               <option value="{{ contact.id }}">
                 {{ contact.name }}
                 {% if contact.designation %}
                   — {{ contact.designation }}
                 {% endif %}
-                — {{ contact.email }}
               </option>
-            {% endfor %}
+              {% endfor %}
+            </select>
+
+          </td>
+        </tr>
+
+
+        <tr>
+          <th colspan="2" class="section-b">
+            B. Regular Shift Activities
+          </th>
+        </tr>
+
+        <tr>
+          <td class="label-cell">AC Shifting</td>
+          <td class="edit-cell">
+            <textarea name="ac_shifting">{{ composer_defaults.ac_shifting }}</textarea>
+          </td>
+        </tr>
+
+        <tr>
+          <td class="label-cell">Network</td>
+          <td class="edit-cell">
+            <input
+              name="network_status"
+              value="{{ composer_defaults.network_status }}"
+            >
+          </td>
+        </tr>
+
+        <tr>
+          <td class="label-cell">Cable</td>
+          <td class="edit-cell">
+            <input
+              name="cable_status"
+              value="{{ composer_defaults.cable_status }}"
+            >
+          </td>
+        </tr>
+
+        <tr>
+          <td class="label-cell">PFE</td>
+          <td class="edit-cell">
+            <input
+              name="pfe_status"
+              value="{{ composer_defaults.pfe_status }}"
+            >
+          </td>
+        </tr>
+
+        <tr>
+          <td class="label-cell">DWDM</td>
+          <td class="edit-cell">
+            <input
+              name="dwdm_status"
+              value="{{ composer_defaults.dwdm_status }}"
+            >
+          </td>
+        </tr>
+
+        <tr>
+          <td class="label-cell">
+            This Month's Maintenance Activity
+          </td>
+          <td class="edit-cell">
+            <textarea name="maintenance_activity">{{ composer_defaults.maintenance_activity }}</textarea>
+          </td>
+        </tr>
+
+        <tr>
+          <td class="label-cell">Generator Status</td>
+          <td class="edit-cell">
+            <textarea name="generator_status_text">{{ composer_defaults.generator_status_text }}</textarea>
+          </td>
+        </tr>
+
+        <tr>
+          <td class="label-cell">Load Shedding</td>
+          <td>
+            <div class="readonly-box">{{ load_shedding_text }}</div>
+
+            {% if composer_defaults.snapshot.outage.rows %}
+            <div style="margin-top:8px;overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse">
+                <tr>
+                  <th>Start</th>
+                  <th>End</th>
+                  <th>Duration</th>
+                  <th>GEN</th>
+                  <th>Type</th>
+                </tr>
+
+                {% for row in composer_defaults.snapshot.outage.rows %}
+                <tr>
+                  <td>{{ row.start }}</td>
+                  <td>{{ row.end }}</td>
+                  <td>{{ row.duration }}</td>
+                  <td>{{ row.generator }}</td>
+                  <td>{{ row.cycle_type }}</td>
+                </tr>
+                {% endfor %}
+              </table>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+
+        <tr>
+          <td class="label-cell">
+            Colocation Room Temperature
+          </td>
+          <td>
+            <div class="readonly-box">
+              {{ composer_defaults.temperature_text }}
+            </div>
+          </td>
+        </tr>
+
+        <tr>
+          <td class="label-cell">
+            Rain Water Leakage
+          </td>
+          <td class="edit-cell">
+            <textarea name="rain_water_leakage">{{ composer_defaults.rain_water_leakage }}</textarea>
+          </td>
+        </tr>
+
+        <tr>
+          <td class="label-cell">
+            SMW4 CIRCUIT &amp; BANDWIDTH STATUS
+          </td>
+          <td class="edit-cell">
+            <textarea
+              name="bandwidth_status"
+              style="min-height:175px"
+            >{{ composer_defaults.bandwidth_status }}</textarea>
+          </td>
+        </tr>
+
+      </table>
+
+
+      <table class="issue-table" id="activityTable">
+
+        <thead>
+          <tr>
+            <th colspan="6" class="issue-heading">
+              C. Shift Activities and the Issues.
+            </th>
+          </tr>
+
+          <tr>
+            <th>Type</th>
+            <th>Client/Vendor</th>
+            <th>Details of the issue</th>
+            <th>Status</th>
+            <th>Remarks</th>
+            <th style="width:55px"></th>
+          </tr>
+        </thead>
+
+        <tbody id="activityRows">
+
+          <tr class="activity-row">
+            <td>
+              <textarea name="activity_type"></textarea>
+            </td>
+
+            <td>
+              <textarea name="client_vendor"></textarea>
+            </td>
+
+            <td>
+              <textarea name="activity_details"></textarea>
+            </td>
+
+            <td>
+              <input
+                name="activity_status"
+                list="issue-status-options"
+              >
+            </td>
+
+            <td>
+              <textarea name="activity_remarks"></textarea>
+            </td>
+
+            <td>
+              <button
+                type="button"
+                class="btn secondary"
+                onclick="removeActivityRow(this)"
+              >
+                ×
+              </button>
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+
+      <datalist id="issue-status-options">
+        <option value="Pending">
+        <option value="Under Investigation">
+        <option value="Monitoring">
+        <option value="Completed">
+        <option value="Resolved">
+        <option value="N/A">
+      </datalist>
+
+      <div style="margin-top:.65rem">
+        <button
+          type="button"
+          class="btn secondary"
+          onclick="addActivityRow()"
+        >
+          + Add Activity / Issue
+        </button>
+      </div>
+
+
+      <div class="signature-preview">
+        -------------------------------------------<br>
+
+        <strong>Regards,</strong><br>
+
+        {{ user.get_full_name|default:user.username }}<br>
+
+        {% if user.userprofile.designation %}
+          {{ user.userprofile.designation }}<br>
+        {% endif %}
+
+        Bangladesh Submarine Cables PLC. (BSCPLC)<br>
+
+        {% if user.userprofile.mobile_number %}
+          Mob/WhatsApp# {{ user.userprofile.mobile_number }}<br>
+        {% endif %}
+
+        {% if config and config.noc_mobile %}
+          NOC Mob/WhatsApp# {{ config.noc_mobile }}<br>
+        {% endif %}
+
+        {% if config and config.website %}
+          Website# {{ config.website }}
+        {% endif %}
+      </div>
+
+    </div>
+
+
+    <div class="panel">
+
+      <strong>Email recipients</strong>
+
+      <div class="muted" style="margin-top:.4rem">
+        Mandatory TO/CC are controlled by Admin.
+        You may only add extra CC recipients.
+      </div>
+
+      <div style="margin-top:.8rem">
+        <label class="muted">Additional CC</label>
+
+        <input
+          name="additional_cc"
+          style="
+            width:100%;
+            margin-top:.3rem;
+            padding:.6rem;
+            background:#0f172a;
+            color:#fff;
+            border:1px solid #475569;
+            border-radius:6px;
+          "
+          placeholder="Optional additional email addresses"
+        >
+      </div>
+
+    </div>
+
+
+    <div class="actions">
+
+      <button class="btn" type="submit">
+        💾 Create Draft
+      </button>
+
+      <button
+        class="btn secondary"
+        type="button"
+        onclick="window.print()"
+      >
+        🖨️ Print / Preview
+      </button>
+
+    </div>
+
+  </form>
+
+  {% endif %}
+
+
+  <div class="panel" style="margin-top:1.3rem">
+
+    <h3 style="margin-top:0">
+      Historical Important Issues
+    </h3>
+
+    <div class="muted" style="margin-bottom:.8rem">
+      These records are exported in the
+      <strong>Historical Important Issues.xlsx</strong>
+      attachment sent with the Shift Report.
+    </div>
+
+    <form
+      method="post"
+      action="{{ base_path }}/shift-report/issues/add/"
+    >
+
+      {% csrf_token %}
+
+      <div class="historical-grid">
+
+        <div>
+          <label class="muted">Category-1</label>
+          <input name="category_1">
+        </div>
+
+        <div>
+          <label class="muted">Category-2</label>
+          <input name="category_2">
+        </div>
+
+        <div>
+          <label class="muted">Event Type</label>
+          <select name="event_type">
+            <option value="Followup">Followup</option>
+            <option value="Reporting">Reporting</option>
           </select>
         </div>
 
-        <div>
-          <label class="form-label">Regular Activities</label>
-          <textarea name="regular_activities"
-            placeholder="Routine checks, monitoring, coordination, etc."></textarea>
-        </div>
+        <div></div>
 
         <div>
-          <label class="form-label">Issues Observed</label>
-          <textarea name="issues_observed"
-            placeholder="Faults, alarms, unusual conditions, pending issues…"></textarea>
+          <label class="muted">Details</label>
+          <textarea name="details"></textarea>
         </div>
 
         <div>
-          <label class="form-label">Pending Handover</label>
-          <textarea name="pending_handover"
-            placeholder="Tasks or follow-up for the next shift…"></textarea>
+          <label class="muted">Remarks</label>
+          <textarea name="remarks"></textarea>
         </div>
 
-        <div>
-          <label class="form-label">Important Notes</label>
-          <textarea name="important_notes"
-            placeholder="Any additional important information…"></textarea>
-        </div>
-
-        <div class="full">
-          <label class="form-label">
-            Additional CC
-          </label>
-          <input
-            type="text"
-            name="additional_cc"
-            placeholder="Optional extra email addresses, comma-separated"
-          >
-          <div class="muted" style="margin-top:.3rem">
-            Mandatory CC configured by Admin cannot be removed here.
-          </div>
-        </div>
-
-        {% if current_shift == "NIGHT" %}
-        <div class="full">
-          <label class="form-label">MNOC Notes</label>
-          <textarea name="mnoc_notes"
-            placeholder="Night-shift MNOC information for the separate MNOC email."></textarea>
-        </div>
-        {% endif %}
-
-      </div>
-
-      <div style="margin-top:1rem">
-        <button class="btn" type="submit">
-          💾 Create Draft
-        </button>
-      </div>
-    </form>
-
-    {% elif not due_existing %}
-
-      <div class="muted">
-        No active handover contacts are configured yet.
-        {% if role == "admin" %}
-          Open Shift Report Configuration and add the NOC handover officers first.
-        {% else %}
-          Please ask an administrator to configure the handover contacts.
-        {% endif %}
-      </div>
-
-    {% endif %}
-  </div>
-
-  <div class="panel">
-    <h2>⚠️ Important Issues</h2>
-
-    <form method="post"
-          action="{{ base_path }}/shift-report/issues/add/"
-          style="margin-bottom:1rem">
-      {% csrf_token %}
-
-      <div class="grid">
-        <div>
-          <label class="form-label">Issue Title</label>
-          <input
-            type="text"
-            name="title"
-            required
-            placeholder="Short important issue title"
-          >
-        </div>
-
-        <div>
-          <label class="form-label">Description</label>
-          <textarea
-            name="description"
-            required
-            placeholder="Issue details, impact and follow-up information"
-            style="min-height:70px"></textarea>
-        </div>
       </div>
 
       <div style="margin-top:.7rem">
-        <button class="btn" type="submit">
-          + Add Important Issue
+        <button class="btn secondary" type="submit">
+          + Add Historical Issue
         </button>
       </div>
+
     </form>
 
-    {% if important_issues %}
-    <h2 style="margin-top:1.2rem">
-      Open / Monitoring Issues
-    </h2>
-
-    {% for issue in important_issues %}
-      <div class="issue">
-        <strong>{{ issue.title }}</strong>
-        <span class="status">{{ issue.get_status_display }}</span>
-
-        <div class="muted" style="margin-top:.25rem">
-          {{ issue.description|truncatechars:180 }}
-        </div>
-
-        <form method="post"
-              action="{{ base_path }}/shift-report/issues/{{ issue.id }}/update/"
-              style="display:flex;gap:.5rem;margin-top:.55rem;align-items:center">
-          {% csrf_token %}
-
-          <select name="status" style="max-width:180px">
-            <option value="OPEN"
-              {% if issue.status == "OPEN" %}selected{% endif %}>
-              Open
-            </option>
-            <option value="MONITORING"
-              {% if issue.status == "MONITORING" %}selected{% endif %}>
-              Monitoring
-            </option>
-            <option value="RESOLVED">
-              Resolved
-            </option>
-          </select>
-
-          <button class="btn btn-secondary" type="submit">
-            Update
-          </button>
-        </form>
-      </div>
-    {% endfor %}
-    {% else %}
-      <div class="muted">
-        No open or monitoring Important Issues.
-      </div>
-    {% endif %}
   </div>
 
+
   <div class="panel">
-    <h2>Recent Shift Reports</h2>
+
+    <h3 style="margin-top:0">
+      My Shift Report History
+    </h3>
 
     <div style="overflow-x:auto">
-      <table>
+
+      <table class="history">
+
         <thead>
           <tr>
             <th>Date</th>
             <th>Shift</th>
-            <th>Prepared By</th>
-            <th>Handover To</th>
+            <th>Handover</th>
             <th>Status</th>
             <th></th>
           </tr>
         </thead>
 
         <tbody>
+
           {% for r in reports %}
+
           <tr>
             <td>{{ r.report_date|date:"d M Y" }}</td>
             <td>{{ r.get_shift_display }}</td>
-            <td>
-              {{ r.prepared_by.get_full_name|default:r.prepared_by.username }}
-            </td>
             <td>{{ r.handover_to.name }}</td>
+            <td>{{ r.get_status_display }}</td>
+
             <td>
-              <span class="status">{{ r.get_status_display }}</span>
-            </td>
-            <td>
-              <a class="btn btn-secondary"
-                 href="{{ base_path }}/shift-report/{{ r.id }}/">
+              <a
+                class="btn secondary"
+                href="{{ base_path }}/shift-report/{{ r.id }}/"
+              >
                 Open
               </a>
             </td>
           </tr>
 
           {% empty %}
+
           <tr>
-            <td colspan="6" class="muted">
-              No Shift Reports have been created yet.
+            <td colspan="5" class="muted">
+              No Shift Reports yet.
             </td>
           </tr>
+
           {% endfor %}
+
         </tbody>
+
       </table>
+
     </div>
+
   </div>
 
 </div>
+
+
+<script>
+function addActivityRow() {
+  const tbody = document.getElementById('activityRows');
+
+  const row = document.createElement('tr');
+  row.className = 'activity-row';
+
+  row.innerHTML = `
+    <td><textarea name="activity_type"></textarea></td>
+    <td><textarea name="client_vendor"></textarea></td>
+    <td><textarea name="activity_details"></textarea></td>
+    <td>
+      <input
+        name="activity_status"
+        list="issue-status-options"
+      >
+    </td>
+    <td><textarea name="activity_remarks"></textarea></td>
+    <td>
+      <button
+        type="button"
+        class="btn secondary"
+        onclick="removeActivityRow(this)"
+      >×</button>
+    </td>
+  `;
+
+  tbody.appendChild(row);
+}
+
+
+function removeActivityRow(button) {
+  const rows = document.querySelectorAll('.activity-row');
+
+  if (rows.length === 1) {
+    const row = button.closest('tr');
+
+    row.querySelectorAll('input, textarea').forEach(
+      element => element.value = ''
+    );
+
+    return;
+  }
+
+  button.closest('tr').remove();
+}
+</script>
+
 </body>
 </html>

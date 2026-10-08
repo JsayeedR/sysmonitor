@@ -185,7 +185,72 @@ class ShiftReport(models.Model):
         default='DRAFT',
     )
 
-    # Operator-written sections.
+    # ---------------------------------------------------------
+    # Section B — Regular Shift Activities
+    # These fields map directly to the operational email/report format.
+    # ---------------------------------------------------------
+    ac_shifting = models.TextField(
+        blank=True,
+        default='Shifting of active AC as per rotational turn was performed.',
+    )
+
+    network_status = models.CharField(
+        max_length=100,
+        blank=True,
+        default='Normal',
+    )
+
+    cable_status = models.CharField(
+        max_length=100,
+        blank=True,
+        default='Normal',
+    )
+
+    pfe_status = models.CharField(
+        max_length=200,
+        blank=True,
+        default='',
+    )
+
+    dwdm_status = models.CharField(
+        max_length=100,
+        blank=True,
+        default='Normal',
+    )
+
+    maintenance_activity = models.TextField(
+        blank=True,
+        default='None',
+    )
+
+    generator_status_text = models.TextField(
+        blank=True,
+    )
+
+    rain_water_leakage = models.TextField(
+        blank=True,
+        default='No significant rain was observed',
+    )
+
+    bandwidth_status = models.TextField(
+        blank=True,
+        default=(
+            'Total Capacity: 4,650 Gbps\n'
+            'Used Capacity: 2413.875 Gbps (51.91%) '
+            '(Currently Carrying Traffic)\n'
+            'Free Capacity: 2,236.125 Gbps (48.09%)\n'
+            'Assigned Capacity: Approx. 2,725 Gbps '
+            '(Ready for service)\n'
+            'Total Active Circuits: 80\n'
+            '100G: 19\n'
+            '10G: 51\n'
+            'STM-16: 1\n'
+            'STM-1: 9'
+        ),
+    )
+
+    # Legacy/free-form fields retained for existing records.
+    # New composer uses the structured fields above and Section C rows below.
     regular_activities = models.TextField(blank=True)
     issues_observed = models.TextField(blank=True)
     pending_handover = models.TextField(blank=True)
@@ -250,8 +315,34 @@ class ShiftImportantIssue(models.Model):
         ('RESOLVED', 'Resolved'),
     ]
 
-    title = models.CharField(max_length=200)
-    description = models.TextField()
+    # Columns matching the existing Historical Important Issues workbook.
+    category_1 = models.CharField(
+        max_length=150,
+        blank=True,
+    )
+
+    category_2 = models.CharField(
+        max_length=200,
+        blank=True,
+    )
+
+    title = models.CharField(
+        max_length=200,
+        blank=True,
+    )
+
+    description = models.TextField(
+        blank=True,
+    )
+
+    remarks = models.TextField(
+        blank=True,
+    )
+
+    event_type = models.CharField(
+        max_length=100,
+        blank=True,
+    )
     status = models.CharField(
         max_length=12,
         choices=STATUS_CHOICES,
@@ -383,4 +474,68 @@ class MnocPfeReport(models.Model):
         return (
             f'{self.report_date} — '
             f'{self.voltage_v} V / {self.current_ma} mA'
+        )
+
+
+
+class ShiftReportActivity(models.Model):
+    """
+    Section C — Shift Activities and the Issues.
+
+    One Shift Report can contain any number of rows matching the
+    operational email table:
+      Type | Client/Vendor | Details | Status | Remarks
+    """
+
+    report = models.ForeignKey(
+        ShiftReport,
+        on_delete=models.CASCADE,
+        related_name='activity_rows',
+    )
+
+    activity_type = models.CharField(
+        max_length=200,
+        blank=True,
+    )
+
+    client_vendor = models.CharField(
+        max_length=250,
+        blank=True,
+    )
+
+    details = models.TextField(
+        blank=True,
+    )
+
+    status = models.CharField(
+        max_length=150,
+        blank=True,
+    )
+
+    remarks = models.TextField(
+        blank=True,
+    )
+
+    display_order = models.PositiveIntegerField(
+        default=100,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        ordering = [
+            'display_order',
+            'id',
+        ]
+
+    def __str__(self):
+        return (
+            f'{self.report} — '
+            f'{self.activity_type or "Activity"}'
         )
