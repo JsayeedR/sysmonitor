@@ -256,6 +256,12 @@ class ShiftReport(models.Model):
     pending_handover = models.TextField(blank=True)
     important_notes = models.TextField(blank=True)
 
+    # Explicitly records that the same engineer continues
+    # into the next shift instead of handing over to another.
+    shift_continues = models.BooleanField(
+        default=False,
+    )
+
     # Optional extra CC entered by report writer.
     additional_cc = models.TextField(blank=True)
 

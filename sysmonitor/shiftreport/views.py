@@ -45,6 +45,74 @@ def _can_manage_report(user, report):
     return report.prepared_by_id == user.id
 
 
+
+def _resolve_shift_handover(user, handover_id, continues):
+    """
+    Resolve a handover recipient.
+
+    Normal handover:
+        Another engineer must be selected.
+
+    Continuous shift:
+        Automatically select the current engineer's
+        linked, active handover contact.
+    """
+    import re
+
+    if continues:
+        contacts = ShiftHandoverContact.objects.filter(
+            user=user,
+            is_active=True,
+        )
+
+        if contacts.count() != 1:
+            raise ValueError(
+                'Shift Continues requires exactly one active '
+                'handover contact linked to your account.'
+            )
+
+        return contacts.get()
+
+    contact = ShiftHandoverContact.objects.filter(
+        pk=handover_id,
+        is_active=True,
+    ).first()
+
+    if contact is None:
+        raise ValueError(
+            'Please select an active handover recipient.'
+        )
+
+    if contact.user_id == user.pk:
+        raise ValueError(
+            'You cannot hand over to yourself unless '
+            'Shift Continues is selected.'
+        )
+
+    # Handle older handover contacts without a linked user.
+    # Employee-number suffixes such as (2136) are ignored
+    # only for the purpose of identifying self-handover.
+    if contact.user_id is None:
+        normalized_contact_name = re.sub(
+            r'\s*\(\d+\)\s*$',
+            '',
+            contact.name,
+        ).strip().casefold()
+
+        normalized_user_name = (
+            user.get_full_name().strip().casefold()
+        )
+
+        if (
+            normalized_user_name
+            and normalized_contact_name == normalized_user_name
+        ):
+            raise ValueError(
+                'Self-handover requires Shift Continues.'
+            )
+
+    return contact
+
 def _config():
     # Reading Shift Report pages must never create DB rows.
     # This is especially important on REMOTE, whose mirrored database
@@ -246,10 +314,20 @@ def shift_report_home(request):
         .order_by('-opened_at', '-id')[:20]
     )
 
+    self_contact_id = (
+        ShiftHandoverContact.objects.filter(
+            user=request.user,
+            is_active=True,
+        )
+        .values_list('id', flat=True)
+        .first()
+    )
+
     return render(
         request,
         'shiftreport/home.html',
         {
+            'self_contact_id': self_contact_id,
             'role': get_role(request.user),
             'user': request.user,
 
@@ -292,16 +370,16 @@ def shift_report_create(request):
         '',
     ).strip()
 
-    handover = ShiftHandoverContact.objects.filter(
-        id=handover_id,
-        is_active=True,
-    ).first()
+    continues = request.POST.get('shift_continues') == 'on'
 
-    if handover is None:
-        messages.error(
-            request,
-            'Please select an active handover recipient.'
+    try:
+        handover = _resolve_shift_handover(
+            request.user,
+            handover_id,
+            continues,
         )
+    except ValueError as exc:
+        messages.error(request, str(exc))
         return redirect('shiftreport:home')
 
     existing = (
@@ -379,6 +457,7 @@ def shift_report_create(request):
         shift_end=snapshot['end'],
         prepared_by=request.user,
         handover_to=handover,
+        shift_continues=continues,
 
         ac_shifting=request.POST.get(
             'ac_shifting',
@@ -560,10 +639,20 @@ def shift_report_edit(request, report_id):
         ):
             preview_cc.append(address)
 
+    self_contact_id = (
+        ShiftHandoverContact.objects.filter(
+            user=report.prepared_by,
+            is_active=True,
+        )
+        .values_list('id', flat=True)
+        .first()
+    )
+
     return render(
         request,
         'shiftreport/edit.html',
         {
+            'self_contact_id': self_contact_id,
             'role': get_role(request.user),
             'user': request.user,
             'report': report,
@@ -628,22 +717,23 @@ def shift_report_save(request, report_id):
 
     handover_id = request.POST.get('handover_to', '').strip()
 
-    handover = ShiftHandoverContact.objects.filter(
-        id=handover_id,
-        is_active=True,
-    ).first()
+    continues = request.POST.get('shift_continues') == 'on'
 
-    if handover is None:
-        messages.error(
-            request,
-            'Please select an active handover recipient.'
+    try:
+        handover = _resolve_shift_handover(
+            report.prepared_by,
+            handover_id,
+            continues,
         )
+    except ValueError as exc:
+        messages.error(request, str(exc))
         return redirect(
             'shiftreport:edit',
             report_id=report.id,
         )
 
     report.handover_to = handover
+    report.shift_continues = continues
 
     _apply_structured_report_fields(
         report,

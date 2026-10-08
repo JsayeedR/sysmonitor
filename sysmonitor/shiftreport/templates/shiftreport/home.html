@@ -436,7 +436,11 @@ table.history th{
           <td class="label-cell">Handover To:</td>
           <td class="edit-cell">
 
-            <select name="handover_to" required>
+            <select
+              name="handover_to"
+              data-self-contact="{{ self_contact_id|default_if_none:'' }}"
+              required
+            >
               <option value="">Select next Shift Engineer…</option>
 
               {% for contact in contacts %}
@@ -452,6 +456,25 @@ table.history th{
           </td>
         </tr>
 
+
+        <tr>
+          <td class="label-cell">Continuous Shift:</td>
+          <td class="edit-cell">
+            <label>
+              <input
+                type="checkbox"
+                name="shift_continues"
+                value="on"
+                style="width:auto"
+              >
+              Shift Continues — same engineer
+            </label>
+            <div style="font-size:12px;color:#475569">
+              Automatically selects your linked
+              handover contact when the draft is saved.
+            </div>
+          </td>
+        </tr>
 
         <tr>
           <th colspan="2" class="section-b">
@@ -918,6 +941,72 @@ function removeActivityRow(button) {
 
   button.closest('tr').remove();
 }
+</script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const checkbox = document.querySelector(
+    'input[name="shift_continues"]'
+  );
+
+  const selector = document.querySelector(
+    'select[name="handover_to"]'
+  );
+
+  if (!checkbox || !selector) {
+    return;
+  }
+
+  const selfContactId = selector.dataset.selfContact || '';
+
+  let previousSelection = selector.value;
+
+  function syncContinuousShift() {
+    if (checkbox.checked) {
+      if (!selfContactId) {
+        checkbox.checked = false;
+        alert(
+          'Your account has no linked active handover contact. ' +
+          'Please contact the administrator.'
+        );
+        return;
+      }
+
+      if (!selector.querySelector(
+        'option[value="' + selfContactId + '"]'
+      )) {
+        checkbox.checked = false;
+        alert('Your linked handover contact is unavailable.');
+        return;
+      }
+
+      previousSelection = selector.value;
+      selector.value = selfContactId;
+    } else {
+      selector.value = previousSelection;
+    }
+  }
+
+  checkbox.addEventListener(
+    'change',
+    syncContinuousShift
+  );
+
+  selector.addEventListener('change', function () {
+    if (
+      checkbox.checked &&
+      selector.value !== selfContactId
+    ) {
+      checkbox.checked = false;
+      previousSelection = selector.value;
+    }
+  });
+
+  if (checkbox.checked) {
+    selector.value = selfContactId;
+  }
+});
 </script>
 
 </body>
