@@ -273,6 +273,11 @@ textarea{
 
     {% csrf_token %}
 
+    <fieldset
+      {% if report.status == "SENT" %}disabled{% endif %}
+      style="border:0;padding:0;margin:0;min-width:0"
+    >
+
     <div class="email-paper">
 
       <p><strong>Dear Sir,</strong></p>
@@ -708,6 +713,8 @@ textarea{
     </div>
 
     {% endif %}
+
+    </fieldset>
 
   </form>
 
