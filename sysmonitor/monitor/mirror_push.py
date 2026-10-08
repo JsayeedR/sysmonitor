@@ -245,15 +245,32 @@ def _live_push():
 
 
 def full_push():
+    started = time.monotonic()
+
     with push_lock():
         ok = _full_push()
+
         if ok:
             from monitor.models import Event
+
+            elapsed = time.monotonic() - started
+
+            mode_label = (
+                'GitHub code + media'
+                if CODE_SYNC == 'git'
+                else 'project + media'
+            )
+
             Event.objects.create(
                 device=None,
                 level='INFO',
-                message='Remote mirror full sync completed successfully'
+                message=(
+                    'Remote mirror full sync completed'
+                    f' — {elapsed:.1f}s'
+                    f' | {mode_label}'
+                ),
             )
+
         return ok
 
 

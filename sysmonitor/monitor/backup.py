@@ -180,12 +180,22 @@ def run():
             )
 
         # ── 4. Log success event to dashboard ────────────────────────────────
+        remote_status = ''
+        if remote_sync_enabled():
+            remote_status = (
+                ' | Remote synced'
+                if remote_ok
+                else remote_note
+            )
+
         Event.objects.create(
             device=None,
             level='INFO' if remote_ok else 'ALARM',
-            message=f'Backup completed — DB: {db_filename} ({db_size_kb} KB), '
-                    f'Project: {proj_filename} ({proj_size_mb:.1f} MB)'
-                    f'{" | Synced to remote server" if remote_sync_enabled() and remote_ok else remote_note}'
+            message=(
+                f'Backup completed — DB {db_size_kb / 1024:.1f} MB'
+                f' | Project {proj_size_mb:.1f} MB'
+                f'{remote_status}'
+            ),
         )
 
         # ── 5. Cleanup old backups — keep only last KEEP_DAYS in each folder ─
@@ -196,8 +206,11 @@ def run():
             Event.objects.create(
                 device=None,
                 level='INFO',
-                message=f'Old backups cleaned — removed {db_deleted} database '
-                        f'and {proj_deleted} project file(s), keeping last {KEEP_DAYS} days.'
+                message=(
+                    f'Backup cleanup — DB {db_deleted} removed'
+                    f' | Project {proj_deleted} removed'
+                    f' | Retention {KEEP_DAYS} days'
+                ),
             )
 
     except Exception as e:

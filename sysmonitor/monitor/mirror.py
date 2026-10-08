@@ -43,6 +43,17 @@ NONCE_TTL_SECONDS = 600         # a used request ID is remembered this long (> 2
 
 # Handled on the remote itself (login uses the copied password hashes).
 LOCAL_POST_PATHS = ('/login/', '/logout/')
+
+# Service-control endpoints must NEVER be forwarded from REMOTE to MASTER.
+# They are resolved locally on REMOTE, where the views return HTTP 403 via
+# settings.IS_MIRROR.  This prevents a remote browser session from causing
+# MASTER systemd service actions through the signed mirror tunnel.
+LOCAL_ONLY_PATHS = (
+    '/system/restart-ping/',
+    '/system/restart-all/',
+    '/system/restart-all/status/',
+)
+
 # GET pages that need the master machine (live services / local hardware).
 PASS_THROUGH_GET_PREFIXES = (
     '/system/', '/uptime/', '/smw6pac/', '/cctv-setup/',
@@ -244,6 +255,13 @@ class MirrorForwardMiddleware:
         if path.startswith(BLOCKED_PREFIXES):
             return _error(request, 403, '🔒 Not available here',
                           'Django admin is only available on the master server.')
+
+        # MASTER-only service controls are deliberately resolved on REMOTE
+        # instead of being forwarded. Their views enforce settings.IS_MIRROR
+        # and return 403 without executing any local or MASTER service action.
+        if path in LOCAL_ONLY_PATHS:
+            return None
+
         if request.method not in SAFE_METHODS:
             if path in LOCAL_POST_PATHS:
                 return None

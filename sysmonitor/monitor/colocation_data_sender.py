@@ -143,14 +143,38 @@ def run():
 
         print(f'[{date_str}] Colocation 3-hour report dispatched.')
 
+        slot_qs = SensorReading.objects.filter(
+            recorded_at__gte=period_start,
+            recorded_at__lt=period_end,
+        )
+
+        reading_count = slot_qs.count()
+        latest = slot_qs.order_by(
+            '-recorded_at'
+        ).first()
+
+        period_label = (
+            f'{period_start.strftime("%H:%M")}'
+            f'–{period_end.strftime("%H:%M")}'
+        )
+
+        if latest:
+            event_message = (
+                f'Colocation report sent — {period_label}'
+                f' | Temp {fmt_value(latest.temperature_c, "°C")}'
+                f' | Hum {fmt_value(latest.humidity_pct, "%")}'
+                f' | {reading_count} readings'
+            )
+        else:
+            event_message = (
+                f'Colocation report sent — {period_label}'
+                ' | No sensor readings'
+            )
+
         Event.objects.create(
             device=None,
             level='INFO',
-            message=(
-                'Colocation 3-hour sensor report sent '
-                f'for {period_start.strftime("%d/%m/%Y %H:%M")} '
-                f'to {period_end.strftime("%d/%m/%Y %H:%M")}'
-            ),
+            message=event_message,
         )
 
     except Exception as e:

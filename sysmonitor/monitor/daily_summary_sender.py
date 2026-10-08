@@ -34,11 +34,21 @@ def run():
 
         print(f'[{date_str}] Daily summary dispatched.')
 
+        totals = summary.get(
+            'totals',
+            {},
+        )
+
         Event.objects.create(
             device=None,
             level='INFO',
-            message=f'Daily summary sent for {summary["date"]} '
-                    f'({fmt_duration(summary["grand_total"])} total outage)'
+            message=(
+                f'Daily summary sent — {summary["date"]}'
+                f' | {len(summary["rows"])} cycle(s)'
+                f' | Outage {fmt_duration(summary["grand_total"])}'
+                f' | G1 {fmt_duration(totals.get("Gen-01", 0))}'
+                f' | G2 {fmt_duration(totals.get("Gen-02", 0))}'
+            ),
         )
 
     except Exception as e:
