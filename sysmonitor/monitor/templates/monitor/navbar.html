@@ -214,8 +214,23 @@
     display: flex; align-items: center; justify-content: space-between;
     position: sticky; top: 0; z-index: 100;
   }
+  .brand-wrap {
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    line-height:1.05;
+    white-space:nowrap;
+  }
   .brand { font-size: 1rem; font-weight: 700; white-space: nowrap; }
   .brand span { color: var(--blue); }
+  .brand-version {
+    margin-top:2px;
+    margin-left:1.2rem;
+    color:#93c5fd;
+    font-size:.56rem;
+    font-weight:600;
+    letter-spacing:.03em;
+  }
   .nav-links { display: flex; align-items: center; gap: .25rem; }
   .nav-links a {
     color: var(--muted); font-size: .8rem; text-decoration: none;
@@ -278,7 +293,12 @@
   }
 </style>
 <nav>
-  <div class="brand">⚡ Sys<span>Monitor</span></div>
+  <div class="brand-wrap">
+    <div class="brand">⚡ Sys<span>Monitor</span></div>
+    {% if request.resolver_match.url_name == 'dashboard' %}
+    <div class="brand-version">v{{ sys_version }}</div>
+    {% endif %}
+  </div>
   <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Menu">
     <span></span><span></span><span></span>
   </button>

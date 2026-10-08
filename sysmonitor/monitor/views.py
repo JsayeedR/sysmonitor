@@ -43,6 +43,9 @@ def log_activity(user, action, detail='', ip=None):
         ip_address=ip,
     )
 
+    from .system_revision import bump_for_activity
+    bump_for_activity(user, action, detail)
+
 
 def mirror_activity(request):
     """Remote server tells us about a login/logout there (signed, tunnel-only)."""

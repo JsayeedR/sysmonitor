@@ -40,8 +40,20 @@
       font-size:.75rem; font-weight:600; padding:.4rem .9rem; border-radius:30px;
       margin-bottom:1.5rem;
     }
-    .hero h1 { font-size:2.1rem; font-weight:800; letter-spacing:-0.5px; margin-bottom:.6rem; }
+    .hero h1 { font-size:2.1rem; font-weight:800; letter-spacing:-0.5px; margin-bottom:.25rem; }
     .hero h1 span { color:var(--blue); }
+    .hero .version-inline {
+      font-size:.42em;
+      color:#93c5fd;
+      font-weight:600;
+      letter-spacing:0;
+      white-space:nowrap;
+    }
+    .hero .last-modified {
+      color:var(--dim);
+      font-size:.72rem;
+      margin-bottom:.7rem;
+    }
     .hero .tagline { color:var(--muted); font-size:1rem; max-width:640px; margin:0 auto 1.75rem; }
     .hero .cta-row { display:flex; gap:.75rem; justify-content:center; flex-wrap:wrap; }
     .btn {
@@ -404,7 +416,15 @@
 
 <div class="hero">
   <div class="badge">⚠️ Passive Monitoring Only (No Direct Power System Connectivity)</div>
-  <h1>⚡ Sys<span>Monitor</span></h1>
+  <h1>⚡ Sys<span>Monitor</span> <span class="version-inline">v{{ sys_version }}</span></h1>
+  <div class="last-modified">
+    Last system modification:
+    {% if sys_modified_at %}
+      {{ sys_modified_at|date:"d M Y H:i" }}
+    {% else %}
+      —
+    {% endif %}
+  </div>
   <p class="tagline">
     A real-time power outage &amp; network monitoring tool built for
     COX's Bazar Cable Landing Station (COXCLS), BSCPLC — watching grid power,

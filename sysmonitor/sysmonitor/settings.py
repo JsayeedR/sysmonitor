@@ -72,6 +72,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'monitor.context_processors.page_counter',
+                'monitor.context_processors.system_revision',
                 'monitor.mirror.mirror_context',
             ],
         },

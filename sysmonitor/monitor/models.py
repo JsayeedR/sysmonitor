@@ -138,6 +138,35 @@ class ProfileChangeRequest(models.Model):
     def __str__(self):
         return f"{self.user.username} — {self.field} → {self.new_value} ({self.status})"
 
+class SystemRevision(models.Model):
+    """
+    MASTER-owned monotonically increasing SysMonitor revision.
+
+    One singleton row (pk=1) is mirrored to REMOTE with the normal
+    database snapshot. Page views and ordinary login activity do not
+    change this value.
+    """
+    major = models.PositiveIntegerField(default=1)
+    minor = models.PositiveIntegerField(default=1)
+    revision = models.PositiveBigIntegerField(default=1234)
+
+    modified_at = models.DateTimeField(auto_now=True)
+    modified_by = models.CharField(max_length=100, blank=True)
+    last_action = models.CharField(max_length=200, blank=True)
+    git_commit = models.CharField(max_length=40, blank=True)
+
+    class Meta:
+        verbose_name = 'System Revision'
+        verbose_name_plural = 'System Revision'
+
+    @property
+    def version(self):
+        return f'{self.major}.{self.minor}.{self.revision:04d}'
+
+    def __str__(self):
+        return f'v{self.version}'
+
+
 class ActivityLog(models.Model):
     ACTION_CHOICES = [
         ('LOGIN',                  'Login'),
