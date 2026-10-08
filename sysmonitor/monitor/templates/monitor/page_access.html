@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Page Access</title>
+  <style>
+    :root {
+      --bg:#0f172a; --surface:#1e293b; --surface2:#162032;
+      --border:#334155; --text:#f1f5f9; --muted:#94a3b8;
+      --faint:#64748b; --blue:#3b82f6; --green:#22c55e;
+      --yellow:#fbbf24;
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0; background:var(--bg); color:var(--text);
+      font-family:'Segoe UI',system-ui,sans-serif;
+    }
+    .wrap {
+      max-width:980px; margin:0 auto; padding:1.6rem 1.25rem 3rem;
+    }
+    .head {
+      display:flex; justify-content:space-between; align-items:flex-start;
+      gap:1rem; margin-bottom:1.2rem; flex-wrap:wrap;
+    }
+    h1 { margin:0; font-size:1.35rem; }
+    .sub { color:var(--muted); font-size:.82rem; margin-top:.35rem; }
+    .notice {
+      background:#172554; border:1px solid #1d4ed8;
+      color:#bfdbfe; border-radius:10px; padding:.8rem 1rem;
+      font-size:.8rem; margin-bottom:1rem;
+    }
+    .msg {
+      background:#052e16; color:#86efac; border:1px solid #166534;
+      border-radius:8px; padding:.65rem .85rem; margin-bottom:1rem;
+      font-size:.8rem;
+    }
+    .panel {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:12px; padding:1rem; margin-bottom:1rem;
+    }
+    label.small {
+      display:block; color:var(--muted); font-size:.72rem;
+      margin-bottom:.35rem; text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+    select {
+      width:100%; background:var(--bg); color:var(--text);
+      border:1px solid var(--border); border-radius:8px;
+      padding:.65rem .75rem;
+    }
+    .meta {
+      display:flex; gap:.7rem; flex-wrap:wrap; margin-top:.7rem;
+      font-size:.75rem; color:var(--muted);
+    }
+    .pill {
+      border:1px solid var(--border); border-radius:20px;
+      padding:.2rem .6rem;
+    }
+    .group-title {
+      font-size:.75rem; color:#93c5fd; font-weight:700;
+      text-transform:uppercase; letter-spacing:.06em;
+      margin:1rem 0 .55rem;
+    }
+    .grid {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+      gap:.55rem;
+    }
+    .item {
+      display:flex; align-items:center; gap:.65rem;
+      background:var(--surface2); border:1px solid var(--border);
+      border-radius:9px; padding:.7rem .8rem; cursor:pointer;
+    }
+    .item input { width:17px; height:17px; }
+    .item span { font-size:.82rem; }
+    .actions {
+      display:flex; justify-content:flex-end; margin-top:1.2rem;
+    }
+    button {
+      border:0; border-radius:8px; padding:.65rem 1rem;
+      background:var(--blue); color:#fff; font-weight:700;
+      cursor:pointer;
+    }
+    .empty {
+      color:var(--muted); text-align:center; padding:2rem;
+    }
+  </style>
+</head>
+<body>
+
+{% include "monitor/navbar.html" %}
+
+<div class="wrap">
+
+  <div class="head">
+    <div>
+      <h1>🔐 Page Access</h1>
+      <div class="sub">
+        Per-user restrictions applied on top of the normal role permissions.
+      </div>
+    </div>
+  </div>
+
+  <div class="notice">
+    <strong>Role permission is always the maximum.</strong>
+    This page can only hide pages the selected user's role already permits.
+    It cannot grant Viewer/User/Admin pages outside that role.
+  </div>
+
+  {% for message in messages %}
+    <div class="msg">✅ {{ message }}</div>
+  {% endfor %}
+
+  <div class="panel">
+    <label class="small">Select User</label>
+    <select onchange="window.location='{{ base_path }}/page-access/?user='+this.value">
+      {% for u in users %}
+      <option value="{{ u.id }}"
+        {% if target_user and u.id == target_user.id %}selected{% endif %}>
+        {{ u.username }}
+      </option>
+      {% endfor %}
+    </select>
+
+    {% if target_user %}
+    <div class="meta">
+      <span class="pill">User: {{ target_user.username }}</span>
+      <span class="pill">Role ceiling: {{ target_role|upper }}</span>
+      <span class="pill">Hidden pages: {{ hidden_count }}</span>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if target_user %}
+
+  <form method="post" class="panel">
+    {% csrf_token %}
+    <input type="hidden" name="user_id" value="{{ target_user.id }}">
+
+    {% for group, pages in grouped_pages.items %}
+      <div class="group-title">{{ group }}</div>
+
+      <div class="grid">
+        {% for page in pages %}
+        <label class="item">
+          <input
+            type="checkbox"
+            name="visible_pages"
+            value="{{ page.key }}"
+            {% if page.visible %}checked{% endif %}
+          >
+          <span>{{ page.label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    {% endfor %}
+
+    <div class="actions">
+      <button type="submit">Save Page Access</button>
+    </div>
+  </form>
+
+  {% else %}
+    <div class="panel empty">No active users found.</div>
+  {% endif %}
+
+</div>
+</body>
+</html>

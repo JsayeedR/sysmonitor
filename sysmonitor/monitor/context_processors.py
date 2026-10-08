@@ -37,3 +37,48 @@ def system_revision(request):
         'sys_version': row.version,
         'sys_modified_at': row.modified_at,
     }
+
+
+def page_access(request):
+    """
+    Makes individual restrictions available to the shared navbar.
+    """
+    from .page_access import hidden_pages_for_user
+
+    hidden = hidden_pages_for_user(
+        getattr(request, 'user', None)
+    )
+
+    generator_keys = {
+        'generator_shifting',
+        'generator_fuel_entry',
+        'generator_manual_cycle',
+        'generator_fuel_report',
+        'generator_runtime',
+    }
+
+    others_keys = {
+        'smw6pac',
+        'uptime',
+        'events',
+        'cctv',
+        'notification_request',
+        'profile',
+    }
+
+    admin_keys = {
+        'devices',
+        'users',
+        'notifications_admin',
+        'activity',
+        'system',
+        'cctv_setup',
+        'colocation_setpoints',
+    }
+
+    return {
+        'page_hidden': hidden,
+        'page_show_generator': bool(generator_keys - hidden),
+        'page_show_others': bool(others_keys - hidden),
+        'page_show_admin': bool(admin_keys - hidden),
+    }

@@ -55,6 +55,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'monitor.middleware.UsageTrackingMiddleware',
     'monitor.middleware.ForcePasswordChangeMiddleware',
+    'monitor.middleware.PageAccessMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -73,6 +74,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'monitor.context_processors.page_counter',
                 'monitor.context_processors.system_revision',
+                'monitor.context_processors.page_access',
                 'monitor.mirror.mirror_context',
             ],
         },

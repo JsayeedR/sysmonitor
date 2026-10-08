@@ -216,20 +216,18 @@
   }
   .brand-wrap {
     display:flex;
-    flex-direction:column;
-    justify-content:center;
-    line-height:1.05;
+    align-items:baseline;
+    gap:.35rem;
     white-space:nowrap;
   }
   .brand { font-size: 1rem; font-weight: 700; white-space: nowrap; }
   .brand span { color: var(--blue); }
   .brand-version {
-    margin-top:2px;
-    margin-left:1.2rem;
     color:#93c5fd;
     font-size:.56rem;
     font-weight:600;
     letter-spacing:.03em;
+    white-space:nowrap;
   }
   .nav-links { display: flex; align-items: center; gap: .25rem; }
   .nav-links a {
@@ -303,78 +301,83 @@
     <span></span><span></span><span></span>
   </button>
   <div class="nav-links" id="nav-links">
-    <a href="{{ base_path }}/" class="{% if request.path == '/' %}active{% endif %}">📊 Dashboard</a>
-    <a href="{{ base_path }}/sensor/" class="{% if '/sensor/' in request.path %}active{% endif %}">🌡️ Colocation</a>
-    <a href="{{ base_path }}/report/" class="{% if '/report/' in request.path %}active{% endif %}">⚡ Load Shedding</a>
+    {% if "dashboard" not in page_hidden %}<a href="{{ base_path }}/" class="{% if request.path == '/' %}active{% endif %}">📊 Dashboard</a>{% endif %}
+    {% if "colocation" not in page_hidden %}<a href="{{ base_path }}/sensor/" class="{% if '/sensor/' in request.path %}active{% endif %}">🌡️ Colocation</a>{% endif %}
+    {% if "load_shedding" not in page_hidden %}<a href="{{ base_path }}/report/" class="{% if '/report/' in request.path %}active{% endif %}">⚡ Load Shedding</a>{% endif %}
 
+    {% if page_show_generator %}
     {% if role == "viewer" %}
     <div class="nav-dropdown" id="generator-data-dropdown">
       <a href="#" class="nav-dropdown-toggle {% if '/genruntime/' in request.path or '/generator-fuel-report/' in request.path %}active{% endif %}" onclick="toggleGeneratorDataDropdown(event)">⚙️ Generator Data ▾</a>
       <div class="nav-dropdown-menu">
-        <a href="{{ base_path }}/genruntime/" class="{% if '/genruntime/' in request.path %}active{% endif %}">⏱️ Generator Runtime</a>
-        <a href="{{ base_path }}/generator-fuel-report/" class="{% if '/generator-fuel-report/' in request.path %}active{% endif %}">📊 Generator Fuel Report</a>
+        {% if "generator_runtime" not in page_hidden %}<a href="{{ base_path }}/genruntime/" class="{% if '/genruntime/' in request.path %}active{% endif %}">⏱️ Generator Runtime</a>{% endif %}
+        {% if "generator_fuel_report" not in page_hidden %}<a href="{{ base_path }}/generator-fuel-report/" class="{% if '/generator-fuel-report/' in request.path %}active{% endif %}">📊 Generator Fuel Report</a>{% endif %}
       </div>
     </div>
     {% elif role == "user" or role == "admin" %}
     <div class="nav-dropdown" id="generator-data-dropdown">
       <a href="#" class="nav-dropdown-toggle {% if '/generator-log/' in request.path or '/generator-fuel/' in request.path or '/generator-fuel-report/' in request.path or '/generator-cycle-audit/' in request.path or '/genruntime/' in request.path %}active{% endif %}" onclick="toggleGeneratorDataDropdown(event)">⚙️ Generator Data ▾</a>
       <div class="nav-dropdown-menu">
-        <a href="{{ base_path }}/generator-log/" class="{% if '/generator-log/' in request.path %}active{% endif %}">🔄 Generator Shifting Entry</a>
-        <a href="{{ base_path }}/generator-fuel/" class="{% if request.path == '/generator-fuel/' %}active{% endif %}">⛽ Generator Fuel Entry</a>
-        <a href="{{ base_path }}/generator-cycle-audit/" class="{% if '/generator-cycle-audit/' in request.path %}active{% endif %}">🕵️ Generator Manual Cycle Entry</a>
-        <a href="{{ base_path }}/generator-fuel-report/" class="{% if '/generator-fuel-report/' in request.path %}active{% endif %}">📊 Generator Fuel Report</a>
-        <a href="{{ base_path }}/genruntime/" class="{% if '/genruntime/' in request.path %}active{% endif %}">⏱️ Generator Runtime</a>
+        {% if "generator_shifting" not in page_hidden %}<a href="{{ base_path }}/generator-log/" class="{% if '/generator-log/' in request.path %}active{% endif %}">🔄 Generator Shifting Entry</a>{% endif %}
+        {% if "generator_fuel_entry" not in page_hidden %}<a href="{{ base_path }}/generator-fuel/" class="{% if request.path == '/generator-fuel/' %}active{% endif %}">⛽ Generator Fuel Entry</a>{% endif %}
+        {% if "generator_manual_cycle" not in page_hidden %}<a href="{{ base_path }}/generator-cycle-audit/" class="{% if '/generator-cycle-audit/' in request.path %}active{% endif %}">🕵️ Generator Manual Cycle Entry</a>{% endif %}
+        {% if "generator_fuel_report" not in page_hidden %}<a href="{{ base_path }}/generator-fuel-report/" class="{% if '/generator-fuel-report/' in request.path %}active{% endif %}">📊 Generator Fuel Report</a>{% endif %}
+        {% if "generator_runtime" not in page_hidden %}<a href="{{ base_path }}/genruntime/" class="{% if '/genruntime/' in request.path %}active{% endif %}">⏱️ Generator Runtime</a>{% endif %}
       </div>
     </div>
     {% endif %}
+    {% endif %}
 
+    {% if page_show_others %}
     {% if role == "viewer" %}
     <div class="nav-dropdown" id="others-dropdown">
       <a href="#" class="nav-dropdown-toggle {% if '/smw6pac/' in request.path or '/uptime/' in request.path or '/events/' in request.path or '/cctv/' in request.path or '/notification-request/' in request.path or '/profile/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
       <div class="nav-dropdown-menu">
-        <a href="{{ base_path }}/smw6pac/" class="{% if '/smw6pac/' in request.path %}active{% endif %}">❄️ SMW6PAC</a>
-        <a href="{{ base_path }}/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
-        <a href="{{ base_path }}/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 All Events</a>
-        <a href="{{ base_path }}/cctv/" class="{% if '/cctv/' in request.path %}active{% endif %}">🎥 NOC CCTV</a>
-        <a href="{{ base_path }}/notification-request/" class="{% if '/notification-request/' in request.path %}active{% endif %}">🔔 Notification Request</a>
-        <a href="{{ base_path }}/profile/" class="{% if '/profile/' in request.path %}active{% endif %}">👤 My Profile</a>
+        {% if "smw6pac" not in page_hidden %}<a href="{{ base_path }}/smw6pac/" class="{% if '/smw6pac/' in request.path %}active{% endif %}">❄️ SMW6PAC</a>{% endif %}
+        {% if "uptime" not in page_hidden %}<a href="{{ base_path }}/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>{% endif %}
+        {% if "events" not in page_hidden %}<a href="{{ base_path }}/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 All Events</a>{% endif %}
+        {% if "cctv" not in page_hidden %}<a href="{{ base_path }}/cctv/" class="{% if '/cctv/' in request.path %}active{% endif %}">🎥 NOC CCTV</a>{% endif %}
+        {% if "notification_request" not in page_hidden %}<a href="{{ base_path }}/notification-request/" class="{% if '/notification-request/' in request.path %}active{% endif %}">🔔 Notification Request</a>{% endif %}
+        {% if "profile" not in page_hidden %}<a href="{{ base_path }}/profile/" class="{% if '/profile/' in request.path %}active{% endif %}">👤 My Profile</a>{% endif %}
       </div>
     </div>
     {% elif role == "user" %}
     <div class="nav-dropdown" id="others-dropdown">
       <a href="#" class="nav-dropdown-toggle {% if '/uptime/' in request.path or '/events/' in request.path or '/cctv/' in request.path or '/notification-request/' in request.path or '/profile/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
       <div class="nav-dropdown-menu">
-        <a href="{{ base_path }}/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
-        <a href="{{ base_path }}/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 All Events</a>
-        <a href="{{ base_path }}/cctv/" class="{% if '/cctv/' in request.path %}active{% endif %}">🎥 NOC CCTV</a>
-        <a href="{{ base_path }}/notification-request/" class="{% if '/notification-request/' in request.path %}active{% endif %}">🔔 Notification Request</a>
-        <a href="{{ base_path }}/profile/" class="{% if '/profile/' in request.path %}active{% endif %}">👤 My Profile</a>
+        {% if "uptime" not in page_hidden %}<a href="{{ base_path }}/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>{% endif %}
+        {% if "events" not in page_hidden %}<a href="{{ base_path }}/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 All Events</a>{% endif %}
+        {% if "cctv" not in page_hidden %}<a href="{{ base_path }}/cctv/" class="{% if '/cctv/' in request.path %}active{% endif %}">🎥 NOC CCTV</a>{% endif %}
+        {% if "notification_request" not in page_hidden %}<a href="{{ base_path }}/notification-request/" class="{% if '/notification-request/' in request.path %}active{% endif %}">🔔 Notification Request</a>{% endif %}
+        {% if "profile" not in page_hidden %}<a href="{{ base_path }}/profile/" class="{% if '/profile/' in request.path %}active{% endif %}">👤 My Profile</a>{% endif %}
       </div>
     </div>
     {% elif role == "admin" %}
     <div class="nav-dropdown" id="others-dropdown">
       <a href="#" class="nav-dropdown-toggle {% if '/smw6pac/' in request.path or '/uptime/' in request.path or '/events/' in request.path or '/cctv/' in request.path or '/notification-request/' in request.path or '/profile/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
       <div class="nav-dropdown-menu">
-        <a href="{{ base_path }}/smw6pac/" class="{% if '/smw6pac/' in request.path %}active{% endif %}">❄️ SMW6PAC</a>
-        <a href="{{ base_path }}/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
-        <a href="{{ base_path }}/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 All Events</a>
-        <a href="{{ base_path }}/cctv/" class="{% if '/cctv/' in request.path %}active{% endif %}">🎥 NOC CCTV</a>
-        <a href="{{ base_path }}/notification-request/" class="{% if '/notification-request/' in request.path %}active{% endif %}">🔔 Notification Request</a>
-        <a href="{{ base_path }}/profile/" class="{% if '/profile/' in request.path %}active{% endif %}">👤 My Profile</a>
+        {% if "smw6pac" not in page_hidden %}<a href="{{ base_path }}/smw6pac/" class="{% if '/smw6pac/' in request.path %}active{% endif %}">❄️ SMW6PAC</a>{% endif %}
+        {% if "uptime" not in page_hidden %}<a href="{{ base_path }}/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>{% endif %}
+        {% if "events" not in page_hidden %}<a href="{{ base_path }}/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 All Events</a>{% endif %}
+        {% if "cctv" not in page_hidden %}<a href="{{ base_path }}/cctv/" class="{% if '/cctv/' in request.path %}active{% endif %}">🎥 NOC CCTV</a>{% endif %}
+        {% if "notification_request" not in page_hidden %}<a href="{{ base_path }}/notification-request/" class="{% if '/notification-request/' in request.path %}active{% endif %}">🔔 Notification Request</a>{% endif %}
+        {% if "profile" not in page_hidden %}<a href="{{ base_path }}/profile/" class="{% if '/profile/' in request.path %}active{% endif %}">👤 My Profile</a>{% endif %}
       </div>
     </div>
+    {% endif %}
     {% endif %}
 
     {% if role == "admin" %}
     <div class="nav-dropdown" id="admin-dropdown">
-      <a href="#" class="nav-dropdown-toggle {% if '/devices/' in request.path or '/users/' in request.path or '/notifications/' in request.path or '/activity/' in request.path or '/system/' in request.path or '/cctv-setup/' in request.path %}active{% endif %}" onclick="toggleAdminDropdown(event)">🗂️ Administrative ▾</a>
+      <a href="#" class="nav-dropdown-toggle {% if '/devices/' in request.path or '/users/' in request.path or '/notifications/' in request.path or '/activity/' in request.path or '/system/' in request.path or '/cctv-setup/' in request.path or '/page-access/' in request.path %}active{% endif %}" onclick="toggleAdminDropdown(event)">🗂️ Administrative ▾</a>
       <div class="nav-dropdown-menu">
-        <a href="{{ base_path }}/devices/" class="{% if '/devices/' in request.path %}active{% endif %}">🖥️ Devices</a>
-        <a href="{{ base_path }}/users/" class="{% if '/users/' in request.path %}active{% endif %}">👥 Users</a>
-        <a href="{{ base_path }}/notifications/" class="{% if '/notifications/' in request.path %}active{% endif %}">🔔 Notifications</a>
-        <a href="{{ base_path }}/activity/" class="{% if '/activity/' in request.path %}active{% endif %}">🕵️ Activity</a>
-        <a href="{{ base_path }}/system/" class="{% if '/system/' in request.path %}active{% endif %}">🛠️ System</a>
-        <a href="{{ base_path }}/cctv-setup/" class="{% if '/cctv-setup/' in request.path %}active{% endif %}">🎥 CCTV Setup</a>
+        {% if "devices" not in page_hidden %}<a href="{{ base_path }}/devices/" class="{% if '/devices/' in request.path %}active{% endif %}">🖥️ Devices</a>{% endif %}
+        {% if "users" not in page_hidden %}<a href="{{ base_path }}/users/" class="{% if '/users/' in request.path %}active{% endif %}">👥 Users</a>{% endif %}
+        <a href="{{ base_path }}/page-access/" class="{% if '/page-access/' in request.path %}active{% endif %}">🔐 Page Access</a>
+        {% if "notifications_admin" not in page_hidden %}<a href="{{ base_path }}/notifications/" class="{% if '/notifications/' in request.path %}active{% endif %}">🔔 Notifications</a>{% endif %}
+        {% if "activity" not in page_hidden %}<a href="{{ base_path }}/activity/" class="{% if '/activity/' in request.path %}active{% endif %}">🕵️ Activity</a>{% endif %}
+        {% if "system" not in page_hidden %}<a href="{{ base_path }}/system/" class="{% if '/system/' in request.path %}active{% endif %}">🛠️ System</a>{% endif %}
+        {% if "cctv_setup" not in page_hidden %}<a href="{{ base_path }}/cctv-setup/" class="{% if '/cctv-setup/' in request.path %}active{% endif %}">🎥 CCTV Setup</a>{% endif %}
       </div>
     </div>
     {% endif %}
@@ -383,7 +386,11 @@
   </div>
   <div class="nav-meta">
     <span class="role-badge">{{ role|upper }}</span>
+    {% if "profile" not in page_hidden %}
     <a href="{{ base_path }}/profile/" class="nav-user" style="text-decoration:none;">👤 {{ user.username }}</a>
+    {% else %}
+    <span class="nav-user">👤 {{ user.username }}</span>
+    {% endif %}
     <a href="{{ base_path }}/logout/" class="nav-logout">Logout</a>
   </div>
 </nav>

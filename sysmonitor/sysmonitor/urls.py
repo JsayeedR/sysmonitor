@@ -19,6 +19,7 @@ urlpatterns = [
     path('users/<int:user_id>/edit/',         views.user_edit,         name='user_edit'),
     path('users/<int:user_id>/toggle-active/', views.user_toggle_active, name='user_toggle_active'),
     path('users/<int:user_id>/delete/',       views.user_delete,       name='user_delete'),
+    path('page-access/',                       views.page_access_manage, name='page_access_manage'),
     path('colocation-setpoints/',              views.colocation_setpoints, name='colocation_setpoints'),
     path('devices/',                          views.device_list,       name='device_list'),
     path('devices/add/',                      views.device_create,     name='device_create'),

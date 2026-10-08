@@ -133,6 +133,7 @@
           <td>
             <div class="actions">
               <a href="{{ base_path }}/users/{{ u.obj.id }}/edit/" class="btn btn-secondary">Edit</a>
+              <a href="{{ base_path }}/page-access/?user={{ u.obj.id }}" class="btn btn-secondary">Access</a>
               {% if not u.obj.is_superuser %}
               <form method="post" action="{{ base_path }}/users/{{ u.obj.id }}/toggle-active/" style="display:inline;">
                 {% csrf_token %}

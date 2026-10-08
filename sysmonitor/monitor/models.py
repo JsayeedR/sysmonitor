@@ -104,6 +104,10 @@ class UserProfile(models.Model):
     must_change_password    = models.BooleanField(default=False)
     temp_password_expires_at = models.DateTimeField(blank=True, null=True)
 
+    # Per-user restrictions applied on top of the role's normal permissions.
+    # This can only REMOVE access; it can never grant pages outside the role.
+    hidden_pages = models.JSONField(default=list, blank=True)
+
     def __str__(self):
         return f"{self.user.username} — {self.role}"
 

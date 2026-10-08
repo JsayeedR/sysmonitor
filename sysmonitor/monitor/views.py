@@ -6680,3 +6680,102 @@ def notification_request_delete(request, rid):
     )
 
     return redirect('notification_request')
+
+
+# ─── Per-user Page Access ─────────────────────────────────────────────────────
+
+@role_required('admin')
+def page_access_manage(request):
+    """
+    Restrict pages for one user without ever exceeding that user's role.
+
+    Role permission remains the hard maximum. This screen can only subtract
+    pages that are already part of that role.
+    """
+    from collections import OrderedDict
+
+    from .page_access import pages_for_role
+
+    users = (
+        User.objects
+        .filter(is_active=True)
+        .order_by('username')
+    )
+
+    raw_uid = (
+        request.POST.get('user_id')
+        if request.method == 'POST'
+        else request.GET.get('user')
+    )
+
+    target = None
+
+    if raw_uid:
+        target = get_object_or_404(User, id=raw_uid)
+    else:
+        target = users.first()
+
+    selected_role = None
+    grouped_pages = OrderedDict()
+    current_hidden = set()
+
+    if target is not None:
+        profile, _ = UserProfile.objects.get_or_create(user=target)
+
+        selected_role = get_role(target)
+        allowed = pages_for_role(selected_role)
+
+        current_hidden = set(profile.hidden_pages or [])
+
+        if request.method == 'POST':
+            # Browser submits ONLY pages currently allowed by the role.
+            visible = set(request.POST.getlist('visible_pages'))
+            allowed_keys = set(allowed.keys())
+
+            # The administrator can only hide pages inside the role.
+            hidden = sorted(allowed_keys - visible)
+
+            # Preserve no stale/out-of-role values. Role is authoritative.
+            profile.hidden_pages = hidden
+            profile.save(update_fields=['hidden_pages'])
+
+            log_activity(
+                request.user,
+                'USER_EDITED',
+                (
+                    f'Updated page access for "{target.username}" '
+                    f'(role={selected_role}); '
+                    f'hidden={", ".join(hidden) if hidden else "none"}.'
+                )[:300],
+                ip=get_ip(request),
+            )
+
+            messages.success(
+                request,
+                f'Page access updated for "{target.username}".'
+            )
+
+            return redirect(
+                f'/page-access/?user={target.id}'
+            )
+
+        current_hidden &= set(allowed.keys())
+
+        for key, cfg in allowed.items():
+            group = cfg['group']
+            grouped_pages.setdefault(group, [])
+            grouped_pages[group].append({
+                'key': key,
+                'label': cfg['label'],
+                'visible': key not in current_hidden,
+            })
+
+    return render(request, 'monitor/page_access.html', {
+        'users': users,
+        'target_user': target,
+        'target_role': selected_role,
+        'grouped_pages': grouped_pages,
+        'hidden_count': len(current_hidden),
+        'role': get_role(request.user),
+        'user': request.user,
+    })

@@ -88,3 +88,39 @@ class ForcePasswordChangeMiddleware:
                     from django.shortcuts import redirect
                     return redirect('profile_password')
         return self.get_response(request)
+
+
+class PageAccessMiddleware:
+    """
+    Enforces individual page restrictions after normal role permissions.
+
+    This middleware never grants access. It only blocks a page that the user's
+    role would otherwise be allowed to use.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = getattr(request, 'user', None)
+
+        if user is not None and user.is_authenticated:
+            # The Page Access administration screen is intentionally
+            # non-hideable so administrators always have a recovery route.
+            if not request.path_info.startswith('/page-access/'):
+                from django.shortcuts import render
+                from .page_access import (
+                    page_key_for_path,
+                    user_can_access_page,
+                )
+
+                key = page_key_for_path(request.path_info)
+
+                if key and not user_can_access_page(user, key):
+                    return render(
+                        request,
+                        'monitor/denied.html',
+                        status=403,
+                    )
+
+        return self.get_response(request)
