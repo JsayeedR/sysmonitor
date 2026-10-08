@@ -382,7 +382,7 @@ table.history th{
       {% endif %}
     </div>
 
-  {% else %}
+  {% endif %}
 
   <form method="post"
         action="{{ base_path }}/shift-report/create/"
@@ -417,12 +417,25 @@ table.history th{
 
         <tr>
           <td class="label-cell">Date:</td>
-          <td>{{ due_report_date|date:"d-m-Y" }}</td>
+          <td class="edit-cell">
+            <input
+              type="date"
+              name="report_date"
+              value="{{ due_report_date|date:'Y-m-d' }}"
+              required
+            >
+          </td>
         </tr>
 
         <tr>
           <td class="label-cell">Shift:</td>
-          <td>{{ due_shift|title }}</td>
+          <td class="edit-cell">
+            <select name="shift" required>
+              <option value="MORNING" {% if due_shift == "MORNING" %}selected{% endif %}>Morning Shift</option>
+              <option value="EVENING" {% if due_shift == "EVENING" %}selected{% endif %}>Evening Shift</option>
+              <option value="NIGHT" {% if due_shift == "NIGHT" %}selected{% endif %}>Night Shift</option>
+            </select>
+          </td>
         </tr>
 
         <tr>
@@ -766,8 +779,6 @@ table.history th{
     </div>
 
   </form>
-
-  {% endif %}
 
 
   <div class="panel" style="margin-top:1.3rem">

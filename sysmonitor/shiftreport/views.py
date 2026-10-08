@@ -363,7 +363,43 @@ def shift_report_create(request):
             'You do not have permission to create Shift Reports.'
         )
 
-    report_date, shift, _, _ = latest_completed_shift()
+    default_date, default_shift, _, _ = latest_completed_shift()
+
+    date_input = request.POST.get(
+        'report_date',
+        default_date.isoformat(),
+    ).strip()
+
+    shift = request.POST.get(
+        'shift',
+        default_shift,
+    ).strip().upper()
+
+    try:
+        report_date = datetime.strptime(
+            date_input,
+            '%Y-%m-%d',
+        ).date()
+    except ValueError:
+        messages.error(
+            request,
+            'Invalid report date. Use YYYY-MM-DD.',
+        )
+        return redirect('shiftreport:home')
+
+    if shift not in ('MORNING', 'EVENING', 'NIGHT'):
+        messages.error(
+            request,
+            'Please select a valid shift.',
+        )
+        return redirect('shiftreport:home')
+
+    # Reuse the existing operational shift calculation.
+    # Night shifts correctly end on the following day.
+    shift_start, shift_end = shift_window(
+        report_date,
+        shift,
+    )
 
     handover_id = request.POST.get(
         'handover_to',
@@ -715,6 +751,115 @@ def shift_report_save(request, report_id):
             report_id=report.id,
         )
 
+    # Allow date/shift changes only on editable reports.
+    date_input = request.POST.get(
+        'report_date',
+        report.report_date.isoformat(),
+    ).strip()
+
+    selected_shift = request.POST.get(
+        'shift',
+        report.shift,
+    ).strip().upper()
+
+    try:
+        selected_date = datetime.strptime(
+            date_input,
+            '%Y-%m-%d',
+        ).date()
+    except ValueError:
+        messages.error(request, 'Invalid report date.')
+        return redirect(
+            'shiftreport:edit',
+            report_id=report.id,
+        )
+
+    if selected_shift not in ('MORNING', 'EVENING', 'NIGHT'):
+        messages.error(request, 'Invalid shift selection.')
+        return redirect(
+            'shiftreport:edit',
+            report_id=report.id,
+        )
+
+    original_report_date = report.report_date
+    original_shift = report.shift
+
+    changed_shift = (
+        selected_date != report.report_date
+        or selected_shift != report.shift
+    )
+
+    if changed_shift:
+        duplicate = ShiftReport.objects.filter(
+            report_date=selected_date,
+            shift=selected_shift,
+        ).exclude(pk=report.pk).exists()
+
+        if duplicate:
+            messages.error(
+                request,
+                'A Shift Report already exists for '
+                'the selected date and shift.',
+            )
+            return redirect(
+                'shiftreport:edit',
+                report_id=report.id,
+            )
+
+        snapshot = build_shift_snapshot(
+            selected_date,
+            selected_shift,
+        )
+
+        report.report_date = selected_date
+        report.shift = selected_shift
+        report.shift_start = snapshot['start']
+        report.shift_end = snapshot['end']
+
+        report.outage_summary = snapshot['outage']
+        report.generator_summary = snapshot['generator']
+        report.sensor_summary = snapshot['sensor']
+
+        report.previous_day_summary = (
+            build_previous_day_summary(selected_date)
+            if selected_shift == 'NIGHT'
+            else {}
+        )
+
+    # Preserve manual text while refreshing unchanged automatic
+    # values when the operational date or shift changes.
+    auto_text_values = {}
+
+    if changed_shift:
+        old_defaults = report_composer_defaults(
+            original_report_date,
+            original_shift,
+        )
+        new_defaults = report_composer_defaults(
+            selected_date,
+            selected_shift,
+        )
+
+        for field in (
+            'ac_shifting',
+            'pfe_status',
+            'generator_status_text',
+        ):
+            submitted = request.POST.get(
+                field,
+                getattr(report, field),
+            ).strip()
+
+            original = getattr(report, field).strip()
+
+            if (
+                submitted == original
+                and original == old_defaults[field].strip()
+            ):
+                auto_text_values[field] = new_defaults[field]
+            else:
+                auto_text_values[field] = submitted
+
     handover_id = request.POST.get('handover_to', '').strip()
 
     continues = request.POST.get('shift_continues') == 'on'
@@ -734,6 +879,12 @@ def shift_report_save(request, report_id):
 
     report.handover_to = handover
     report.shift_continues = continues
+
+    if auto_text_values:
+        request.POST = request.POST.copy()
+
+        for field, value in auto_text_values.items():
+            request.POST[field] = value
 
     _apply_structured_report_fields(
         report,

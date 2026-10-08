@@ -303,12 +303,33 @@ textarea{
 
         <tr>
           <td class="label-cell">Date:</td>
-          <td>{{ report.report_date|date:"d-m-Y" }}</td>
+          <td class="edit-cell">
+            {% if report.status == "SENT" %}
+              {{ report.report_date|date:"d-m-Y" }}
+            {% else %}
+              <input
+                type="date"
+                name="report_date"
+                value="{{ report.report_date|date:'Y-m-d' }}"
+                required
+              >
+            {% endif %}
+          </td>
         </tr>
 
         <tr>
           <td class="label-cell">Shift:</td>
-          <td>{{ report.get_shift_display }}</td>
+          <td class="edit-cell">
+            {% if report.status == "SENT" %}
+              {{ report.get_shift_display }}
+            {% else %}
+              <select name="shift" required>
+                <option value="MORNING" {% if report.shift == "MORNING" %}selected{% endif %}>Morning Shift</option>
+                <option value="EVENING" {% if report.shift == "EVENING" %}selected{% endif %}>Evening Shift</option>
+                <option value="NIGHT" {% if report.shift == "NIGHT" %}selected{% endif %}>Night Shift</option>
+              </select>
+            {% endif %}
+          </td>
         </tr>
 
         <tr>
