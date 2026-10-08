@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SysMonitor — Notification Request</title>
+
+<style>
+:root{
+  --bg:#0b1120;
+  --surface:#111827;
+  --surface2:#172033;
+  --border:#293548;
+  --text:#e5e7eb;
+  --muted:#94a3b8;
+  --green:#34d399;
+  --yellow:#fbbf24;
+  --red:#f87171;
+  --blue:#60a5fa;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif}
+.wrap{max-width:1180px;margin:auto;padding:24px}
+h1{margin:0 0 6px;font-size:27px}
+h2{margin:0 0 14px;font-size:20px}
+h3{margin:0 0 10px;font-size:16px}
+.muted,.small{color:var(--muted)}
+.small{font-size:12px}
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:20px;
+  margin:16px 0
+}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:850px){.grid{grid-template-columns:1fr}}
+.btn{
+  display:inline-block;border:0;border-radius:8px;
+  padding:10px 15px;margin:4px 5px 4px 0;
+  cursor:pointer;font-weight:700;text-decoration:none
+}
+.primary{background:#2563eb;color:#fff}
+.success{background:#059669;color:#fff}
+.danger{background:#b91c1c;color:#fff}
+.ghost{background:#334155;color:#fff}
+.status{
+  display:inline-block;padding:5px 10px;border-radius:999px;
+  font-weight:700;font-size:12px
+}
+.APPROVED{background:#064e3b;color:#a7f3d0}
+.PENDING{background:#78350f;color:#fde68a}
+.DRAFT{background:#334155;color:#e2e8f0}
+.message{
+  padding:11px 14px;border:1px solid var(--border);
+  background:var(--surface2);border-radius:9px;margin:12px 0
+}
+.summary-channel{
+  padding:16px;border:1px solid var(--border);
+  background:var(--surface2);border-radius:10px
+}
+.summary-list{margin:10px 0 0;padding:0;list-style:none}
+.summary-list li{padding:6px 0;border-bottom:1px solid rgba(148,163,184,.12)}
+.summary-list li:last-child{border-bottom:0}
+.check{color:var(--green);font-weight:700;margin-right:5px}
+.not-enabled{color:var(--muted);font-style:italic}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}
+.tab{
+  padding:9px 14px;border:1px solid var(--border);
+  border-radius:9px;text-decoration:none;color:var(--text);
+  background:var(--surface)
+}
+.tab.admin{border-color:#7c3aed}
+.badge{
+  background:#b91c1c;color:white;border-radius:999px;
+  padding:2px 7px;font-size:11px;margin-left:5px
+}
+.alert-row{
+  display:flex;gap:9px;align-items:center;
+  padding:8px 0;border-bottom:1px solid rgba(148,163,184,.12)
+}
+.alert-row:last-child{border-bottom:0}
+input[type=email],textarea{
+  width:100%;padding:10px 12px;margin-top:6px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;color:var(--text)
+}
+.code{
+  font-family:monospace;font-size:22px;font-weight:800;
+  letter-spacing:2px;color:var(--yellow)
+}
+.verified{color:var(--green);font-weight:700}
+.admin-request{
+  border:1px solid var(--border);border-radius:11px;
+  background:var(--surface2);padding:16px;margin:14px 0
+}
+hr{border:0;border-top:1px solid var(--border);margin:18px 0}
+</style>
+</head>
+
+<body>
+{% include 'monitor/navbar.html' %}
+
+<div class="wrap">
+
+<h1>🔔 Notification Request</h1>
+<div class="muted">
+  Manage which SysMonitor alerts you receive by Email and Telegram.
+  Changes become active only after administrator approval.
+</div>
+
+{% for message in messages %}
+<div class="message">{{ message }}</div>
+{% endfor %}
+
+{% if role == 'admin' %}
+<div class="tabs">
+  <a class="tab" href="{{ base_path }}/notification-request/">
+    👤 My Notification Settings
+  </a>
+  <a class="tab admin" href="{{ base_path }}/notification-request/?tab=pending#admin-pending">
+    🛡️ Pending Requests
+    {% if admin_pending_count %}
+      <span class="badge">{{ admin_pending_count }}</span>
+    {% endif %}
+  </a>
+</div>
+{% endif %}
+
+
+{% if pending_request %}
+
+<div class="card">
+  <h2>⏳ Notification Request Awaiting Approval</h2>
+
+  <p class="muted">
+    Your existing approved notification settings, if any, remain active
+    until this request is reviewed.
+  </p>
+
+  <div class="small">
+    Submitted: {{ pending_request.requested_at }}
+  </div>
+
+  <div class="grid" style="margin-top:16px">
+
+    <div class="summary-channel">
+      <h3>📧 Email</h3>
+
+      {% if pending_request.email_alerts %}
+        <strong>{{ pending_request.email_contact }}</strong>
+
+        <ul class="summary-list">
+        {% for key,label in alerts %}
+          {% if key in pending_request.email_alerts %}
+          <li><span class="check">✓</span>{{ label }}</li>
+          {% endif %}
+        {% endfor %}
+        </ul>
+      {% else %}
+        <div class="not-enabled">Email not requested.</div>
+      {% endif %}
+    </div>
+
+    <div class="summary-channel">
+      <h3>✈️ Telegram</h3>
+
+      {% if pending_request.telegram_alerts %}
+        <strong>
+          {{ pending_request.telegram_display_name|default:"Verified Telegram account" }}
+        </strong>
+
+        <ul class="summary-list">
+        {% for key,label in alerts %}
+          {% if key in pending_request.telegram_alerts %}
+          <li><span class="check">✓</span>{{ label }}</li>
+          {% endif %}
+        {% endfor %}
+        </ul>
+      {% else %}
+        <div class="not-enabled">Telegram not requested.</div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+
+{% elif approved_request and not draft %}
+
+<div class="card">
+  <h2>✅ Your Notification Subscription is Active</h2>
+
+  <span class="status APPROVED">Approved</span>
+
+  <div class="small" style="margin-top:10px">
+    {% if approved_request.reviewed_at %}
+      Approved: {{ approved_request.reviewed_at }}
+    {% endif %}
+
+    {% if approved_request.reviewed_by %}
+      · Reviewed by: <strong>{{ approved_request.reviewed_by }}</strong>
+    {% endif %}
+  </div>
+
+  {% if approved_request.admin_note %}
+  <div class="message">
+    <strong>Administrator Note:</strong>
+    {{ approved_request.admin_note }}
+  </div>
+  {% endif %}
+
+  <div class="grid" style="margin-top:18px">
+
+    <div class="summary-channel">
+      <h3>📧 Email</h3>
+
+      {% if approved_request.email_alerts %}
+        <div>
+          Notification Email:
+          <strong>{{ approved_request.email_contact }}</strong>
+        </div>
+
+        <div class="small" style="margin-top:10px">
+          Approved notifications:
+        </div>
+
+        <ul class="summary-list">
+        {% for key,label in alerts %}
+          {% if key in approved_request.email_alerts %}
+          <li><span class="check">✓</span>{{ label }}</li>
+          {% endif %}
+        {% endfor %}
+        </ul>
+      {% else %}
+        <div class="not-enabled">Email notifications are not enabled.</div>
+      {% endif %}
+    </div>
+
+    <div class="summary-channel">
+      <h3>✈️ Telegram</h3>
+
+      {% if approved_request.telegram_alerts %}
+        <div class="verified">✓ Connected</div>
+
+        <div style="margin-top:5px">
+          {{ approved_request.telegram_display_name|default:"Telegram account" }}
+        </div>
+
+        <div class="small" style="margin-top:10px">
+          Approved notifications:
+        </div>
+
+        <ul class="summary-list">
+        {% for key,label in alerts %}
+          {% if key in approved_request.telegram_alerts %}
+          <li><span class="check">✓</span>{{ label }}</li>
+          {% endif %}
+        {% endfor %}
+        </ul>
+      {% else %}
+        <div class="not-enabled">Telegram notifications are not enabled.</div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  {% if not is_mirror %}
+  <form method="post" action="{% url 'notification_request_change' %}" style="margin-top:18px">
+    {% csrf_token %}
+    <button class="btn primary" type="submit">
+      ✏️ Request a Change
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+
+{% else %}
+
+<div class="card">
+  {% if approved_request %}
+  <h2>✏️ Request Changes to Approved Notifications</h2>
+  <p class="muted">
+    Your current approved notification settings remain active until
+    this new request is approved.
+  </p>
+  {% else %}
+  <h2>New Notification Request</h2>
+  {% endif %}
+</div>
+
+<form method="post" action="{% url 'notification_request_submit' %}">
+{% csrf_token %}
+
+<div class="grid">
+
+  <div class="card">
+    <h2>📧 Email</h2>
+
+    <label>
+      Notification Email
+      <input
+        type="email"
+        name="email_contact"
+        value="{% if draft %}{{ draft.email_contact }}{% else %}{{ user.email }}{% endif %}"
+        placeholder="your-email@example.com">
+    </label>
+
+    <div class="small" style="margin:8px 0 14px">
+      This address is used only for SysMonitor notifications.
+      Changing it here does not change your account/profile email.
+    </div>
+
+    {% for key,label in alerts %}
+    <label class="alert-row">
+      <input
+        type="checkbox"
+        name="email_alerts"
+        value="{{ key }}"
+        {% if draft and key in draft.email_alerts %}checked{% endif %}>
+      <span>{{ label }}</span>
+    </label>
+    {% endfor %}
+  </div>
+
+
+  <div class="card">
+    <h2>✈️ Telegram</h2>
+
+    {% if bot_username %}
+    <div class="muted">
+      SysMonitor bot: <strong>@{{ bot_username }}</strong>
+    </div>
+    {% endif %}
+
+    {% if draft and draft.telegram_verified %}
+      <p class="verified">
+        ✓ Verified — {{ draft.telegram_display_name }}
+      </p>
+
+    {% elif draft and draft.pairing_code %}
+      <p>Send this exact message to the SysMonitor bot:</p>
+
+      <div class="code">hi {{ draft.pairing_code }}</div>
+
+      <p class="small">
+        Pairing code expires after 15 minutes.
+      </p>
+
+      <button
+        type="button"
+        class="btn success"
+        onclick="submitPairAction('{% url 'notification_request_pair_verify' %}')">
+        ✓ Verify Telegram
+      </button>
+
+    {% else %}
+      <p class="muted">
+        Generate a private one-time code, send it to the configured
+        SysMonitor Telegram bot, then verify it here.
+      </p>
+
+      <button
+        type="button"
+        class="btn ghost"
+        onclick="submitPairAction('{% url 'notification_request_pair_start' %}')">
+        Generate Telegram Pairing Code
+      </button>
+    {% endif %}
+
+    <hr>
+
+    {% for key,label in alerts %}
+    <label class="alert-row">
+      <input
+        type="checkbox"
+        name="telegram_alerts"
+        value="{{ key }}"
+        {% if draft and key in draft.telegram_alerts %}checked{% endif %}>
+      <span>{{ label }}</span>
+    </label>
+    {% endfor %}
+  </div>
+
+</div>
+
+<div class="card">
+  <button class="btn primary" type="submit">
+    Submit for Administrator Approval
+  </button>
+
+  <span class="small">
+    Existing approved settings remain active until this request is approved.
+  </span>
+</div>
+
+</form>
+
+{% endif %}
+
+
+{% if approved_recipients %}
+<div class="card">
+  <h2>✅ Active Delivery Contacts</h2>
+
+  {% for r in approved_recipients %}
+  <div class="alert-row">
+    <strong>{{ r.get_channel_display }}</strong>
+    <span>{{ r.contact }}</span>
+
+    {% if r.is_active %}
+      <span class="verified">Active</span>
+    {% else %}
+      <span class="small">Inactive</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+
+{% if role == 'admin' %}
+<div class="card" id="admin-pending">
+
+<h2>
+  🛡️ Administrator — Pending Requests
+  {% if admin_pending_count %}
+    <span class="badge">{{ admin_pending_count }}</span>
+  {% endif %}
+</h2>
+
+{% if admin_pending %}
+
+{% for req in admin_pending %}
+<div class="admin-request">
+
+<h3>
+  {{ req.user.get_full_name|default:req.user.username }}
+  <span class="status PENDING">Pending</span>
+</h3>
+
+<div class="small">
+  Username: {{ req.user.username }} ·
+  Requested: {{ req.requested_at }}
+</div>
+
+<form method="post" action="{% url 'notification_request_approve' req.id %}">
+{% csrf_token %}
+
+<div class="grid" style="margin-top:15px">
+
+<div>
+<h3>📧 Email</h3>
+
+<input
+  type="email"
+  name="email_contact"
+  value="{{ req.email_contact }}">
+
+{% for key,label in alerts %}
+<label class="alert-row">
+  <input
+    type="checkbox"
+    name="email_alerts"
+    value="{{ key }}"
+    {% if key in req.email_alerts %}checked{% endif %}>
+  <span>{{ label }}</span>
+</label>
+{% endfor %}
+</div>
+
+
+<div>
+<h3>
+  ✈️ Telegram
+  {% if req.telegram_verified %}
+    <span class="verified">✓ Verified</span>
+  {% endif %}
+</h3>
+
+<div class="small">
+  {{ req.telegram_display_name|default:"Not verified" }}
+</div>
+
+{% for key,label in alerts %}
+<label class="alert-row">
+  <input
+    type="checkbox"
+    name="telegram_alerts"
+    value="{{ key }}"
+    {% if key in req.telegram_alerts %}checked{% endif %}>
+  <span>{{ label }}</span>
+</label>
+{% endfor %}
+</div>
+
+</div>
+
+<label style="display:block;margin-top:14px">
+  Administrator Note
+  <textarea name="admin_note" rows="2"></textarea>
+</label>
+
+<button class="btn success" type="submit">
+  ✓ Approve / Approve Modified
+</button>
+
+</form>
+
+<form
+  method="post"
+  action="{% url 'notification_request_delete' req.id %}"
+  onsubmit="return confirm('Delete this pending notification request?');">
+{% csrf_token %}
+
+<button class="btn danger" type="submit">
+  Delete Request
+</button>
+</form>
+
+</div>
+{% endfor %}
+
+{% else %}
+<div class="muted">No pending notification requests.</div>
+{% endif %}
+
+</div>
+{% endif %}
+
+</div>
+
+
+<form id="pair-action-form" method="post" style="display:none">
+{% csrf_token %}
+</form>
+
+<script>
+function submitPairAction(url){
+  const form = document.getElementById('pair-action-form');
+  form.action = url;
+  form.submit();
+}
+</script>
+
+</body>
+</html>

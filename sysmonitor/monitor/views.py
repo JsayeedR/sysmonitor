@@ -652,6 +652,18 @@ def colocation_setpoints(request):
             config.alarm_cooldown_minutes = cooldown
             config.save()
 
+            log_activity(
+                request.user,
+                'COLO_SETPOINTS',
+                (
+                    'Colocation alarm setpoints updated: '
+                    f'temperature={temperature_low}..{temperature_high} C; '
+                    f'humidity={humidity_low}..{humidity_high} %; '
+                    f'cooldown={cooldown} min.'
+                )[:300],
+                get_ip(request),
+            )
+
             messages.success(
                 request,
                 'Colocation temperature/humidity alarm setpoints saved successfully.'
@@ -1993,6 +2005,18 @@ def notif_gateway_save(request):
         gw.email_from = data.get('email_from', '').strip()
 
     gw.save()
+
+    log_activity(
+        request.user,
+        'NOTIF_GATEWAY_EDIT',
+        (
+            f'Admin "{request.user.username}" updated '
+            f'{channel} notification gateway; '
+            f'enabled={gw.is_enabled}.'
+        )[:300],
+        get_ip(request),
+    )
+
     return JsonResponse({'ok': True})
 
 
@@ -2013,6 +2037,18 @@ def notif_gateway_test(request):
         return JsonResponse({'ok': False, 'error': 'Gateway not configured'})
 
     ok, err = send_test(channel, contact, gw)
+
+    log_activity(
+        request.user,
+        'NOTIF_GATEWAY_TEST',
+        (
+            f'Admin "{request.user.username}" sent a '
+            f'{channel} gateway test to "{contact}"; '
+            f'result={"success" if ok else "failed"}.'
+        )[:300],
+        get_ip(request),
+    )
+
     return JsonResponse({'ok': ok, 'error': err})
 
 
@@ -2067,6 +2103,17 @@ def notif_recipient_add(request):
         colocation_data = d.get('colocation_data', False),
         colocation_alarm = d.get('colocation_alarm', False),
     )
+
+    log_activity(
+        request.user,
+        'NOTIF_RECIPIENT_ADD',
+        (
+            f'Admin "{request.user.username}" added notification recipient '
+            f'"{r.name}" ({r.channel}: {r.contact}).'
+        )[:300],
+        get_ip(request),
+    )
+
     return JsonResponse({'ok': True, 'id': r.id})
 
 
@@ -2091,6 +2138,17 @@ def notif_recipient_edit(request, rid):
         r.colocation_data = d.get('colocation_data', r.colocation_data)
         r.colocation_alarm = d.get('colocation_alarm', r.colocation_alarm)
         r.save()
+
+        log_activity(
+            request.user,
+            'NOTIF_RECIPIENT_EDIT',
+            (
+                f'Admin "{request.user.username}" updated notification '
+                f'recipient "{r.name}" ({r.channel}: {r.contact}).'
+            )[:300],
+            get_ip(request),
+        )
+
         return JsonResponse({'ok': True})
     except NotificationRecipient.DoesNotExist:
         return JsonResponse({'ok': False, 'error': 'Not found'})
@@ -2100,7 +2158,27 @@ def notif_recipient_edit(request, rid):
 def notif_recipient_delete(request, rid):
     if request.method != 'POST':
         return JsonResponse({'ok': False})
-    NotificationRecipient.objects.filter(id=rid).delete()
+    recipient = NotificationRecipient.objects.filter(id=rid).first()
+
+    if recipient is None:
+        return JsonResponse({'ok': False, 'error': 'Not found'})
+
+    name = recipient.name
+    channel = recipient.channel
+    contact = recipient.contact
+
+    recipient.delete()
+
+    log_activity(
+        request.user,
+        'NOTIF_RECIPIENT_DELETE',
+        (
+            f'Admin "{request.user.username}" deleted notification recipient '
+            f'"{name}" ({channel}: {contact}).'
+        )[:300],
+        get_ip(request),
+    )
+
     return JsonResponse({'ok': True})
 
 
@@ -2112,6 +2190,18 @@ def notif_recipient_test(request, rid):
         r  = NotificationRecipient.objects.get(id=rid)
         gw = NotificationGateway.objects.get(channel=r.channel, is_enabled=True)
         ok, err = send_test(r.channel, r.contact, gw)
+
+        log_activity(
+            request.user,
+            'NOTIF_RECIPIENT_TEST',
+            (
+                f'Admin "{request.user.username}" sent test notification '
+                f'to recipient "{r.name}" ({r.channel}: {r.contact}); '
+                f'result={"success" if ok else "failed"}.'
+            )[:300],
+            get_ip(request),
+        )
+
         return JsonResponse({'ok': ok, 'error': err})
     except NotificationGateway.DoesNotExist:
         return JsonResponse({'ok': False, 'error': f'{r.channel} gateway is not enabled'})
@@ -2127,6 +2217,19 @@ def notif_recipient_toggle(request, rid):
         r = NotificationRecipient.objects.get(id=rid)
         r.is_active = not r.is_active
         r.save()
+
+        log_activity(
+            request.user,
+            'NOTIF_RECIPIENT_TOGGLE',
+            (
+                f'Admin "{request.user.username}" '
+                f'{"enabled" if r.is_active else "disabled"} '
+                f'notification recipient "{r.name}" '
+                f'({r.channel}: {r.contact}).'
+            )[:300],
+            get_ip(request),
+        )
+
         return JsonResponse({'ok': True, 'is_active': r.is_active})
     except NotificationRecipient.DoesNotExist:
         return JsonResponse({'ok': False})
@@ -2288,9 +2391,15 @@ def notif_message_template_save(request):
     tpl.updated_by = request.user.username
     tpl.save()
 
-    log_activity(request.user, 'USER_EDITED',
-                 f'Updated "{valid_types[event_type]}" message template.',
-                 ip=get_ip(request))
+    log_activity(
+        request.user,
+        'MESSAGE_TEMPLATE_EDIT',
+        (
+            f'Admin "{request.user.username}" updated '
+            f'"{valid_types[event_type]}" notification message template.'
+        )[:300],
+        ip=get_ip(request),
+    )
     return JsonResponse({'ok': True})
 
 
@@ -2321,9 +2430,16 @@ def notif_send_monthly_report_now(request):
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)})
 
-    log_activity(request.user, 'USER_EDITED',
-                 f'Manually sent monthly loadshedding report for {summary["label"]} '
-                 f'to {sent_count} recipient(s).', ip=get_ip(request))
+    log_activity(
+        request.user,
+        'MONTHLY_REPORT_SEND',
+        (
+            f'Admin "{request.user.username}" manually sent monthly '
+            f'loadshedding report for {summary["label"]} to '
+            f'{sent_count} recipient(s); failed={len(failed)}.'
+        )[:300],
+        ip=get_ip(request),
+    )
 
     return JsonResponse({
         'ok': True,
@@ -2452,12 +2568,13 @@ def generator_fuel(request):
 
         log_activity(
             request.user,
-            'USER_EDITED',
+            'GENERATOR_FUEL_ADD',
             (
-                f'Added generator fuel record: {generator}, '
-                f'before={fuel_before}L, after={fuel_after}L.'
-            ),
-            ip=get_ip(request)
+                f'User "{request.user.username}" added generator fuel '
+                f'record: {generator}, before={fuel_before}L, '
+                f'after={fuel_after}L.'
+            )[:300],
+            ip=get_ip(request),
         )
 
         messages.success(
@@ -3134,6 +3251,16 @@ def maintenance_start(request):
     m.reason = reason
     m.save()
 
+    log_activity(
+        request.user,
+        'MAINT_START',
+        (
+            f'Maintenance mode started by "{request.user.username}" '
+            f'for {minutes} minute(s); reason="{reason or "not provided"}".'
+        )[:300],
+        get_ip(request),
+    )
+
     return JsonResponse({'ok': True, 'expires_in_minutes': minutes})
 
 
@@ -3146,6 +3273,14 @@ def maintenance_stop(request):
     if m:
         m.is_active = False
         m.save()
+
+    log_activity(
+        request.user,
+        'MAINT_STOP',
+        f'Maintenance mode stopped by "{request.user.username}".',
+        get_ip(request),
+    )
+
     return JsonResponse({'ok': True})
 
 
@@ -3241,7 +3376,42 @@ def profile_edit_save(request):
         )
         messages_out.append('Mobile number change submitted for admin approval.')
 
-    log_activity(user, 'PROFILE_UPDATE', 'Profile fields updated', get_ip(request))
+    changed_parts = [
+        'name/designation/contact profile fields saved'
+    ]
+    if 'profile_picture' in request.FILES:
+        changed_parts.append('profile picture updated')
+    if new_email and new_email != user.email:
+        changed_parts.append('email change requested')
+    if new_mobile and new_mobile != profile.mobile_number:
+        changed_parts.append('mobile change requested')
+
+    log_activity(
+        user,
+        'PROFILE_UPDATE',
+        (
+            f'User "{user.username}" updated own profile: '
+            + '; '.join(changed_parts)
+            + '.'
+        )[:300],
+        get_ip(request),
+    )
+
+    if new_email and new_email != user.email:
+        log_activity(
+            user,
+            'PROFILE_CHANGE_REQ',
+            f'User "{user.username}" requested an email address change.',
+            get_ip(request),
+        )
+
+    if new_mobile and new_mobile != profile.mobile_number:
+        log_activity(
+            user,
+            'PROFILE_CHANGE_REQ',
+            f'User "{user.username}" requested a mobile number change.',
+            get_ip(request),
+        )
 
     return JsonResponse({'ok': True, 'messages': messages_out})
 
@@ -3317,6 +3487,16 @@ def profile_change_approve(request, pid):
     req.reviewed_by = request.user.username
     req.save()
 
+    log_activity(
+        request.user,
+        'PROFILE_CHANGE_APPROVE',
+        (
+            f'Admin "{request.user.username}" approved {req.field} change '
+            f'for user "{user.username}".'
+        ),
+        get_ip(request),
+    )
+
     return JsonResponse({'ok': True})
 
 
@@ -3334,6 +3514,16 @@ def profile_change_reject(request, pid):
     req.reviewed_at = timezone.now()
     req.reviewed_by = request.user.username
     req.save()
+
+    log_activity(
+        request.user,
+        'PROFILE_CHANGE_REJECT',
+        (
+            f'Admin "{request.user.username}" rejected {req.field} change '
+            f'for user "{req.user.username}".'
+        ),
+        get_ip(request),
+    )
 
     return JsonResponse({'ok': True})
 
@@ -5817,3 +6007,673 @@ def cctv_camera_delete(request, cid):
     )
 
     return redirect('cctv_setup')
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SELF-SERVICE NOTIFICATION REQUEST
+# ══════════════════════════════════════════════════════════════════════════════
+
+_NOTIFICATION_REQUEST_ALERTS = [
+    ('alert_outage',     '⚡ Power Outage Started'),
+    ('alert_critical',   '🚨 Critical — Both Devices Down'),
+    ('alert_alarm',      '🟠 Alarm / Abnormal Condition'),
+    ('alert_complete',   '✅ Outage Cycle Complete'),
+    ('alert_pac_status', '❄️ SMW6PAC Status Change'),
+    ('daily_summary',    '📋 Daily Generator Summary'),
+    ('monthly_report',   '📊 Monthly Report'),
+    ('colocation_data',  '🌡️ Colocation Data Update'),
+    ('colocation_alarm', '🚨 Colocation Temperature/Humidity Alarm'),
+]
+
+_NOTIFICATION_REQUEST_KEYS = {
+    key for key, _label in _NOTIFICATION_REQUEST_ALERTS
+}
+
+
+def _notification_request_allowed(request):
+    return get_role(request.user) in ('viewer', 'user', 'admin')
+
+
+def _notification_request_draft(user):
+    from monitor.models import NotificationRequest
+
+    draft = (
+        NotificationRequest.objects
+        .filter(user=user, status='DRAFT')
+        .order_by('-updated_at')
+        .first()
+    )
+
+    if draft is None:
+        draft = NotificationRequest.objects.create(
+            user=user,
+            email_contact=user.email or '',
+        )
+
+    return draft
+
+
+def _clean_requested_alerts(values):
+    return [
+        value
+        for value in values
+        if value in _NOTIFICATION_REQUEST_KEYS
+    ]
+
+
+@login_required(login_url='login')
+def notification_request_page(request):
+    if not _notification_request_allowed(request):
+        return render(request, 'monitor/denied.html', status=403)
+
+    from monitor.models import (
+        NotificationGateway,
+        NotificationRequest,
+        NotificationRecipient,
+    )
+    from monitor.notifications import get_telegram_bot_identity
+
+    latest = (
+        NotificationRequest.objects
+        .filter(user=request.user)
+        .order_by('-updated_at')
+        .first()
+    )
+
+    draft = (
+        NotificationRequest.objects
+        .filter(user=request.user, status='DRAFT')
+        .order_by('-updated_at')
+        .first()
+    )
+
+    pending = (
+        NotificationRequest.objects
+        .filter(user=request.user, status='PENDING')
+        .order_by('-requested_at')
+        .first()
+    )
+
+    approved = (
+        NotificationRequest.objects
+        .filter(user=request.user, status='APPROVED')
+        .order_by('-reviewed_at', '-updated_at')
+        .first()
+    )
+
+    approved_recipients = list(
+        NotificationRecipient.objects
+        .filter(user=request.user)
+        .order_by('channel')
+    )
+
+    bot_username = ''
+    bot_name = 'SysMonitor Bot'
+
+    gateway = (
+        NotificationGateway.objects
+        .filter(channel='telegram', is_enabled=True)
+        .first()
+    )
+
+    if gateway and gateway.tg_bot_token:
+        ok, bot = get_telegram_bot_identity(gateway.tg_bot_token)
+        if ok:
+            bot_username = bot.get('username', '')
+            bot_name = bot.get('name', 'SysMonitor Bot')
+
+    admin_pending = []
+    if get_role(request.user) == 'admin':
+        admin_pending = list(
+            NotificationRequest.objects
+            .filter(status='PENDING')
+            .select_related('user')
+            .order_by('requested_at')
+        )
+
+    return render(request, 'monitor/notification_request.html', {
+        'role': get_role(request.user),
+        'alerts': _NOTIFICATION_REQUEST_ALERTS,
+        'latest_request': latest,
+        'approved_request': approved,
+        'draft': draft,
+        'pending_request': pending,
+        'approved_recipients': approved_recipients,
+        'admin_pending_count': len(admin_pending),
+        'bot_username': bot_username,
+        'bot_name': bot_name,
+        'admin_pending': admin_pending,
+        'is_mirror': settings.IS_MIRROR,
+    })
+
+
+@login_required(login_url='login')
+def notification_request_pair_start(request):
+    if not _notification_request_allowed(request):
+        return render(request, 'monitor/denied.html', status=403)
+
+    if request.method != 'POST':
+        return redirect('notification_request')
+
+    if settings.IS_MIRROR:
+        messages.error(
+            request,
+            'Telegram pairing from the REMOTE site will be enabled after '
+            'MASTER testing is completed.'
+        )
+        return redirect('notification_request')
+
+    import secrets
+    import string
+    from django.utils import timezone
+
+    draft = _notification_request_draft(request.user)
+
+    alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    draft.pairing_code = ''.join(
+        secrets.choice(alphabet)
+        for _ in range(6)
+    )
+    draft.pairing_created_at = timezone.now()
+
+    # Starting a new pairing invalidates the previous Telegram verification
+    # for this draft.
+    draft.telegram_chat_id = ''
+    draft.telegram_display_name = ''
+    draft.telegram_verified = False
+
+    draft.save()
+
+    messages.success(
+        request,
+        f'Telegram pairing code created: {draft.pairing_code}'
+    )
+
+    return redirect('notification_request')
+
+
+@login_required(login_url='login')
+def notification_request_pair_verify(request):
+    if not _notification_request_allowed(request):
+        return render(request, 'monitor/denied.html', status=403)
+
+    if request.method != 'POST':
+        return redirect('notification_request')
+
+    if settings.IS_MIRROR:
+        messages.error(
+            request,
+            'Telegram pairing from the REMOTE site will be enabled after '
+            'MASTER testing is completed.'
+        )
+        return redirect('notification_request')
+
+    from datetime import timedelta
+    from django.utils import timezone
+    from monitor.models import NotificationGateway, NotificationRequest
+    from monitor.notifications import find_telegram_pairing_message
+
+    draft = (
+        NotificationRequest.objects
+        .filter(user=request.user, status='DRAFT')
+        .order_by('-updated_at')
+        .first()
+    )
+
+    if not draft or not draft.pairing_code or not draft.pairing_created_at:
+        messages.error(request, 'Create a Telegram pairing code first.')
+        return redirect('notification_request')
+
+    if timezone.now() - draft.pairing_created_at > timedelta(minutes=15):
+        messages.error(
+            request,
+            'That Telegram pairing code expired. Create a new code.'
+        )
+        return redirect('notification_request')
+
+    gateway = (
+        NotificationGateway.objects
+        .filter(channel='telegram', is_enabled=True)
+        .first()
+    )
+
+    if not gateway or not gateway.tg_bot_token:
+        messages.error(request, 'Telegram gateway is not enabled/configured.')
+        return redirect('notification_request')
+
+    ok, result = find_telegram_pairing_message(
+        gateway.tg_bot_token,
+        draft.pairing_code,
+        not_before=draft.pairing_created_at,
+    )
+
+    if not ok:
+        messages.error(request, result)
+        return redirect('notification_request')
+
+    draft.telegram_chat_id = result['chat_id']
+    draft.telegram_display_name = result['display_name']
+    draft.telegram_verified = True
+    draft.save()
+
+    log_activity(
+        request.user,
+        'NOTIF_TELEGRAM_PAIR',
+        f'Telegram notification account verified as "{draft.telegram_display_name}".',
+        get_ip(request),
+    )
+
+    messages.success(
+        request,
+        f"Telegram verified: {draft.telegram_display_name}"
+    )
+
+    return redirect('notification_request')
+
+
+@login_required(login_url='login')
+def notification_request_submit(request):
+    if not _notification_request_allowed(request):
+        return render(request, 'monitor/denied.html', status=403)
+
+    if request.method != 'POST':
+        return redirect('notification_request')
+
+    if settings.IS_MIRROR:
+        messages.error(
+            request,
+            'Notification requests from the REMOTE site will be enabled '
+            'after MASTER testing is completed.'
+        )
+        return redirect('notification_request')
+
+    from django.core.validators import validate_email
+    from django.core.exceptions import ValidationError
+    from django.utils import timezone
+    from monitor.models import NotificationRequest
+
+    # Don't create two simultaneous pending requests for one account.
+    if NotificationRequest.objects.filter(
+        user=request.user,
+        status='PENDING',
+    ).exists():
+        messages.error(
+            request,
+            'You already have a pending notification request. '
+            'Please wait for administrator review.'
+        )
+        return redirect('notification_request')
+
+    draft = _notification_request_draft(request.user)
+
+    email_contact = request.POST.get('email_contact', '').strip()
+    email_alerts = _clean_requested_alerts(
+        request.POST.getlist('email_alerts')
+    )
+    telegram_alerts = _clean_requested_alerts(
+        request.POST.getlist('telegram_alerts')
+    )
+
+    if email_alerts:
+        if not email_contact:
+            messages.error(
+                request,
+                'Enter an email address for the selected Email notifications.'
+            )
+            return redirect('notification_request')
+
+        try:
+            validate_email(email_contact)
+        except ValidationError:
+            messages.error(request, 'Enter a valid notification email address.')
+            return redirect('notification_request')
+
+    if telegram_alerts and not draft.telegram_verified:
+        messages.error(
+            request,
+            'Verify your Telegram account before selecting Telegram notifications.'
+        )
+        return redirect('notification_request')
+
+    if not email_alerts and not telegram_alerts:
+        messages.error(
+            request,
+            'Select at least one Email or Telegram notification.'
+        )
+        return redirect('notification_request')
+
+    draft.email_contact = email_contact
+    draft.email_alerts = email_alerts
+    draft.telegram_alerts = telegram_alerts
+    draft.status = 'PENDING'
+    draft.requested_at = timezone.now()
+    draft.reviewed_at = None
+    draft.reviewed_by = ''
+    draft.admin_note = ''
+    draft.save()
+
+    channel_names = []
+    if email_alerts:
+        channel_names.append('Email')
+    if telegram_alerts:
+        channel_names.append('Telegram')
+
+    log_activity(
+        request.user,
+        'NOTIF_REQUEST_SUBMIT',
+        (
+            f'Notification request submitted by "{request.user.username}"; '
+            f'channels={", ".join(channel_names)}; '
+            f'email alerts={len(email_alerts)}; '
+            f'telegram alerts={len(telegram_alerts)}.'
+        )[:300],
+        get_ip(request),
+    )
+
+    messages.success(
+        request,
+        'Notification request submitted for administrator approval.'
+    )
+
+    return redirect('notification_request')
+
+
+
+@login_required(login_url='login')
+def notification_request_change(request):
+    if not _notification_request_allowed(request):
+        return render(request, 'monitor/denied.html', status=403)
+
+    if request.method != 'POST':
+        return redirect('notification_request')
+
+    if settings.IS_MIRROR:
+        messages.error(
+            request,
+            'Notification changes from the REMOTE site are not writable here. '
+            'Please use the MASTER site.'
+        )
+        return redirect('notification_request')
+
+    from monitor.models import NotificationRequest
+
+    if NotificationRequest.objects.filter(
+        user=request.user,
+        status='PENDING',
+    ).exists():
+        messages.error(
+            request,
+            'You already have a pending notification request.'
+        )
+        return redirect('notification_request')
+
+    approved = (
+        NotificationRequest.objects
+        .filter(user=request.user, status='APPROVED')
+        .order_by('-reviewed_at', '-updated_at')
+        .first()
+    )
+
+    if approved is None:
+        messages.error(request, 'No approved notification settings were found.')
+        return redirect('notification_request')
+
+    draft = (
+        NotificationRequest.objects
+        .filter(user=request.user, status='DRAFT')
+        .order_by('-updated_at')
+        .first()
+    )
+
+    if draft is None:
+        draft = NotificationRequest(user=request.user)
+
+    draft.email_contact = approved.email_contact
+    draft.email_alerts = list(approved.email_alerts or [])
+    draft.telegram_chat_id = approved.telegram_chat_id
+    draft.telegram_display_name = approved.telegram_display_name
+    draft.telegram_verified = approved.telegram_verified
+    draft.telegram_alerts = list(approved.telegram_alerts or [])
+    draft.pairing_code = ''
+    draft.pairing_created_at = None
+    draft.status = 'DRAFT'
+    draft.requested_at = None
+    draft.reviewed_at = None
+    draft.reviewed_by = ''
+    draft.admin_note = ''
+    draft.save()
+
+    log_activity(
+        request.user,
+        'NOTIF_REQUEST_CHANGE',
+        (
+            f'User "{request.user.username}" opened a notification '
+            f'change request from current approved settings.'
+        ),
+        get_ip(request),
+    )
+
+    messages.success(
+        request,
+        'Your current approved settings were copied into a new change request. '
+        'Existing approved notifications remain active until a new request is approved.'
+    )
+
+    return redirect('notification_request')
+
+
+@role_required('admin')
+def notification_request_approve(request, rid):
+    if request.method != 'POST':
+        return redirect('notification_request')
+
+    if settings.IS_MIRROR:
+        messages.error(
+            request,
+            'Administrator approval must run on MASTER.'
+        )
+        return redirect('notification_request')
+
+    from django.utils import timezone
+    from monitor.models import NotificationRequest, NotificationRecipient
+
+    req = get_object_or_404(
+        NotificationRequest,
+        id=rid,
+        status='PENDING',
+    )
+
+    email_contact = request.POST.get(
+        'email_contact',
+        req.email_contact,
+    ).strip()
+
+    email_alerts = _clean_requested_alerts(
+        request.POST.getlist('email_alerts')
+    )
+    telegram_alerts = _clean_requested_alerts(
+        request.POST.getlist('telegram_alerts')
+    )
+
+    if email_alerts:
+        if not email_contact:
+            messages.error(
+                request,
+                'A notification email address is required when Email alerts are selected.'
+            )
+            return redirect('notification_request')
+
+        from django.core.validators import validate_email
+        from django.core.exceptions import ValidationError
+
+        try:
+            validate_email(email_contact)
+        except ValidationError:
+            messages.error(
+                request,
+                'Enter a valid notification email address before approval.'
+            )
+            return redirect('notification_request')
+
+    if telegram_alerts and not req.telegram_verified:
+        messages.error(
+            request,
+            'Telegram cannot be approved because it has not been verified.'
+        )
+        return redirect('notification_request')
+
+    if not email_alerts and not telegram_alerts:
+        messages.error(
+            request,
+            'Select at least one Email or Telegram notification before approval.'
+        )
+        return redirect('notification_request')
+
+    if email_alerts:
+        conflict = (
+            NotificationRecipient.objects
+            .filter(channel='email', contact=email_contact)
+            .exclude(user=req.user)
+            .first()
+        )
+
+        if conflict:
+            messages.error(
+                request,
+                (
+                    f'The email "{email_contact}" is already used by '
+                    f'notification recipient "{conflict.name}". '
+                    'Edit that existing recipient first to avoid duplicate delivery.'
+                )
+            )
+            return redirect('notification_request')
+
+    if telegram_alerts:
+        conflict = (
+            NotificationRecipient.objects
+            .filter(channel='telegram', contact=req.telegram_chat_id)
+            .exclude(user=req.user)
+            .first()
+        )
+
+        if conflict:
+            messages.error(
+                request,
+                (
+                    'That Telegram account is already linked to another '
+                    f'notification recipient "{conflict.name}".'
+                )
+            )
+            return redirect('notification_request')
+
+    display_name = (
+        req.user.get_full_name().strip()
+        or req.user.username
+    )
+
+    def apply_recipient(channel, contact, selected):
+        existing = (
+            NotificationRecipient.objects
+            .filter(user=req.user, channel=channel)
+            .order_by('id')
+            .first()
+        )
+
+        if not selected:
+            if existing:
+                existing.is_active = False
+                existing.save(update_fields=['is_active'])
+            return
+
+        if existing is None:
+            existing = NotificationRecipient(
+                user=req.user,
+                channel=channel,
+            )
+
+        existing.name = display_name
+        existing.contact = contact
+        existing.is_active = True
+
+        selected_set = set(selected)
+
+        for field, _label in _NOTIFICATION_REQUEST_ALERTS:
+            setattr(existing, field, field in selected_set)
+
+        existing.save()
+
+    apply_recipient('email', email_contact, email_alerts)
+
+    apply_recipient(
+        'telegram',
+        req.telegram_chat_id,
+        telegram_alerts,
+    )
+
+    req.email_contact = email_contact
+    req.email_alerts = email_alerts
+    req.telegram_alerts = telegram_alerts
+    req.status = 'APPROVED'
+    req.reviewed_at = timezone.now()
+    req.reviewed_by = request.user.username
+    req.admin_note = request.POST.get('admin_note', '').strip()[:500]
+    req.save()
+
+    log_activity(
+        request.user,
+        'NOTIF_REQUEST_APPROVE',
+        (
+            f'Admin "{request.user.username}" approved notification request '
+            f'for "{req.user.username}"; '
+            f'email={email_contact if email_alerts else "disabled"} '
+            f'({len(email_alerts)} alerts); '
+            f'telegram={"enabled" if telegram_alerts else "disabled"} '
+            f'({len(telegram_alerts)} alerts).'
+        )[:300],
+        get_ip(request),
+    )
+
+    messages.success(
+        request,
+        f'Notification request for {display_name} approved.'
+    )
+
+    return redirect('notification_request')
+
+
+@role_required('admin')
+def notification_request_delete(request, rid):
+    if request.method != 'POST':
+        return redirect('notification_request')
+
+    if settings.IS_MIRROR:
+        messages.error(request, 'Delete must run on MASTER.')
+        return redirect('notification_request')
+
+    from monitor.models import NotificationRequest
+
+    req = get_object_or_404(
+        NotificationRequest,
+        id=rid,
+        status='PENDING',
+    )
+
+    username = req.user.username
+    req.delete()
+
+    log_activity(
+        request.user,
+        'NOTIF_REQUEST_DELETE',
+        (
+            f'Admin "{request.user.username}" deleted pending notification '
+            f'request for "{username}".'
+        ),
+        get_ip(request),
+    )
+
+    messages.success(
+        request,
+        f'Pending notification request for {username} deleted.'
+    )
+
+    return redirect('notification_request')

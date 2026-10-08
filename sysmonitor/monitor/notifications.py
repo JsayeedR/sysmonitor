@@ -531,6 +531,113 @@ def get_telegram_chat_id(bot_token):
         return False, str(e)
 
 
+
+
+def get_telegram_bot_identity(bot_token):
+    """Return the configured bot's public username without sending anything."""
+    if not bot_token:
+        return False, 'Telegram bot is not configured.'
+
+    url = f"https://api.telegram.org/bot{bot_token}/getMe"
+    req = urllib.request.Request(url)
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = json.loads(resp.read().decode('utf-8'))
+
+        if not result.get('ok'):
+            return False, result.get('description', 'Telegram getMe failed')
+
+        bot = result.get('result') or {}
+        return True, {
+            'username': bot.get('username', ''),
+            'name': bot.get('first_name', 'SysMonitor Bot'),
+        }
+
+    except Exception as exc:
+        return False, str(exc)
+
+
+def find_telegram_pairing_message(bot_token, pairing_code, not_before=None):
+    """
+    Find an exact private Telegram message:
+
+        hi PAIRINGCODE
+
+    Only messages sent at/after not_before are accepted when supplied.
+    This is read-only. It never sends a Telegram message.
+    """
+    if not bot_token or not pairing_code:
+        return False, 'Telegram bot or pairing code is missing.'
+
+    expected = f"hi {pairing_code}".strip().casefold()
+
+    url = f"https://api.telegram.org/bot{bot_token}/getUpdates"
+    req = urllib.request.Request(url)
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = json.loads(resp.read().decode('utf-8'))
+
+        if not result.get('ok'):
+            return False, result.get('description', 'Telegram getUpdates failed')
+
+        # Newest first, so an old matching message is less likely to win.
+        for update in reversed(result.get('result', [])):
+            msg = update.get('message') or {}
+            text_value = str(msg.get('text') or '').strip()
+
+            if text_value.casefold() != expected:
+                continue
+
+            if not_before is not None:
+                try:
+                    message_ts = int(msg.get('date') or 0)
+                    minimum_ts = int(not_before.timestamp())
+                except (TypeError, ValueError, AttributeError):
+                    continue
+
+                if message_ts < minimum_ts:
+                    continue
+
+            chat = msg.get('chat') or {}
+
+            # Personal notification pairing must be a private Telegram chat.
+            if chat.get('type') != 'private':
+                continue
+
+            chat_id = str(chat.get('id') or '').strip()
+            if not chat_id:
+                continue
+
+            name = ' '.join(
+                part for part in (
+                    chat.get('first_name', ''),
+                    chat.get('last_name', ''),
+                )
+                if part
+            ).strip()
+
+            username = str(chat.get('username') or '').strip()
+            if username:
+                display = f"{name} (@{username})" if name else f"@{username}"
+            else:
+                display = name or 'Telegram User'
+
+            return True, {
+                'chat_id': chat_id,
+                'display_name': display,
+            }
+
+        return False, (
+            f'No private Telegram message matching "hi {pairing_code}" '
+            f'was found yet.'
+        )
+
+    except Exception as exc:
+        return False, str(exc)
+
+
 # ── Email Gateway ──────────────────────────────────────────────────────────────
 
 def send_email(gateway, recipient_email, message, event_type='NOTIFICATION'):

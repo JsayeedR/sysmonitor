@@ -140,19 +140,65 @@ class ProfileChangeRequest(models.Model):
 
 class ActivityLog(models.Model):
     ACTION_CHOICES = [
-        ('LOGIN',         'Login'),
-        ('LOGOUT',        'Logout'),
-        ('LOGIN_FAILED',  'Login Failed'),
-        ('USER_CREATED',  'User Created'),
-        ('USER_EDITED',   'User Edited'),
-        ('USER_DELETED',  'User Deleted'),
-        ('DEVICE_ADDED',  'Device Added'),
-        ('DEVICE_EDITED', 'Device Edited'),
-        ('DEVICE_DELETED','Device Deleted'),
+        ('LOGIN',                  'Login'),
+        ('LOGOUT',                 'Logout'),
+        ('LOGIN_FAILED',           'Login Failed'),
+
+        ('USER_CREATED',           'User Created'),
+        ('USER_EDITED',            'User Edited'),
+        ('USER_DELETED',           'User Deleted'),
+
+        ('DEVICE_ADDED',           'Device Added'),
+        ('DEVICE_EDITED',          'Device Edited'),
+        ('DEVICE_DELETED',         'Device Deleted'),
+
+        ('PROFILE_UPDATE',         'Profile Updated'),
+        ('PROFILE_CHANGE_REQ',     'Profile Change Requested'),
+        ('PROFILE_CHANGE_APPROVE', 'Profile Change Approved'),
+        ('PROFILE_CHANGE_REJECT',  'Profile Change Rejected'),
+        ('PASSWORD_CHANGE',        'Password Changed'),
+        ('PASSWORD_RESET_REQUESTED', 'Password Reset Requested'),
+
+        ('NOTIF_REQUEST_SUBMIT',   'Notification Request Submitted'),
+        ('NOTIF_REQUEST_CHANGE',   'Notification Change Requested'),
+        ('NOTIF_REQUEST_APPROVE',  'Notification Request Approved'),
+        ('NOTIF_REQUEST_DELETE',   'Notification Request Deleted'),
+        ('NOTIF_TELEGRAM_PAIR',    'Telegram Notification Paired'),
+
+        ('NOTIF_GATEWAY_EDIT',     'Notification Gateway Updated'),
+        ('NOTIF_GATEWAY_TEST',     'Notification Gateway Test Sent'),
+        ('NOTIF_RECIPIENT_ADD',    'Notification Recipient Added'),
+        ('NOTIF_RECIPIENT_EDIT',   'Notification Recipient Edited'),
+        ('NOTIF_RECIPIENT_DELETE', 'Notification Recipient Deleted'),
+        ('NOTIF_RECIPIENT_TOGGLE', 'Notification Recipient Toggled'),
+        ('NOTIF_RECIPIENT_TEST',   'Notification Recipient Test Sent'),
+
+        ('GEN_SHIFT_ADD',          'Generator Shift Added'),
+        ('GEN_SHIFT_EDIT',         'Generator Shift Edited'),
+        ('GEN_SHIFT_DELETE',       'Generator Shift Deleted'),
+        ('GENERATOR_FUEL_ADD',     'Generator Fuel Entry Added'),
+
+        ('CYCLE_CLOSE',            'Cycle Force Closed'),
+        ('CYCLE_DELETE',           'Cycle Deleted'),
+        ('CYCLE_MANUAL_ADD',       'Manual Cycle Added'),
+        ('CYCLE_MANUAL_EDIT',      'Manual Cycle Edited'),
+        ('CYCLE_MANUAL_DELETE',    'Manual Cycle Deleted'),
+
+        ('COLO_SETPOINTS',         'Colocation Setpoints Updated'),
+        ('MAINT_START',            'Maintenance Mode Started'),
+        ('MAINT_STOP',             'Maintenance Mode Stopped'),
+
+        ('SERVICE_RESTART',        'Service Restarted'),
+        ('SERVICE_RESTART_DENIED', 'Service Restart Denied'),
+
+        ('CCTV_CONFIG',            'CCTV Configuration Changed'),
+        ('MESSAGE_TEMPLATE_EDIT',  'Message Template Updated'),
+        ('MONTHLY_REPORT_SEND',    'Monthly Report Sent'),
     ]
+
     user       = models.ForeignKey('auth.User', on_delete=models.SET_NULL,
                                    null=True, blank=True)
-    action     = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    action     = models.CharField(max_length=40, choices=ACTION_CHOICES)
     detail     = models.CharField(max_length=300, blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     timestamp  = models.DateTimeField(auto_now_add=True)
@@ -277,6 +323,14 @@ class NotificationRecipient(models.Model):
         ('telegram', 'Telegram'),
         ('email',    'Email'),
     ]
+    user            = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notification_recipients',
+        help_text='Optional SysMonitor account linked to this recipient.'
+    )
     name            = models.CharField(max_length=100)
     channel         = models.CharField(max_length=20, choices=CHANNEL_CHOICES_R)
     contact         = models.CharField(max_length=200)
@@ -298,6 +352,70 @@ class NotificationRecipient(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.channel}: {self.contact})"
+
+
+
+class NotificationRequest(models.Model):
+    """
+    Self-service notification subscription request.
+
+    Viewer/user/admin may request Email and/or Telegram notifications.
+    Nothing becomes an active NotificationRecipient until an admin approves.
+    """
+
+    STATUS_CHOICES = [
+        ('DRAFT', 'Draft'),
+        ('PENDING', 'Pending'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    ]
+
+    user = models.ForeignKey(
+        'auth.User',
+        on_delete=models.CASCADE,
+        related_name='notification_requests'
+    )
+
+    # Email defaults to the account email, but the requester may choose
+    # another delivery address without changing their login/profile email.
+    email_contact = models.EmailField(blank=True)
+    email_alerts = models.JSONField(default=list, blank=True)
+
+    # Telegram is populated only after matching a one-time pairing code
+    # against a private message received by the configured SysMonitor bot.
+    telegram_chat_id = models.CharField(max_length=100, blank=True)
+    telegram_display_name = models.CharField(max_length=200, blank=True)
+    telegram_verified = models.BooleanField(default=False)
+    telegram_alerts = models.JSONField(default=list, blank=True)
+
+    pairing_code = models.CharField(max_length=20, blank=True)
+    pairing_created_at = models.DateTimeField(null=True, blank=True)
+
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='DRAFT'
+    )
+
+    requested_at = models.DateTimeField(null=True, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.CharField(max_length=100, blank=True)
+    admin_note = models.CharField(max_length=500, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        verbose_name = 'Notification Request'
+        verbose_name_plural = 'Notification Requests'
+
+    def __str__(self):
+        return (
+            f"{self.user.username} — "
+            f"{self.status} — "
+            f"{self.updated_at:%Y-%m-%d %H:%M}"
+        )
 
 
 class NotificationLog(models.Model):

@@ -345,10 +345,10 @@ body{
 
   {% if is_remote_cctv %}
   <div class="notice">
-    Secure remote CCTV is being enabled through the encrypted
-    SysMonitor tunnel. NOC-1 is currently enabled for verification.
-    Video is live only while viewed; SysMonitor does not record or
-    store CCTV video. Existing NVR recording continues normally.
+    Secure remote CCTV is fully deployed through the encrypted SysMonitor
+    tunnel. All configured NOC cameras are available for secure live viewing.
+    Video is relayed only while viewed; SysMonitor does not record or store
+    CCTV video. Existing NVR recording and storage continue normally.
   </div>
   {% else %}
   <div class="notice">
@@ -388,7 +388,7 @@ body{
 
           <span style="margin-top:.35rem;font-size:.72rem">
             {% if is_remote_cctv %}
-              Secure remote live pending verification
+              Secure remote live stream unavailable
             {% elif not c.credentials_ready %}
               NVR live credentials not configured
             {% else %}

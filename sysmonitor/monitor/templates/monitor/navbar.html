@@ -310,31 +310,37 @@
 
     {% if role == "viewer" %}
     <div class="nav-dropdown" id="others-dropdown">
-      <a href="#" class="nav-dropdown-toggle {% if '/smw6pac/' in request.path or '/uptime/' in request.path or '/events/' in request.path or '/cctv/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
+      <a href="#" class="nav-dropdown-toggle {% if '/smw6pac/' in request.path or '/uptime/' in request.path or '/events/' in request.path or '/cctv/' in request.path or '/notification-request/' in request.path or '/profile/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
       <div class="nav-dropdown-menu">
         <a href="{{ base_path }}/smw6pac/" class="{% if '/smw6pac/' in request.path %}active{% endif %}">❄️ SMW6PAC</a>
         <a href="{{ base_path }}/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
         <a href="{{ base_path }}/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 All Events</a>
         <a href="{{ base_path }}/cctv/" class="{% if '/cctv/' in request.path %}active{% endif %}">🎥 NOC CCTV</a>
+        <a href="{{ base_path }}/notification-request/" class="{% if '/notification-request/' in request.path %}active{% endif %}">🔔 Notification Request</a>
+        <a href="{{ base_path }}/profile/" class="{% if '/profile/' in request.path %}active{% endif %}">👤 My Profile</a>
       </div>
     </div>
     {% elif role == "user" %}
     <div class="nav-dropdown" id="others-dropdown">
-      <a href="#" class="nav-dropdown-toggle {% if '/uptime/' in request.path or '/events/' in request.path or '/cctv/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
+      <a href="#" class="nav-dropdown-toggle {% if '/uptime/' in request.path or '/events/' in request.path or '/cctv/' in request.path or '/notification-request/' in request.path or '/profile/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
       <div class="nav-dropdown-menu">
         <a href="{{ base_path }}/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
         <a href="{{ base_path }}/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 All Events</a>
         <a href="{{ base_path }}/cctv/" class="{% if '/cctv/' in request.path %}active{% endif %}">🎥 NOC CCTV</a>
+        <a href="{{ base_path }}/notification-request/" class="{% if '/notification-request/' in request.path %}active{% endif %}">🔔 Notification Request</a>
+        <a href="{{ base_path }}/profile/" class="{% if '/profile/' in request.path %}active{% endif %}">👤 My Profile</a>
       </div>
     </div>
     {% elif role == "admin" %}
     <div class="nav-dropdown" id="others-dropdown">
-      <a href="#" class="nav-dropdown-toggle {% if '/smw6pac/' in request.path or '/uptime/' in request.path or '/events/' in request.path or '/cctv/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
+      <a href="#" class="nav-dropdown-toggle {% if '/smw6pac/' in request.path or '/uptime/' in request.path or '/events/' in request.path or '/cctv/' in request.path or '/notification-request/' in request.path or '/profile/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
       <div class="nav-dropdown-menu">
         <a href="{{ base_path }}/smw6pac/" class="{% if '/smw6pac/' in request.path %}active{% endif %}">❄️ SMW6PAC</a>
         <a href="{{ base_path }}/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>
         <a href="{{ base_path }}/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 All Events</a>
         <a href="{{ base_path }}/cctv/" class="{% if '/cctv/' in request.path %}active{% endif %}">🎥 NOC CCTV</a>
+        <a href="{{ base_path }}/notification-request/" class="{% if '/notification-request/' in request.path %}active{% endif %}">🔔 Notification Request</a>
+        <a href="{{ base_path }}/profile/" class="{% if '/profile/' in request.path %}active{% endif %}">👤 My Profile</a>
       </div>
     </div>
     {% endif %}
