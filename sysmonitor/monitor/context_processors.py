@@ -42,12 +42,21 @@ def system_revision(request):
 def page_access(request):
     """
     Makes individual restrictions available to the shared navbar.
-    """
-    from .page_access import hidden_pages_for_user
 
-    hidden = hidden_pages_for_user(
-        getattr(request, 'user', None)
+    Dropdown visibility is calculated only from pages the user's ROLE
+    actually permits, then individual hidden-page restrictions are applied.
+    """
+    from .page_access import (
+        hidden_pages_for_user,
+        pages_for_role,
+        user_role,
     )
+
+    user = getattr(request, 'user', None)
+    hidden = hidden_pages_for_user(user)
+
+    role = user_role(user)
+    role_pages = set(pages_for_role(role).keys())
 
     generator_keys = {
         'generator_shifting',
@@ -76,9 +85,16 @@ def page_access(request):
         'colocation_setpoints',
     }
 
+    available_generator = (generator_keys & role_pages) - hidden
+    available_others = (others_keys & role_pages) - hidden
+    available_admin = (admin_keys & role_pages) - hidden
+
     return {
         'page_hidden': hidden,
-        'page_show_generator': bool(generator_keys - hidden),
-        'page_show_others': bool(others_keys - hidden),
-        'page_show_admin': bool(admin_keys - hidden),
+        'page_show_generator': bool(available_generator),
+        'page_show_others': bool(available_others),
+
+        # Admin dropdown stays available because Page Access itself is
+        # intentionally non-hideable and acts as the recovery screen.
+        'page_show_admin': role == 'admin' or bool(available_admin),
     }
