@@ -4625,16 +4625,79 @@ def api_sensor_status(request):
             'configured': tuya_configured(),
         })
 
+    # Tuya shadow properties include their real device update time in epoch
+    # milliseconds. recorded_at is only when SysMonitor performed the poll.
+    source_times = []
+
+    for item in latest.raw_status or []:
+        if not isinstance(item, dict):
+            continue
+
+        try:
+            raw_time = item.get('time')
+
+            if raw_time:
+                source_times.append(
+                    int(raw_time) / 1000.0
+                )
+
+        except (TypeError, ValueError):
+            pass
+
+    source_updated_at = None
+
+    if source_times:
+        from datetime import datetime, timezone as dt_timezone
+
+        source_dt = datetime.fromtimestamp(
+            max(source_times),
+            tz=dt_timezone.utc,
+        )
+
+        source_updated_at = source_dt.astimezone(
+            bdt
+        ).strftime(
+            '%d/%m/%Y %I:%M:%S %p'
+        )
+
     return JsonResponse({
         'has_data': True,
         'configured': tuya_configured(),
         'device_name': latest.device_name,
-        'temperature_c': latest.temperature_c,
-        'humidity_pct': latest.humidity_pct,
-        'battery_pct': latest.battery_pct,
-        'battery_state': latest.battery_state,
+        'temperature_c': (
+            latest.temperature_c
+            if latest.is_online
+            else None
+        ),
+        'humidity_pct': (
+            latest.humidity_pct
+            if latest.is_online
+            else None
+        ),
+        'battery_pct': (
+            latest.battery_pct
+            if latest.is_online
+            else None
+        ),
+        'battery_state': (
+            latest.battery_state
+            if latest.is_online
+            else ''
+        ),
+        'battery_display': (
+            (
+                f'{latest.battery_pct:.0f}%'
+                if latest.battery_pct is not None
+                else latest.battery_state
+            )
+            if latest.is_online
+            else 'Out of battery / unavailable'
+        ),
         'is_online': latest.is_online,
-        'recorded_at': latest.recorded_at.astimezone(bdt).strftime('%d/%m/%Y %I:%M:%S %p'),
+        'recorded_at': latest.recorded_at.astimezone(bdt).strftime(
+            '%d/%m/%Y %I:%M:%S %p'
+        ),
+        'source_updated_at': source_updated_at,
     })
 
 

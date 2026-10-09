@@ -101,7 +101,8 @@ def build_colocation_report(start_dt, end_dt):
         f'📍 *Latest Reading:* {fmt_dt(latest)}\n'
         f'🌡️ Temperature: {fmt_value(latest.temperature_c, " °C")}\n'
         f'💧 Humidity: {fmt_value(latest.humidity_pct, " %")}\n'
-        f'🔋 Battery: {latest.battery_state or "—"}\n'
+        f'🔋 Battery: '
+        f'{latest.battery_state if latest.is_online and latest.battery_state else ("—" if latest.is_online else "Out of battery / unavailable")}\n'
         f'{"🟢 Sensor Online" if latest.is_online else "🔴 Sensor Offline"}'
     )
 
@@ -158,17 +159,24 @@ def run():
             f'–{period_end.strftime("%H:%M")}'
         )
 
-        if latest:
+        if latest and latest.is_online:
             event_message = (
                 f'Colocation report sent — {period_label}'
                 f' | Temp {fmt_value(latest.temperature_c, "°C")}'
                 f' | Hum {fmt_value(latest.humidity_pct, "%")}'
-                f' | {reading_count} readings'
+                f' | {reading_count} polls'
+            )
+        elif latest:
+            event_message = (
+                f'Colocation report sent — {period_label}'
+                ' | Sensor Offline'
+                ' | No live sensor data'
+                f' | {reading_count} polls'
             )
         else:
             event_message = (
                 f'Colocation report sent — {period_label}'
-                ' | No sensor readings'
+                ' | No sensor polls'
             )
 
         Event.objects.create(

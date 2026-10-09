@@ -63,17 +63,48 @@ def run(debug=False):
     SensorReading.objects.create(
         device_id=TUYA_DEVICE_ID,
         device_name=DEVICE_NAME,
-        temperature_c=reading['temperature_c'],
-        humidity_pct=reading['humidity_pct'],
-        battery_pct=reading['battery_pct'],
-        battery_state=reading.get('battery_state', ''),
+        temperature_c=(
+            reading['temperature_c']
+            if reading['is_online']
+            else None
+        ),
+        humidity_pct=(
+            reading['humidity_pct']
+            if reading['is_online']
+            else None
+        ),
+        battery_pct=(
+            reading['battery_pct']
+            if reading['is_online']
+            else None
+        ),
+        battery_state=(
+            reading.get('battery_state', '')
+            if reading['is_online']
+            else ''
+        ),
         is_online=reading['is_online'],
         raw_status=reading['raw'],
     )
-    battery_display = reading.get('battery_state') or reading['battery_pct']
-    print(f'[{now_str}] Sensor reading saved — '
-          f'{reading["temperature_c"]}°C, {reading["humidity_pct"]}%, '
-          f'battery {battery_display}')
+
+    if reading['is_online']:
+        battery_display = (
+            reading.get('battery_state')
+            or reading['battery_pct']
+            or 'unknown'
+        )
+
+        print(
+            f'[{now_str}] Sensor reading saved — '
+            f'{reading["temperature_c"]}°C, '
+            f'{reading["humidity_pct"]}%, '
+            f'battery {battery_display}'
+        )
+    else:
+        print(
+            f'[{now_str}] Sensor OFFLINE — '
+            'cached Tuya values ignored'
+        )
 
 
 if __name__ == '__main__':

@@ -252,7 +252,11 @@
     <div class="stat-card">
       <div class="stat-label">🔋 Battery</div>
       <div id="card-battery">
-        {% if latest.battery_pct %}
+        {% if latest and not latest.is_online %}
+        <span class="run-state red">
+          <span class="dot"></span>OUT OF BATTERY / UNAVAILABLE
+        </span>
+        {% elif latest.battery_pct %}
         <div class="stat-value small">{{ latest.battery_pct|floatformat:0 }}%</div>
         {% elif latest.battery_state == 'high' %}
         <span class="run-state green"><span class="dot"></span>HIGH</span>
@@ -280,7 +284,12 @@
     <div class="stat-card">
       <div class="stat-label">🕑 Last Poll</div>
       <div class="stat-value small" id="card-lastpoll">{% if latest %}{{ latest.recorded_at|date:"d/m/Y H:i:s" }}{% else %}—{% endif %}</div>
-      <div class="stat-sub">Most recent reading time</div>
+      <div class="stat-sub">Latest SysMonitor sensor check</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">📡 Last Sensor Update</div>
+      <div class="stat-value small" id="card-source-updated">—</div>
+      <div class="stat-sub">Last data received from physical sensor</div>
     </div>
   </div>
 
@@ -411,7 +420,17 @@
           ? d.humidity_pct.toFixed(1) + '%' : '—';
 
       document.getElementById('card-battery').innerHTML =
-        fmtBattery(d.battery_pct, d.battery_state);
+        d.is_online
+          ? fmtBattery(
+              d.battery_pct,
+              d.battery_state
+            )
+          : (
+              '<span class="run-state red">' +
+              '<span class="dot"></span>' +
+              'OUT OF BATTERY / UNAVAILABLE' +
+              '</span>'
+            );
 
       document.getElementById('card-status').innerHTML =
         fmtStatus(d.is_online);
@@ -419,8 +438,28 @@
       document.getElementById('card-lastpoll').textContent =
         d.recorded_at || '—';
 
+      const sourceUpdatedEl =
+        document.getElementById('card-source-updated');
+
+      if (sourceUpdatedEl) {
+        sourceUpdatedEl.textContent =
+          d.source_updated_at || '—';
+      }
+
       document.getElementById('last-updated').textContent =
-        d.recorded_at || '—';
+        d.is_online
+          ? (
+              d.source_updated_at ||
+              d.recorded_at ||
+              '—'
+            )
+          : (
+              'Last sensor update: ' +
+              (
+                d.source_updated_at ||
+                'unknown'
+              )
+            );
     }).catch(() => {});
   }
 

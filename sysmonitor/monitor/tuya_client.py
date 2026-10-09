@@ -226,13 +226,82 @@ def get_sensor_reading():
 
         result['raw'] = status_list
         temperature_c, humidity_pct, battery_pct, battery_state = _parse_status(status_list)
-        result['temperature_c'] = temperature_c
-        result['humidity_pct']  = humidity_pct
-        result['battery_pct']   = battery_pct
-        result['battery_state'] = battery_state
-        result['is_online'] = True
 
-        if temperature_c is None and humidity_pct is None:
+        # Shadow properties can remain cached long after the physical sensor
+        # has gone offline.  Never treat the mere presence of shadow values as
+        # proof that the device is online.
+        device_online = False
+
+        try:
+            device_data = _request(
+                'GET',
+                f'/v1.0/devices/{TUYA_DEVICE_ID}',
+                access_token=token,
+            )
+
+            if device_data.get('success'):
+                device_online = bool(
+                    (device_data.get('result') or {}).get(
+                        'online',
+                        False,
+                    )
+                )
+
+        except Exception:
+            # Do not incorrectly mark a device online if the authoritative
+            # device-state request itself cannot be verified.
+            device_online = False
+
+        # Also protect against stale Tuya shadow properties. Each shadow entry
+        # carries the real device-property update time in epoch milliseconds.
+        property_times = []
+
+        for item in status_list or []:
+            try:
+                raw_time = item.get('time')
+                if raw_time:
+                    property_times.append(
+                        int(raw_time) / 1000.0
+                    )
+            except (TypeError, ValueError, AttributeError):
+                pass
+
+        properties_fresh = False
+
+        if property_times:
+            import time as _time
+
+            newest_property_time = max(property_times)
+
+            # Polling normally happens every few minutes. A 15-minute window
+            # allows temporary Tuya/API delays without presenting hours-old
+            # cached data as current.
+            properties_fresh = (
+                _time.time() - newest_property_time
+            ) <= (15 * 60)
+
+        result['is_online'] = bool(
+            device_online and properties_fresh
+        )
+
+        if result['is_online']:
+            result['temperature_c'] = temperature_c
+            result['humidity_pct'] = humidity_pct
+            result['battery_pct'] = battery_pct
+            result['battery_state'] = battery_state
+        else:
+            # Keep raw shadow data for diagnostics/history, but do not present
+            # stale measurements or stale battery state as current values.
+            result['temperature_c'] = None
+            result['humidity_pct'] = None
+            result['battery_pct'] = None
+            result['battery_state'] = ''
+
+        if (
+            result['is_online']
+            and temperature_c is None
+            and humidity_pct is None
+        ):
             result['error'] = (
                 "Connected OK, but none of the known status codes matched. "
                 "Raw status is in result['raw'] — send that back so the "

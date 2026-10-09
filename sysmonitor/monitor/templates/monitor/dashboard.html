@@ -672,17 +672,38 @@ function refreshColocation() {
         ? d.humidity_pct.toFixed(1) + '% RH' : '—% RH';
 
       let batteryText = '';
-      if (d.battery_pct !== null && d.battery_pct !== undefined) {
-        batteryText = 'Battery ' + Math.round(d.battery_pct) + '%';
+
+      if (!d.is_online) {
+        batteryText =
+          'Battery: Out of battery / unavailable';
+      } else if (
+        d.battery_pct !== null &&
+        d.battery_pct !== undefined
+      ) {
+        batteryText =
+          'Battery ' +
+          Math.round(d.battery_pct) +
+          '%';
       } else if (d.battery_state) {
-        batteryText = 'Battery ' + d.battery_state.charAt(0).toUpperCase() + d.battery_state.slice(1);
+        batteryText =
+          'Battery ' +
+          d.battery_state.charAt(0).toUpperCase() +
+          d.battery_state.slice(1);
       }
       const dotColor = d.is_online ? 'var(--green)' : 'var(--red)';
       if (subEl) subEl.innerHTML =
         `<span class="colo-dot" style="background:${dotColor};color:${dotColor}"></span>` +
         (d.is_online ? 'Online' : 'Offline') +
         (batteryText ? ' · ' + batteryText : '');
-      if (timeEl) timeEl.textContent = d.recorded_at || '—';
+      if (timeEl) {
+        timeEl.textContent =
+          d.is_online
+            ? (d.source_updated_at || d.recorded_at || '—')
+            : (
+                'Last sensor update: ' +
+                (d.source_updated_at || 'unknown')
+              );
+      }
     })
     .catch(() => {});
 }
