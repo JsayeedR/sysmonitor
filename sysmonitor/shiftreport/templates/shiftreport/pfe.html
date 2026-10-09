@@ -68,6 +68,7 @@
 
   {% include "shiftreport/_section_navigation.html" with section_active="pfe" %}
 
+  <section class="sm-a5-overview" aria-label="MNOC PFE information">
   <h1>⚡ MNOC Daily PFE Report</h1>
 
   <div class="muted" style="margin-bottom:1rem">
@@ -78,6 +79,8 @@
   {% for message in messages %}
     <div class="msg">{{ message }}</div>
   {% endfor %}
+
+  </section>
 
   <div class="panel">
     <h2>Today's PFE Reading — {{ today|date:"d M Y" }}</h2>

@@ -147,16 +147,18 @@ body.sm-historical .panel > p {
 <body class="sm-historical">
 {% include "monitor/navbar.html" %}
 <div class="sm-history-navigation-wrap">
-
+{% include "shiftreport/_section_navigation.html" with section_active="historical" %}
 </div>
 
 <div class="container">
-{% include "shiftreport/_section_navigation.html" with section_active="historical" %}
 
+  <section class="sm-a5-overview" aria-label="Historical Report information">
   <h1>Historical Report</h1>
 
 
-  <div class="panel">
+  </section>
+
+  <div class="panel sm-a5-revision-panel">
     {% if revision %}
       <h2>
         My Historical Data — Revision V{{ revision.revision_number }}

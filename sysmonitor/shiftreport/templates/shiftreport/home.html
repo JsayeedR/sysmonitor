@@ -350,6 +350,7 @@ table.history th{
   {% include "shiftreport/_section_navigation.html" with section_active="shift" %}
 
 
+  <section class="sm-a5-overview" aria-label="Shift Report information">
   <div class="heading">
     <div>
       <h2 class="sm-a4-title">COXCLS NOC Shift Report Preparation</h2>
@@ -387,6 +388,8 @@ table.history th{
     </div>
 
   {% endif %}
+
+  </section>
 
   <form method="post"
         action="{{ base_path }}/shift-report/create/"
