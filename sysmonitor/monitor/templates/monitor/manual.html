@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysMonitor — Operations Manual v{{ sys_version }}</title>
+  <meta name="description" content="SysMonitor operations manual for viewers, users, and administrators.">
+  <style>
+    * { box-sizing:border-box; }
+    :root {
+      --bg:#0f172a; --surface:#172033; --surface2:#1e293b; --border:#334155;
+      --text:#f8fafc; --muted:#94a3b8; --dim:#64748b; --blue:#60a5fa;
+      --green:#22c55e; --yellow:#fbbf24; --red:#f87171; --purple:#c084fc;
+      --cyan:#22d3ee; --shadow:0 18px 45px rgba(0,0,0,.22);
+    }
+    html { scroll-behavior:smooth; }
+    body {
+      margin:0; background:var(--bg); color:var(--text);
+      font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+      line-height:1.62; font-size:14px;
+    }
+    .manual-shell { max-width:1500px; margin:0 auto; padding:1.2rem; }
+    .hero {
+      position:relative; overflow:hidden;
+      border:1px solid var(--border); border-radius:18px;
+      background:
+        radial-gradient(circle at 15% 20%, rgba(59,130,246,.22), transparent 28%),
+        radial-gradient(circle at 86% 10%, rgba(34,211,238,.12), transparent 22%),
+        linear-gradient(145deg,#172033,#111827);
+      padding:2rem; box-shadow:var(--shadow); margin-bottom:1rem;
+    }
+    .hero::after {
+      content:""; position:absolute; width:240px; height:240px; right:-70px; bottom:-120px;
+      border:1px solid rgba(96,165,250,.16); border-radius:50%;
+      box-shadow:0 0 0 35px rgba(96,165,250,.035),0 0 0 70px rgba(96,165,250,.02);
+    }
+    .eyebrow {
+      display:inline-flex; align-items:center; gap:.45rem; padding:.35rem .65rem;
+      border-radius:999px; background:rgba(59,130,246,.12); border:1px solid rgba(96,165,250,.25);
+      color:#bfdbfe; font-size:.72rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    }
+    .hero h1 { margin:.75rem 0 .2rem; font-size:clamp(1.8rem,4vw,2.8rem); line-height:1.1; }
+    .hero h1 span { color:var(--blue); }
+    .hero .version { color:#bfdbfe; font-size:.9rem; font-weight:700; }
+    .hero p { max-width:930px; color:var(--muted); margin:.8rem 0 0; font-size:.95rem; }
+    .hero-actions { display:flex; flex-wrap:wrap; gap:.65rem; margin-top:1.25rem; position:relative; z-index:2; }
+    .btn {
+      display:inline-flex; align-items:center; gap:.45rem; text-decoration:none; border:none;
+      border-radius:10px; padding:.65rem .9rem; font-weight:700; font-size:.82rem; cursor:pointer;
+    }
+    .btn-primary { background:#2563eb; color:white; }
+    .btn-secondary { background:#1e293b; border:1px solid var(--border); color:var(--text); }
+    .btn:hover { filter:brightness(1.08); }
+    .safe-note {
+      margin-top:1rem; max-width:900px; padding:.75rem .9rem; border-radius:10px;
+      background:rgba(34,197,94,.08); border:1px solid rgba(34,197,94,.22); color:#bbf7d0;
+      font-size:.8rem;
+    }
+
+    .search-bar {
+      display:flex; gap:.65rem; align-items:center; margin:1rem 0;
+      background:var(--surface); border:1px solid var(--border); border-radius:12px;
+      padding:.7rem .85rem; position:sticky; top:64px; z-index:35; box-shadow:0 10px 30px rgba(0,0,0,.14);
+    }
+    .search-bar input {
+      flex:1; min-width:0; background:transparent; border:0; outline:0;
+      color:var(--text); font:inherit; font-size:.88rem;
+    }
+    .search-bar .hint { color:var(--dim); font-size:.72rem; white-space:nowrap; }
+
+    .layout { display:grid; grid-template-columns:280px minmax(0,1fr); gap:1rem; align-items:start; }
+    .toc {
+      position:sticky; top:122px; max-height:calc(100vh - 145px); overflow:auto;
+      background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:.9rem;
+    }
+    .toc-title { font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin:.15rem .35rem .55rem; }
+    .toc a {
+      display:block; color:var(--muted); text-decoration:none; font-size:.78rem;
+      padding:.38rem .45rem; border-radius:7px;
+    }
+    .toc a:hover { background:#243149; color:white; }
+    .toc .group { color:#cbd5e1; font-size:.7rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; margin:.8rem .35rem .25rem; }
+
+    .content { min-width:0; }
+    .section {
+      scroll-margin-top:130px; background:var(--surface); border:1px solid var(--border);
+      border-radius:14px; padding:1.25rem; margin-bottom:1rem;
+    }
+    .section h2 { margin:0 0 .45rem; font-size:1.2rem; }
+    .section-lead { color:var(--muted); margin:.1rem 0 1rem; max-width:1000px; }
+    .grid-3 { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.75rem; }
+    .role-card,.status-card,.flow-card,.workflow-card {
+      background:var(--surface2); border:1px solid var(--border); border-radius:11px; padding:.9rem;
+    }
+    .role-card h3,.workflow-card h3 { margin:0 0 .35rem; font-size:.92rem; }
+    .role-card p,.status-card p,.workflow-card p { color:var(--muted); font-size:.79rem; margin:.2rem 0; }
+    .role-card .pill { display:inline-block; font-size:.65rem; font-weight:800; color:#bfdbfe; background:rgba(59,130,246,.12); border:1px solid rgba(96,165,250,.2); padding:.18rem .42rem; border-radius:999px; }
+
+    .flow {
+      display:grid; grid-template-columns:repeat(6,minmax(120px,1fr)); gap:.55rem; align-items:stretch;
+    }
+    .flow-card { position:relative; }
+    .flow-num {
+      width:27px; height:27px; display:grid; place-items:center; border-radius:8px;
+      background:#2563eb; color:white; font-size:.72rem; font-weight:900; margin-bottom:.5rem;
+    }
+    .flow-card strong { display:block; font-size:.82rem; }
+    .flow-card span { display:block; color:var(--muted); font-size:.72rem; margin-top:.25rem; }
+
+    .status-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.65rem; }
+    .status-card strong { font-size:.78rem; letter-spacing:.03em; }
+    .status-card.online strong { color:#86efac; }
+    .status-card.warn strong { color:#fde68a; }
+    .status-card.bad strong { color:#fca5a5; }
+
+    .page-card {
+      scroll-margin-top:130px; background:var(--surface); border:1px solid var(--border);
+      border-radius:14px; margin-bottom:.85rem; overflow:hidden;
+    }
+    .page-head {
+      display:flex; justify-content:space-between; gap:1rem; align-items:flex-start;
+      padding:1rem 1.15rem; border-bottom:1px solid var(--border); background:rgba(30,41,59,.65);
+    }
+    .page-title-wrap { display:flex; gap:.7rem; align-items:flex-start; min-width:0; }
+    .page-icon { font-size:1.25rem; }
+    .page-head h3 { margin:0; font-size:1rem; }
+    .page-group { color:var(--dim); font-size:.7rem; margin-top:.15rem; }
+    .audience {
+      color:#cbd5e1; font-size:.68rem; font-weight:700; border:1px solid var(--border);
+      border-radius:999px; padding:.3rem .55rem; white-space:nowrap;
+    }
+    .page-body { padding:1.05rem 1.15rem; }
+    .purpose { color:#dbeafe; margin:0 0 .9rem; }
+    .columns { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .columns h4,.manage h4 { margin:0 0 .35rem; font-size:.76rem; color:#cbd5e1; text-transform:uppercase; letter-spacing:.06em; }
+    .columns ul { margin:.2rem 0 0 1.05rem; padding:0; }
+    .columns li { color:var(--muted); margin:.28rem 0; font-size:.8rem; }
+    .manage {
+      margin-top:.8rem; padding:.7rem .8rem; border-radius:9px;
+      background:#111827; border:1px solid #273449;
+    }
+    .manage p { color:var(--muted); margin:0; font-size:.79rem; }
+
+    .workflow-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; }
+    .workflow-card ol { margin:.5rem 0 0 1.1rem; padding:0; }
+    .workflow-card li { color:var(--muted); font-size:.79rem; margin:.35rem 0; }
+    .security-list { display:grid; gap:.5rem; }
+    .security-item { border-left:3px solid #22c55e; background:#10251c; padding:.65rem .8rem; border-radius:0 8px 8px 0; color:#d1fae5; font-size:.8rem; }
+    .trouble { width:100%; border-collapse:collapse; overflow:hidden; border-radius:10px; }
+    .trouble th,.trouble td { text-align:left; padding:.7rem; border-bottom:1px solid var(--border); vertical-align:top; font-size:.78rem; }
+    .trouble th { color:#cbd5e1; background:var(--surface2); }
+    .trouble td { color:var(--muted); }
+
+    .back-top {
+      position:fixed; right:18px; bottom:18px; width:42px; height:42px; display:grid; place-items:center;
+      border-radius:50%; background:#2563eb; color:white; text-decoration:none; box-shadow:var(--shadow); z-index:30;
+    }
+    .no-results { display:none; padding:1rem; color:#fca5a5; text-align:center; }
+
+    @media (max-width:1150px) {
+      .layout { grid-template-columns:1fr; }
+      .toc { position:relative; top:0; max-height:none; columns:2; }
+      .flow { grid-template-columns:repeat(3,1fr); }
+    }
+    @media (max-width:760px) {
+      .manual-shell { padding:.75rem; }
+      .hero { padding:1.3rem; }
+      .grid-3,.status-grid,.workflow-grid,.columns { grid-template-columns:1fr; }
+      .flow { grid-template-columns:repeat(2,1fr); }
+      .page-head { flex-direction:column; }
+      .search-bar .hint { display:none; }
+      .toc { columns:1; }
+    }
+    @media print {
+      .search-bar,.toc,.hero-actions,.back-top,nav,footer { display:none !important; }
+      body { background:white; color:#111827; }
+      .manual-shell { max-width:none; padding:0; }
+      .hero,.section,.page-card { box-shadow:none; break-inside:avoid; background:white; color:#111827; border-color:#cbd5e1; }
+      .page-body li,.section-lead,.role-card p,.status-card p,.workflow-card li,.manage p,.trouble td { color:#334155 !important; }
+      .layout { display:block; }
+    }
+  </style>
+</head>
+<body id="top">
+{% include "monitor/navbar.html" %}
+
+<div class="manual-shell">
+  <header class="hero">
+    <div class="eyebrow">📘 Official in-app operating guide</div>
+    <h1>SysMonitor <span>Operations Manual</span></h1>
+    <div class="version">Manual v{{ sys_version }} · aligned with current SysMonitor revision</div>
+    <p>{{ manual_intro.subtitle }}</p>
+    <div class="safe-note">🔐 {{ manual_intro.scope }}</div>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="{{ base_path }}/manual/pdf/">⬇️ Download PDF</a>
+      <a class="btn btn-secondary" href="#page-guide">🔗 Browse page guide</a>
+      <button class="btn btn-secondary" type="button" onclick="window.print()">🖨️ Print</button>
+    </div>
+  </header>
+
+  <div class="search-bar">
+    <span>🔎</span>
+    <input id="manual-search" type="search" placeholder="Search the manual — e.g. colocation, shift report, notifications, generator..." autocomplete="off">
+    <span class="hint">Searches page guides instantly</span>
+  </div>
+
+  <div class="layout">
+    <aside class="toc" aria-label="Manual contents">
+      <div class="toc-title">Contents</div>
+      <a href="#overview">Overview &amp; roles</a>
+      <a href="#architecture">How SysMonitor works</a>
+      <a href="#status-glossary">Status glossary</a>
+      <a href="#page-guide">Page-by-page guide</a>
+      {% regroup page_guides by group as guide_groups %}
+      {% for grouped in guide_groups %}
+      <div class="group">{{ grouped.grouper }}</div>
+        {% for page in grouped.list %}
+        <a href="#page-{{ page.id }}">{{ page.icon }} {{ page.title }}</a>
+        {% endfor %}
+      {% endfor %}
+      <div class="group">Operations</div>
+      <a href="#workflows">Common workflows</a>
+      <a href="#security">Security &amp; safe use</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+    </aside>
+
+    <main class="content">
+      <section class="section" id="overview">
+        <h2>1. Overview &amp; roles</h2>
+        <p class="section-lead">
+          SysMonitor is designed as an operational monitoring and reporting system. Access is role-based,
+          and individual Page Access settings may reduce what a specific person sees.
+        </p>
+        <div class="grid-3">
+          {% for item in role_guide %}
+          <article class="role-card">
+            <span class="pill">{{ item.role }}</span>
+            <h3>{{ item.summary }}</h3>
+            <p>{{ item.details }}</p>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="section" id="architecture">
+        <h2>2. How SysMonitor works</h2>
+        <p class="section-lead">
+          The diagram below shows the normal information path. A value is not considered trustworthy
+          merely because an old value exists; availability and freshness are part of the decision.
+        </p>
+        <div class="flow">
+          {% for number, heading, detail in architecture_steps %}
+          <div class="flow-card">
+            <div class="flow-num">{{ number }}</div>
+            <strong>{{ heading }}</strong>
+            <span>{{ detail }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="section" id="status-glossary">
+        <h2>3. Status glossary</h2>
+        <p class="section-lead">Use these terms consistently when reading live status, events, and reports.</p>
+        <div class="status-grid">
+          {% for status, meaning in status_glossary %}
+          <div class="status-card {% if status == 'ONLINE' or status == 'NORMAL' %}online{% elif status == 'OFFLINE' or status == 'ALARM / CRITICAL' or status == 'DEVICE DOWN' %}bad{% else %}warn{% endif %}">
+            <strong>{{ status }}</strong>
+            <p>{{ meaning }}</p>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="section" id="page-guide">
+        <h2>4. Page-by-page guide</h2>
+        <p class="section-lead">
+          Every operational page is documented below with its purpose, behaviour, meaning, audience,
+          and the safe place where changes are made.
+        </p>
+      </section>
+
+      <div id="page-guide-list">
+        {% for page in page_guides %}
+        <article class="page-card manual-search-item" id="page-{{ page.id }}"
+                 data-search="{{ page.group }} {{ page.title }} {{ page.audience }} {{ page.purpose }} {{ page.manage }}">
+          <div class="page-head">
+            <div class="page-title-wrap">
+              <div class="page-icon">{{ page.icon }}</div>
+              <div>
+                <h3>{{ page.title }}</h3>
+                <div class="page-group">{{ page.group }}</div>
+              </div>
+            </div>
+            <div class="audience">{{ page.audience }}</div>
+          </div>
+          <div class="page-body">
+            <p class="purpose">{{ page.purpose }}</p>
+            <div class="columns">
+              <div>
+                <h4>How it works</h4>
+                <ul>
+                  {% for item in page.how %}
+                  <li>{{ item }}</li>
+                  {% endfor %}
+                </ul>
+              </div>
+              <div>
+                <h4>What it means</h4>
+                <ul>
+                  {% for item in page.means %}
+                  <li>{{ item }}</li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+            <div class="manage">
+              <h4>Where to manage / change it</h4>
+              <p>{{ page.manage }}</p>
+            </div>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+      <div class="no-results" id="no-results">No page guide matched that search.</div>
+
+      <section class="section" id="workflows">
+        <h2>5. Common operating workflows</h2>
+        <p class="section-lead">Short, practical sequences for common NOC tasks.</p>
+        <div class="workflow-grid">
+          {% for workflow in operating_workflows %}
+          <article class="workflow-card">
+            <h3>{{ workflow.title }}</h3>
+            <ol>
+              {% for step in workflow.steps %}
+              <li>{{ step }}</li>
+              {% endfor %}
+            </ol>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="section" id="security">
+        <h2>6. Security &amp; safe use</h2>
+        <p class="section-lead">The manual is intentionally useful without disclosing operational secrets.</p>
+        <div class="security-list">
+          {% for item in security_rules %}
+          <div class="security-item">{{ item }}</div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="section" id="troubleshooting">
+        <h2>7. Troubleshooting quick reference</h2>
+        <table class="trouble">
+          <thead>
+            <tr><th>Symptom</th><th>What to check</th></tr>
+          </thead>
+          <tbody>
+            {% for symptom, advice in troubleshooting %}
+            <tr><td><strong>{{ symptom }}</strong></td><td>{{ advice }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+</div>
+
+<a class="back-top" href="#top" aria-label="Back to top">↑</a>
+
+{% include "monitor/footer.html" %}
+
+<script>
+(function () {
+  const input = document.getElementById('manual-search');
+  const items = Array.from(document.querySelectorAll('.manual-search-item'));
+  const noResults = document.getElementById('no-results');
+
+  function normalize(value) {
+    return (value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  }
+
+  input.addEventListener('input', function () {
+    const query = normalize(input.value);
+    let visible = 0;
+
+    items.forEach(function (item) {
+      const haystack = normalize(
+        item.getAttribute('data-search') + ' ' + item.textContent
+      );
+      const show = !query || haystack.includes(query);
+      item.style.display = show ? '' : 'none';
+      if (show) visible += 1;
+    });
+
+    noResults.style.display = visible ? 'none' : 'block';
+  });
+})();
+</script>
+</body>
+</html>

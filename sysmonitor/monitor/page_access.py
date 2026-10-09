@@ -113,6 +113,13 @@ PAGE_DEFINITIONS = {
         ),
     },
 
+    'manual': {
+        'label': '📘 Manual',
+        'group': 'Others',
+        'roles': ('viewer', 'user', 'admin'),
+        'prefixes': ('/manual/',),
+    },
+
     'shift_report': {
         'label': '📝 Shift Report',
         'group': 'Main',

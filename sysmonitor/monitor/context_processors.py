@@ -73,6 +73,7 @@ def page_access(request):
         'cctv',
         'notification_request',
         'profile',
+        'manual',
     }
 
     admin_keys = {

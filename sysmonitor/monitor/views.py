@@ -132,6 +132,58 @@ def role_required(*roles):
     return decorator
 
 
+
+# ─── Signed-in — Operations Manual ────────────────────────────────────────────
+
+@role_required('viewer', 'user', 'admin')
+def manual_view(request):
+    """Safe in-app operating manual for Viewer, User, and Admin roles."""
+    from .manual_content import (
+        ARCHITECTURE_STEPS,
+        MANUAL_INTRO,
+        OPERATING_WORKFLOWS,
+        PAGE_GUIDES,
+        ROLE_GUIDE,
+        SECURITY_RULES,
+        STATUS_GLOSSARY,
+        TROUBLESHOOTING,
+    )
+
+    return render(request, 'monitor/manual.html', {
+        'role': get_role(request.user),
+        'manual_intro': MANUAL_INTRO,
+        'role_guide': ROLE_GUIDE,
+        'architecture_steps': ARCHITECTURE_STEPS,
+        'status_glossary': STATUS_GLOSSARY,
+        'page_guides': PAGE_GUIDES,
+        'operating_workflows': OPERATING_WORKFLOWS,
+        'security_rules': SECURITY_RULES,
+        'troubleshooting': TROUBLESHOOTING,
+    })
+
+
+@role_required('viewer', 'user', 'admin')
+def manual_pdf(request):
+    """Download the safe operations manual as a version-matched PDF."""
+    from django.http import HttpResponse
+
+    from .manual_pdf import build_manual_pdf
+    from .system_revision import sync_git_revision
+
+    revision = sync_git_revision()
+    version = revision.version if revision is not None else '1.1.1234'
+    pdf_bytes = build_manual_pdf(version)
+
+    response = HttpResponse(
+        pdf_bytes,
+        content_type='application/pdf',
+    )
+    response['Content-Disposition'] = (
+        f'attachment; filename="SysMonitor_Manual_v{version}.pdf"'
+    )
+    return response
+
+
 # ─── Public — About / Documentation ────────────────────────────────────────────
 # Intentionally has NO @login_required / @role_required decorator — this page
 # is meant to be publicly readable (purpose, how it works, contact, app
