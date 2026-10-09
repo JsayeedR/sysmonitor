@@ -25,6 +25,7 @@ import pytz
 BDT = pytz.timezone('Asia/Dhaka')
 
 from monitor.models import SensorReading, Event
+from monitor.sensor_alarms import evaluate_sensor_alarms
 from monitor.tuya_client import get_sensor_reading, tuya_configured, TUYA_DEVICE_ID
 
 DEVICE_NAME = 'T & H Sensor (Colocation Room)'
@@ -86,6 +87,13 @@ def run(debug=False):
         is_online=reading['is_online'],
         raw_status=reading['raw'],
     )
+
+    if reading['is_online']:
+        try:
+            evaluate_sensor_alarms(SensorReading.objects.filter(device_id=TUYA_DEVICE_ID).first())
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception('Colocation alarm evaluation failed')
 
     if reading['is_online']:
         battery_display = (

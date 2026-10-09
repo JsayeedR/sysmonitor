@@ -97,7 +97,7 @@ TEMPLATE_PLACEHOLDERS = {
     'ALARM':              ['start', 'reason'],
     'COMPLETE':           ['date', 'start', 'end', 'duration', 'type', 'note'],
     'PAC_STATUS_CHANGE':  ['unit', 'old_state', 'new_state', 'time'],
-    'SENSOR_ALERT':       ['device', 'temperature', 'humidity', 'threshold', 'time'],
+    'SENSOR_ALERT':       ['device', 'temperature', 'humidity', 'threshold', 'status', 'time'],
     'TEST':               ['time'],
 }
 
@@ -130,6 +130,7 @@ def _template_context(event_type, cycle=None, extra=None):
         ctx['old_state'] = extra.get('old', '—')
         ctx['new_state'] = extra.get('new', '—')
     elif event_type == 'SENSOR_ALERT' and extra:
+        ctx['status'] = extra.get('status', 'ALARM')
         ctx.update({k: extra.get(k, '—') for k in
                     ('device', 'temperature', 'humidity', 'threshold')})
     return ctx
@@ -234,6 +235,15 @@ def build_message(event_type, cycle=None, extra=None, ignore_override=False):
     elif event_type == 'COLOCATION_DATA':
         # extra is the pre-formatted current colocation sensor report.
         return extra or 'Colocation data unavailable.'
+
+    elif event_type == 'SENSOR_ALERT':
+        data = extra or {}
+        return (f"🚨 *COLOCATION SENSOR {data.get('status', 'ALARM')}*\n"
+                f"Device: {data.get('device', '—')}\n"
+                f"Temperature: {data.get('temperature', '—')} °C\n"
+                f"Humidity: {data.get('humidity', '—')} %\n"
+                f"Condition: {data.get('threshold', '—')}\n"
+                f"Time: {now_str}")
 
     elif event_type == 'TEST':
         return (
@@ -787,11 +797,13 @@ def dispatch(event_type, cycle=None, extra=None, force=False):
         'DAILY_SUMMARY':  'daily_summary',
         'PAC_STATUS_CHANGE': 'alert_pac_status',
         'COLOCATION_DATA': 'colocation_data',
+        'SENSOR_ALERT': 'colocation_alarm',
     }.get(event_type)
 
     if not alert_field and not force:
         return
 
+    results = {'sent': 0, 'failed': 0, 'eligible': 0}
     try:
         recipients = NotificationRecipient.objects.filter(is_active=True)
         if alert_field:
@@ -815,6 +827,7 @@ def dispatch(event_type, cycle=None, extra=None, force=False):
             gw = gateways.get(r.channel)
             if not gw:
                 continue  # gateway not configured/enabled
+            results['eligible'] += 1
 
             # Anti-duplicate check — in-memory first, then DB
             if not force and cycle_id:
@@ -835,6 +848,7 @@ def dispatch(event_type, cycle=None, extra=None, force=False):
             else:
                 continue
 
+            results['sent' if ok else 'failed'] += 1
             status = 'SENT' if ok else 'FAILED'
             log_notification(cycle_id, event_type, r.channel, r.contact, status, err)
 
@@ -843,6 +857,8 @@ def dispatch(event_type, cycle=None, extra=None, force=False):
 
     except Exception as e:
         logger.error(f"dispatch() error: {e}")
+        results["failed"] += 1
+    return results
 
 
 def send_test(channel, contact, gateway):

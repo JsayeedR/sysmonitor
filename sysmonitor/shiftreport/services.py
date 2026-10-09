@@ -239,8 +239,8 @@ def build_outage_summary(start, end):
 
         rows.append({
             'id': cycle.id,
-            'start': cycle.outage_start.astimezone(BDT).isoformat(),
-            'end': cycle_end.astimezone(BDT).isoformat(),
+            'start': max(cycle.outage_start, start).astimezone(BDT).strftime('%d-%m %I:%M %p'),
+            'end': min(cycle_end, end).astimezone(BDT).strftime('%d-%m %I:%M %p'),
             'duration_seconds': overlap,
             'duration': fmt_duration(overlap),
             'cycle_type': cycle.cycle_type,
@@ -363,26 +363,48 @@ def build_shift_snapshot(report_date, shift):
     }
 
 
+def build_generator_runtime_log(start, end):
+    """Actual generator-running intervals, independent of PDB outage duration."""
+    rows = []
+    totals = {'Gen-01': 0, 'Gen-02': 0, 'Unknown': 0}
+    cycles = (OutageCycle.objects.filter(gen_start__isnull=False,
+              gen_start__lt=end).order_by('gen_start', 'id'))
+    for cycle in cycles:
+        # In an unfinished cycle, only count up to the requested window end.
+        running_end = (cycle.gen_start + timedelta(seconds=cycle.gen_runtime_sec)
+                       if cycle.gen_runtime_sec and cycle.gen_runtime_sec > 0
+                       else cycle.cycle_end or cycle.pdb_restored or end)
+        if running_end <= start:
+            continue
+        begin = max(cycle.gen_start, start)
+        finish = min(running_end, end)
+        if finish <= begin:
+            continue
+        seconds = int((finish - begin).total_seconds())
+        generator = cycle_generator(cycle) or 'Unknown'
+        totals[generator] = totals.get(generator, 0) + seconds
+        rows.append({
+            'start': begin.astimezone(BDT).strftime('%I:%M:%S %p'),
+            'end': finish.astimezone(BDT).strftime('%I:%M:%S %p'),
+            'duration': fmt_duration(seconds),
+            'generator': generator,
+        })
+    return {'rows': rows,
+            'Gen-01': fmt_duration(totals['Gen-01']),
+            'Gen-02': fmt_duration(totals['Gen-02']),
+            'Unknown': fmt_duration(totals['Unknown']),
+            'grand_total': fmt_duration(sum(totals.values())),
+            'total_seconds': sum(totals.values())}
+
+
 def build_previous_day_summary(report_date):
-    """
-    Full 00:00-24:00 summary for the calendar day before report_date.
-
-    Intended for the Night Shift report.
-    """
+    """Calendar day immediately before the Night Shift operational date."""
     previous_date = report_date - timedelta(days=1)
-
-    start = localize(
-        datetime.combine(previous_date, time(0, 0))
-    )
-
-    end = start + timedelta(days=1)
-
-    outage = build_outage_summary(start, end)
-
-    return {
-        'date': previous_date.isoformat(),
-        'outage': outage,
-    }
+    start = localize(datetime.combine(previous_date, time(0, 0)))
+    end = localize(datetime.combine(report_date, time(0, 0)))
+    return {'date': previous_date.isoformat(),
+            'outage': build_outage_summary(start, end),
+            'generator_log': build_generator_runtime_log(start, end)}
 
 
 def latest_completed_shift(now=None):

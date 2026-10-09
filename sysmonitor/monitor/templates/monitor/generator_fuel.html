@@ -209,6 +209,8 @@ input[type="time"] {
     font-size: .82rem;
 }
 
+    .a8-generator-divider td {height:10px;padding:0;border:0;background:var(--bg);}
+
 .table-wrap {
     width: 100%;
     overflow-x: auto;
@@ -457,6 +459,11 @@ tbody tr:hover {
                 <tbody>
 
                     {% for row in records %}
+                    {% ifchanged row.obj.generator %}
+                      {% if not forloop.first %}
+                      <tr class="a8-generator-divider"><td colspan="7"></td></tr>
+                      {% endif %}
+                    {% endifchanged %}
 
                     <tr>
 

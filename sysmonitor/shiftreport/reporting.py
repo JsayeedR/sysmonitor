@@ -297,6 +297,29 @@ def _outage_rows_html(report):
     )
 
 
+def _previous_day_generator_html(report):
+    if report.shift != 'NIGHT':
+        return ''
+    previous = report.previous_day_summary or {}
+    log = previous.get('generator_log') or {}
+    rows = log.get('rows', [])
+    date = html.escape(str(previous.get('date', '—')))
+    if not rows:
+        content = '<tr><td colspan="4">No generator runtime recorded for this date.</td></tr>'
+    else:
+        content = ''.join('<tr>' + ''.join(
+            '<td style="border:1px solid #777;padding:5px">' + html.escape(str(row.get(k, ''))) + '</td>'
+            for k in ('start', 'end', 'duration', 'generator')) + '</tr>' for row in rows)
+    summary = ''.join('<p style="margin:3px 0"><b>' + label + ':</b> ' +
+                      html.escape(str(log.get(key, '0s'))) + '</p>'
+                      for label, key in (('Gen-01', 'Gen-01'), ('Gen-02', 'Gen-02'),
+                                         ('Unknown', 'Unknown'), ('Grand Total', 'grand_total')))
+    return ('<div style="margin-top:16px"><b>Generator Log: ' + date + '</b>'
+            '<table style="border-collapse:collapse;width:100%;margin:5px 0">'
+            '<tr><th>Start Time</th><th>End Time</th><th>Duration</th><th>GEN</th></tr>'
+            + content + '</table>' + summary + '</div>')
+
+
 def _activity_rows_html(report):
     rows = list(
         report.activity_rows.all()
@@ -606,6 +629,7 @@ def build_html_body(report, config):
 
           {_activity_rows_html(report)}
         </table>
+        {_previous_day_generator_html(report)}
 
         <div style="margin-top:18px">
           {signature}

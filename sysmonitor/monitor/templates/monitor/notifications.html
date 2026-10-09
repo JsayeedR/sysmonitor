@@ -90,6 +90,9 @@
     .pill-on  { border-color:#334155; color:var(--muted); }
     .pill-off { border-color:#1e293b; color:#334155; }
 
+    .recipient-group-heading td {padding:.55rem .75rem; background:#23334b; color:#e2e8f0; font-size:.78rem; font-weight:700; border-bottom:1px solid var(--border);}
+    .recipient-group-gap td {height:12px; padding:0; border:none; background:var(--bg);}
+
     /* ADD RECIPIENT FORM */
     .add-form { background:#0f172a; border:1px solid var(--border); border-radius:10px; padding:1.25rem; margin-bottom:1.25rem; }
     .add-form-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:.75rem; margin-bottom:.75rem; }
@@ -312,7 +315,9 @@
           </tr>
         </thead>
         <tbody>
+          <tr class="recipient-group-heading"><td colspan="6">User Requests — Linked Accounts</td></tr>
           {% for r in recipients %}
+          {% if r.user_id %}
           <tr id="row-{{ r.id }}">
             <td><strong>{{ r.name }}</strong></td>
             <td>
@@ -330,6 +335,8 @@
                 <span class="pill {% if r.daily_summary %}pill-on{% else %}pill-off{% endif %}">📋 Daily</span>
                 <span class="pill {% if r.alert_pac_status %}pill-on{% else %}pill-off{% endif %}">❄️ PAC</span>
                 <span class="pill {% if r.monthly_report %}pill-on{% else %}pill-off{% endif %}">📊 Monthly</span>
+                <span class="pill {% if r.colocation_data %}pill-on{% else %}pill-off{% endif %}">📈 Colocation 3h</span>
+                <span class="pill {% if r.colocation_alarm %}pill-on{% else %}pill-off{% endif %}">🌡️ Colocation Alarm</span>
               </div>
             </td>
             <td>
@@ -346,9 +353,52 @@
               </div>
             </td>
           </tr>
-          {% empty %}
-          <tr id="empty-row"><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem;">No recipients yet. Add one above.</td></tr>
+          {% endif %}
           {% endfor %}
+          <tr class="recipient-group-gap"><td colspan="6"></td></tr>
+          <tr class="recipient-group-heading"><td colspan="6">Manual Entries — Unlinked Contacts</td></tr>
+          {% for r in recipients %}
+          {% if not r.user_id %}
+          <tr id="row-{{ r.id }}">
+            <td><strong>{{ r.name }}</strong></td>
+            <td>
+              {% if r.channel == 'whatsapp' %}<span class="badge badge-wa">💬 WhatsApp</span>
+              {% elif r.channel == 'telegram' %}<span class="badge badge-tg">✈️ Telegram</span>
+              {% else %}<span class="badge badge-email">📧 Email</span>{% endif %}
+            </td>
+            <td style="font-family:monospace;font-size:.8rem;">{{ r.contact }}</td>
+            <td>
+              <div class="alert-pills">
+                <span class="pill {% if r.alert_outage %}pill-on{% else %}pill-off{% endif %}">⚡ Outage</span>
+                <span class="pill {% if r.alert_critical %}pill-on{% else %}pill-off{% endif %}">🚨 Critical</span>
+                <span class="pill {% if r.alert_alarm %}pill-on{% else %}pill-off{% endif %}">🟠 Alarm</span>
+                <span class="pill {% if r.alert_complete %}pill-on{% else %}pill-off{% endif %}">✅ Complete</span>
+                <span class="pill {% if r.daily_summary %}pill-on{% else %}pill-off{% endif %}">📋 Daily</span>
+                <span class="pill {% if r.alert_pac_status %}pill-on{% else %}pill-off{% endif %}">❄️ PAC</span>
+                <span class="pill {% if r.monthly_report %}pill-on{% else %}pill-off{% endif %}">📊 Monthly</span>
+                <span class="pill {% if r.colocation_data %}pill-on{% else %}pill-off{% endif %}">📈 Colocation 3h</span>
+                <span class="pill {% if r.colocation_alarm %}pill-on{% else %}pill-off{% endif %}">🌡️ Colocation Alarm</span>
+              </div>
+            </td>
+            <td>
+              <span class="badge {% if r.is_active %}badge-on{% else %}badge-off{% endif %}" id="status-{{ r.id }}">
+                {% if r.is_active %}Active{% else %}Paused{% endif %}
+              </span>
+            </td>
+            <td>
+              <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
+                <button class="btn btn-ghost btn-sm" onclick="openEdit({{ r.id }},'{{ r.name }}','{{ r.channel }}','{{ r.contact }}',{{ r.alert_outage|lower }},{{ r.alert_critical|lower }},{{ r.alert_alarm|lower }},{{ r.alert_complete|lower }},{{ r.daily_summary|lower }},{{ r.alert_pac_status|lower }},{{ r.monthly_report|lower }},{{ r.colocation_data|lower }},{{ r.colocation_alarm|lower }})">✏️</button>
+                <button class="btn btn-orange btn-sm" onclick="testRecipient({{ r.id }})">🧪 Test</button>
+                <button class="btn btn-ghost btn-sm" onclick="toggleRecipient({{ r.id }})">⏸️</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteRecipient({{ r.id }})">🗑️</button>
+              </div>
+            </td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+          {% if not recipients %}
+          <tr id="empty-row"><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem;">No recipients yet. Add one above.</td></tr>
+          {% endif %}
         </tbody>
       </table>
     </div>

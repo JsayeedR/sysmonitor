@@ -628,6 +628,7 @@ class SensorAlarmConfig(models.Model):
         blank=True,
         help_text='High humidity alarm setpoint in %.'
     )
+    alarm_confirmation_readings = models.PositiveSmallIntegerField(default=2, help_text='Consecutive valid readings required for an alarm or recovery (1–10).')
     alarm_cooldown_minutes = models.PositiveIntegerField(
         default=30,
         help_text='Minimum minutes between repeated sensor alarm notifications.'
@@ -640,6 +641,20 @@ class SensorAlarmConfig(models.Model):
 
     def __str__(self):
         return 'Colocation Sensor Alarm Setpoints'
+
+
+class SensorAlarmState(models.Model):
+    """Persistent per-sensor/per-condition state; survives scheduled poll restarts."""
+    device_id = models.CharField(max_length=64)
+    condition = models.CharField(max_length=32)
+    active = models.BooleanField(default=False)
+    candidate_count = models.PositiveSmallIntegerField(default=0)
+    recovery_count = models.PositiveSmallIntegerField(default=0)
+    last_sent_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['device_id', 'condition'], name='sensor_alarm_device_condition_unique')]
 
 
 class PacRunState(models.Model):

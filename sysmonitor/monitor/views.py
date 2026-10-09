@@ -689,6 +689,16 @@ def colocation_setpoints(request):
             humidity_low = get_float('humidity_low')
             humidity_high = get_float('humidity_high')
 
+            confirmation = int(request.POST.get('alarm_confirmation_readings', '2').strip())
+            if not 1 <= confirmation <= 10:
+                raise ValueError('Confirmation must be between 1 and 10 readings.')
+            if temperature_low is not None and temperature_high is not None and temperature_low >= temperature_high:
+                raise ValueError('Temperature low must be below high.')
+            if humidity_low is not None and humidity_high is not None and humidity_low >= humidity_high:
+                raise ValueError('Humidity low must be below high.')
+            if any(x is not None and not 0 <= x <= 100 for x in (humidity_low, humidity_high)):
+                raise ValueError('Humidity setpoints must be between 0 and 100%.')
+
             cooldown_raw = request.POST.get(
                 'alarm_cooldown_minutes', '30'
             ).strip()
@@ -705,6 +715,7 @@ def colocation_setpoints(request):
             config.humidity_low = humidity_low
             config.humidity_high = humidity_high
             config.alarm_cooldown_minutes = cooldown
+            config.alarm_confirmation_readings = confirmation
             config.save()
 
             log_activity(

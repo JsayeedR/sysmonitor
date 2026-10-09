@@ -346,6 +346,15 @@
     </div>
 
     <div class="card">
+      <div class="card-title">✅ Consecutive-reading Confirmation</div>
+      <div class="card-sub">Require consecutive fresh online readings before an alarm or recovery. Default 2 prevents one-off sensor spikes; choose 1 for immediate detection.</div>
+      <div class="form-group">
+        <label for="alarm_confirmation_readings">Required consecutive readings</label>
+        <input type="number" id="alarm_confirmation_readings" name="alarm_confirmation_readings" min="1" max="10" step="1" value="{% if config %}{{ config.alarm_confirmation_readings }}{% else %}2{% endif %}">
+      </div>
+    </div>
+
+    <div class="card">
       <div class="card-title">⏱️ Alarm Notification Cooldown</div>
       <div class="card-sub">
         Controls how often a continuing temperature/humidity alarm can send another notification.
