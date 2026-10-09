@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Historical Report — SysMonitor</title>
+<style>
+textarea {
+  width: 100%;
+  min-width: 130px;
+  min-height: 75px;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 8px;
+  font: inherit;
+}
+button {
+  background: #155e75;
+  color: white;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+body {
+  margin: 0;
+  padding: 24px;
+  background: #f1f5f9;
+  color: #172033;
+  font-family: Arial, sans-serif;
+}
+.container {
+  max-width: 1450px;
+  margin: auto;
+}
+.panel {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  margin-top: 16px;
+  box-shadow: 0 2px 8px #00000012;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+th, td {
+  border: 1px solid #cbd5e1;
+  padding: 10px;
+  vertical-align: top;
+  text-align: left;
+  white-space: pre-wrap;
+}
+th {
+  background: #dbeafe;
+}
+.heading {
+  background: #164e63;
+  color: white;
+  text-align: center;
+}
+.status {
+  font-weight: bold;
+}
+a {
+  color: #0369a1;
+}
+.table-wrap {
+  overflow-x: auto;
+}
+</style>
+
+
+
+{% include "shiftreport/_section_navigation_styles.html" %}
+
+<style id="history-navigation-position">
+.sm-history-navigation-wrap {
+    max-width: 1250px;
+    margin: 0 auto;
+    padding: 1.2rem 1rem 0;
+}
+.sm-history-navigation-wrap .sm-section-tabs {
+    margin-bottom: 0;
+}
+</style>
+
+
+<style id="sm-historical-layout-fix-v3">
+body.sm-historical {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #0f172a;
+    color: #f1f5f9;
+}
+
+body.sm-historical .container {
+    width: 100%;
+    max-width: 1250px;
+    margin: auto;
+    padding: 1.3rem 1rem 3rem;
+    box-sizing: border-box;
+}
+
+body.sm-historical .sm-section-tabs {
+    max-width: 1218px;
+    margin: 16px auto 0;
+    padding: 8px;
+    gap: 8px;
+}
+
+body.sm-historical .sm-section-tab {
+    padding: 8px 10px;
+    min-height: 40px;
+    font-size: 13px;
+}
+
+body.sm-historical .container > h1 {
+    font-size: 1.55rem !important;
+    line-height: 1.3;
+    margin: 0 0 12px !important;
+}
+
+body.sm-historical .panel {
+    padding: 18px !important;
+    margin: 15px 0 !important;
+}
+
+body.sm-historical .panel h2 {
+    font-size: 1.2rem !important;
+    margin: 0 0 10px !important;
+}
+
+body.sm-historical .panel h3 {
+    font-size: 1.05rem !important;
+}
+
+body.sm-historical .panel > p {
+    font-size: 14px;
+    margin: 8px 0 12px;
+}
+</style>
+
+</head>
+<body class="sm-historical">
+{% include "monitor/navbar.html" %}
+<div class="sm-history-navigation-wrap">
+
+</div>
+
+<div class="container">
+{% include "shiftreport/_section_navigation.html" with section_active="historical" %}
+
+  <h1>Historical Report</h1>
+
+
+  <div class="panel">
+    {% if revision %}
+      <h2>
+        My Historical Data — Revision V{{ revision.revision_number }}
+      </h2>
+
+      <p>
+        Personal version · Status:
+        <span class="status">{{ revision.get_status_display }}</span>
+        | Total entries: {{ revision.rows|length }}
+      </p>
+
+      {% if revision.status == "DRAFT" and not revision.shift_report_id %}
+      <form
+        id="historicalForm"
+        method="post"
+        action="{% url 'shiftreport:historical_save' revision.id %}"
+      >
+        {% csrf_token %}
+      {% endif %}
+
+      <div class="sm-paper sm-sheet"><div class="table-wrap">
+        <table class="sm-paper-table">
+          <thead>
+            <tr>
+              <th class="heading" colspan="{% if revision.status == 'DRAFT' and not revision.shift_report_id %}6{% else %}5{% endif %}">Historical Data</th>
+            </tr>
+            <tr>
+              <th>Category-1</th>
+              <th>Category-2</th>
+              <th>Details</th>
+              <th>Remarks</th>
+              <th>Event Type</th>
+              {% if revision.status == "DRAFT" and not revision.shift_report_id %}
+                <th>Action</th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in revision.rows %}
+            <tr>
+              {% if revision.status == "DRAFT" and not revision.shift_report_id %}
+                <td><textarea name="category_1">{{ item.category_1 }}</textarea></td>
+                <td><textarea name="category_2">{{ item.category_2 }}</textarea></td>
+                <td><textarea name="details">{{ item.details }}</textarea></td>
+                <td><textarea name="remarks">{{ item.remarks }}</textarea></td>
+                <td><textarea name="event_type">{{ item.event_type }}</textarea></td>
+                <td><button type="button" onclick="this.closest('tr').remove()">Remove</button></td>
+              {% else %}
+                <td>{{ item.category_1 }}</td>
+                <td>{{ item.category_2 }}</td>
+                <td>{{ item.details }}</td>
+                <td>{{ item.remarks }}</td>
+                <td>{{ item.event_type }}</td>
+              {% endif %}
+            </tr>
+            {% empty %}
+            <tr><td colspan="5">No historical entries.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div></div>
+
+      {% if revision.status == "DRAFT" and not revision.shift_report_id %}
+        <div style="margin-top:16px;display:flex;gap:10px">
+          <button type="button" onclick="addHistoricalRow()">
+            + Add Row
+          </button>
+          <button type="submit">Save Draft</button>
+        </div>
+      </form>
+      {% endif %}
+
+    {% else %}
+      <p>No Historical Report revision exists yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h3>Revision History</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Revision</th>
+          <th>Status</th>
+          <th>Entries</th>
+          <th>Sent At</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in revisions %}
+        <tr>
+          <td><a href="?revision={{ item.id }}">V{{ item.revision_number }}</a></td>
+          <td>{{ item.get_status_display }}</td>
+          <td>{{ item.rows|length }}</td>
+          <td>{{ item.sent_at|date:"d M Y H:i"|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4">No revisions yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function addHistoricalRow() {
+  const body = document.querySelector(
+    '#historicalForm table tbody'
+  );
+
+  if (!body) return;
+
+  const fields = [
+    'category_1',
+    'category_2',
+    'details',
+    'remarks',
+    'event_type'
+  ];
+
+  const row = document.createElement('tr');
+
+  fields.forEach(function(field) {
+    const cell = document.createElement('td');
+    const input = document.createElement('textarea');
+    input.name = field;
+    cell.appendChild(input);
+    row.appendChild(cell);
+  });
+
+  const action = document.createElement('td');
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.textContent = 'Remove';
+  remove.onclick = function() { row.remove(); };
+  action.appendChild(remove);
+  row.appendChild(action);
+
+  body.appendChild(row);
+}
+</script>
+</body>
+</html>

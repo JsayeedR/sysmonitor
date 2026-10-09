@@ -39,7 +39,7 @@ def _autosize(ws):
         ws.column_dimensions[letter].width = min(max(max_len + 2, 10), 55)
 
 
-def build_shift_report_xlsx(report):
+def build_shift_report_xlsx(report, revision=None):
     """
     Build the historical-issues attachment.
 
@@ -80,6 +80,11 @@ def build_shift_report_xlsx(report):
         .order_by('-opened_at', '-id')
     )
 
+    # Revision rows are authoritative when a revision is provided.
+    # Preserve the legacy export for calls without a revision.
+    if revision is not None:
+        issues = []
+
     for issue in issues:
 
         category_1 = (
@@ -115,6 +120,36 @@ def build_shift_report_xlsx(report):
             remarks,
             event_type,
         ])
+
+    if revision is not None:
+        required = (
+            'category_1',
+            'category_2',
+            'details',
+            'remarks',
+            'event_type',
+        )
+
+        for index, item in enumerate(revision.rows, start=1):
+            if not isinstance(item, dict):
+                raise ValueError(
+                    f'Invalid historical revision row {index}.'
+                )
+
+            if set(item) != set(required):
+                raise ValueError(
+                    f'Invalid historical revision columns at row {index}.'
+                )
+
+            if not all(
+                isinstance(item[key], str)
+                for key in required
+            ):
+                raise ValueError(
+                    f'Invalid historical revision values at row {index}.'
+                )
+
+            ws.append([item[key] for key in required])
 
     for row in ws.iter_rows():
         for cell in row:
@@ -572,11 +607,9 @@ def build_html_body(report, config):
           {_activity_rows_html(report)}
         </table>
 
-        <p>
-          -------------------------------------------<br>
-          Regards,<br>
+        <div style="margin-top:18px">
           {signature}
-        </p>
+        </div>
 
       </body>
     </html>
@@ -774,56 +807,35 @@ def send_smtp_email(
 
 
 def build_prepared_by_signature(user, config):
-    """
-    Signature is generated automatically from Prepared By.
-    """
+    """Signature rendered consistently in both email bodies and website previews."""
+    import html as _html
+    from django.utils.html import format_html
+    profile = getattr(user, 'userprofile', None)
     name = _display_name(user)
-
-    designation = ''
-    mobile = ''
-
-    try:
-        designation = user.userprofile.designation or ''
-        mobile = user.userprofile.mobile_number or ''
-    except Exception:
-        pass
-
-    lines = [
-        html.escape(name),
-    ]
-
-    if designation:
-        lines.append(
-            html.escape(designation)
-        )
-
-    if config.company_name:
-        lines.append(
-            html.escape(config.company_name)
-        )
-
-    if mobile:
-        lines.append(
-            f'Mob/WhatsApp# {html.escape(mobile)}'
-        )
-
-    if config.noc_mobile:
-        lines.append(
-            f'NOC Mob/WhatsApp# {html.escape(config.noc_mobile)}'
-        )
-
-    if config.website:
-        lines.append(
-            f'Website# {html.escape(config.website)}'
-        )
-
-    return '<br>'.join(lines)
+    designation = getattr(profile, 'designation', '') or ''
+    phone = (getattr(profile, 'mobile_number', '') or getattr(profile, 'whatsapp_number', '') or '')
+    company = getattr(config, 'company_name', '') or 'Bangladesh Submarine Cables PLC. (BSCPLC)'
+    noc = getattr(config, 'noc_mobile', '') or ''
+    website = getattr(config, 'website', '') or ''
+    def esc(value):
+        return _html.escape(str(value), quote=True)
+    line = ['<div class="sm-profile-signature" style="font-family:Consolas,monospace;line-height:1.45;color:#069881">',
+            '<span style="color:#069881">-------------------------------------------</span><br>',
+            '<span style="color:#069881">Regards,</span><br>',
+            '<strong style="color:#e77614">' + esc(name) + '</strong>']
+    if designation: line.append('<br>' + esc(designation))
+    line.append('<br>' + esc(company))
+    if phone: line.append('<br>Mob/WhatsApp# ' + esc(phone))
+    if noc: line.append('<br>NOC Mob/WhatsApp# ' + esc(noc))
+    if website:
+        url = website if website.startswith(('https://','http://')) else 'https://' + website
+        line.append('<br>Website# <a href="' + esc(url) + '" style="color:#0000ee;text-decoration:underline">' + esc(website) + '</a>')
+    line.append('</div>')
+    return ''.join(line)
 
 
 def build_pfe_subject():
-    return (
-        'Re: COX/SATUN/TUS CLS # Daily Basis PFE Readings'
-    )
+    return 'COX/SATUN/TUS CLS # Daily Basis PFE Readings'
 
 
 def build_pfe_html_body(report, config):
@@ -873,11 +885,9 @@ def build_pfe_html_body(report, config):
           </tbody>
         </table>
 
-        <p>
-          -------------------------------------------<br>
-          Regards,<br>
+        <div style="margin-top:18px">
           {signature}
-        </p>
+        </div>
       </body>
     </html>
     """

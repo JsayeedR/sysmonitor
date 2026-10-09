@@ -262,6 +262,9 @@ class ShiftReport(models.Model):
         default=False,
     )
 
+    # Explicit opt-in. Scheduler never sends ordinary unscheduled drafts.
+    auto_send_after_shift = models.BooleanField(default=False)
+
     # Optional extra CC entered by report writer.
     additional_cc = models.TextField(blank=True)
 
@@ -304,6 +307,75 @@ class ShiftReport(models.Model):
             f'{self.report_date} — '
             f'{self.get_shift_display()} — '
             f'{self.prepared_by.username}'
+        )
+
+
+
+class HistoricalReportRevision(models.Model):
+    """Versioned historical issues workbook."""
+
+    STATUS_CHOICES = [
+        ('DRAFT', 'Draft'),
+        ('SAVED', 'Saved Draft'),
+        ('SENT', 'Sent'),
+    ]
+
+    revision_number = models.PositiveIntegerField()
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='DRAFT',
+    )
+
+    # Per-engineer history; NULL denotes the legacy shared seed.
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.PROTECT, related_name='personal_historical_revisions',
+    )
+
+    # Snapshot of the five workbook columns.
+    # Once SAVED or SENT, rows must not be changed.
+    rows = models.JSONField(default=list, blank=True)
+
+    shift_report = models.ForeignKey(
+        'ShiftReport',
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='historical_revisions',
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='historical_report_revisions',
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-revision_number']
+        constraints = [models.UniqueConstraint(
+            fields=['owner', 'revision_number'],
+            name='unique_personal_historical_version',
+        )]
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            old = type(self).objects.filter(pk=self.pk).values('status','rows','revision_number','shift_report_id','sent_at','owner_id').first()
+            if old and old['status'] in ('SENT', 'SAVED'):
+                if (self.status != 'SENT' or self.rows != old['rows'] or self.revision_number != old['revision_number'] or self.shift_report_id != old['shift_report_id'] or self.sent_at != old['sent_at'] or self.owner_id != old['owner_id']):
+                    raise ValueError('SAVED and SENT historical revisions are immutable.')
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f'Historical Report V{self.revision_number} '
+            f'({self.status})'
         )
 
 

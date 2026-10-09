@@ -1,4 +1,7 @@
+# A4_PERSONAL_HISTORICAL_20261009
+# A3_CONSOLIDATED_PATCH_20261009
 from datetime import datetime
+import re
 
 import pytz
 from django.contrib import messages
@@ -263,6 +266,193 @@ def _apply_structured_report_fields(report, request):
 
 
 @login_required
+@require_POST
+def historical_report_save(request, revision_id):
+    """Save an editable historical revision."""
+    from django.db import transaction
+    from .models import HistoricalReportRevision
+
+    if not _role_allowed(request.user):
+        return HttpResponseForbidden(
+            'You cannot update Historical Reports.'
+        )
+
+    with transaction.atomic():
+        revision = get_object_or_404(
+            HistoricalReportRevision.objects.select_for_update(),
+            pk=revision_id,
+        )
+
+        if revision.owner_id != request.user.pk:
+            return HttpResponseForbidden("You cannot edit another engineer's history.")
+
+        if revision.status != 'DRAFT':
+            return HttpResponseForbidden(
+                'SENT Historical Reports are permanently read-only.'
+            )
+
+        if revision.shift_report_id is not None:
+            return HttpResponseForbidden('This historical revision is reserved for email and cannot be edited.')
+
+        fields = (
+            'category_1',
+            'category_2',
+            'details',
+            'remarks',
+            'event_type',
+        )
+
+        values = {
+            field: request.POST.getlist(field)
+            for field in fields
+        }
+
+        lengths = {len(items) for items in values.values()}
+
+        if len(lengths) != 1:
+            return HttpResponseForbidden(
+                'Invalid historical table submission.'
+            )
+
+        count = lengths.pop()
+
+        if count > 500:
+            return HttpResponseForbidden(
+                'Maximum 500 historical entries allowed.'
+            )
+
+        rows = []
+
+        for index in range(count):
+            row = {
+                field: values[field][index].strip()
+                for field in fields
+            }
+
+            if not any(row.values()):
+                continue
+
+            if (
+                len(row['category_1']) > 150
+                or len(row['category_2']) > 200
+                or len(row['event_type']) > 100
+            ):
+                return HttpResponseForbidden(
+                    f'Historical row {index + 1} exceeds field limits.'
+                )
+
+            rows.append(row)
+
+        from .historical_revisions import save_personal_draft
+        try:
+            next_revision = save_personal_draft(revision, request.user, rows)
+        except ValueError as exc:
+            return HttpResponseForbidden(str(exc))
+
+    log_activity(
+        request.user,
+        'HISTORICAL_REPORT_DRAFT',
+        f'Historical V{revision.revision_number} saved; V{next_revision.revision_number} is now editable.',
+        get_ip(request),
+    )
+
+    messages.success(
+        request,
+        f'Historical Report V{revision.revision_number} preserved; editing V{next_revision.revision_number}.',
+    )
+
+    return redirect('shiftreport:historical_home')
+
+
+@login_required
+def historical_report_home(request):
+    """Display the historical workbook revision history."""
+    if not _role_allowed(request.user):
+        return HttpResponseForbidden(
+            'You do not have permission to access Historical Reports.'
+        )
+
+    from .models import HistoricalReportRevision
+    from .historical_revisions import get_personal_draft
+    get_personal_draft(request.user)
+
+    revisions = HistoricalReportRevision.objects.filter(owner=request.user).order_by('-revision_number')
+
+    selected_id = request.GET.get('revision')
+    current_revision = get_object_or_404(revisions, pk=selected_id) if selected_id else (revisions.filter(status='DRAFT', shift_report__isnull=True).first() or revisions.first())
+
+    return render(
+        request,
+        'shiftreport/historical.html',
+        {
+            'revision': current_revision,
+            'role': get_role(request.user),
+            'revisions': revisions,
+        },
+    )
+
+
+@login_required
+def shift_report_view(request, report_id):
+    """All authorized shift engineers can inspect all reports, never modify."""
+    if not _role_allowed(request.user):
+        return HttpResponseForbidden('You cannot view Shift Reports.')
+    from django.utils.safestring import mark_safe
+    from .reporting import build_html_body
+    report = get_object_or_404(
+        ShiftReport.objects.select_related('prepared_by','handover_to'), pk=report_id,
+    )
+    body = build_html_body(report, _config())
+    body = re.sub(r'^\s*<html>\s*<body[^>]*>', '', body, flags=re.I)
+    body = re.sub(r'</body>\s*</html>\s*$', '', body, flags=re.I)
+    return render(request, 'shiftreport/report_view.html', {
+        'report': report,
+        'role': get_role(request.user),
+        'report_body_html': mark_safe(body),
+        'can_edit_report': _can_manage_report(request.user, report) and report.status != 'SENT',
+    })
+
+
+@login_required
+def shift_report_slot_check(request):
+    """Read-only date+shift collision endpoint for draft forms."""
+    from django.http import JsonResponse
+    from django.urls import reverse
+    from datetime import date
+    if not _role_allowed(request.user):
+        return HttpResponseForbidden('Not permitted.')
+    selected = request.GET.get('date', '')
+    shift = request.GET.get('shift', '').upper()
+    try:
+        date_value = date.fromisoformat(selected)
+    except (TypeError, ValueError):
+        return JsonResponse({'error':'Invalid date.'}, status=400)
+    if shift not in ('MORNING','EVENING','NIGHT'):
+        return JsonResponse({'error':'Invalid shift.'}, status=400)
+    start, end = shift_window(date_value, shift)
+    rows = ShiftReport.objects.select_related('prepared_by').filter(
+        report_date=date_value, shift=shift,
+    )
+    except_pk = request.GET.get('exclude', '')
+    if except_pk.isdigit():
+        rows = rows.exclude(pk=int(except_pk))
+    taken = rows.first()
+    details = {
+        'exists': bool(taken),
+        'shift': shift.title() + ' Shift',
+        'window': (start.astimezone(BDT).strftime('%d %b %Y %I:%M %p') + ' – '
+                   + end.astimezone(BDT).strftime('%d %b %Y %I:%M %p') + ' BDT'),
+    }
+    if taken:
+        details.update({
+            'status': taken.get_status_display(),
+            'owner': taken.prepared_by.get_full_name().strip() or taken.prepared_by.username,
+            'report_url': reverse('shiftreport:view', kwargs={'report_id':taken.pk}),
+        })
+    return JsonResponse(details)
+
+
+@login_required
 def shift_report_home(request):
     if not _role_allowed(request.user):
         return HttpResponseForbidden(
@@ -286,12 +476,8 @@ def shift_report_home(request):
         .select_related('prepared_by', 'handover_to')
     )
 
-    if get_role(request.user) != 'admin':
-        reports_qs = reports_qs.filter(
-            prepared_by=request.user
-        )
-
-    reports = reports_qs[:40]
+    my_reports = reports_qs.filter(prepared_by=request.user)[:60]
+    other_reports = reports_qs.exclude(prepared_by=request.user)[:60]
 
     due_existing = (
         ShiftReport.objects
@@ -348,8 +534,10 @@ def shift_report_home(request):
             ),
 
             'contacts': contacts,
-            'reports': reports,
+            'my_reports': my_reports,
+            'other_reports': other_reports,
             'important_issues': issues,
+            'signature_html': __import__('shiftreport.reporting', fromlist=['build_prepared_by_signature']).build_prepared_by_signature(request.user, _config()),
             'config': ShiftReportConfig.objects.filter(pk=1).first(),
         },
     )
@@ -494,6 +682,7 @@ def shift_report_create(request):
         prepared_by=request.user,
         handover_to=handover,
         shift_continues=continues,
+        auto_send_after_shift=request.POST.get('auto_send_after_shift') == 'on',
 
         ac_shifting=request.POST.get(
             'ac_shifting',
@@ -693,6 +882,7 @@ def shift_report_edit(request, report_id):
             'user': request.user,
             'report': report,
             'contacts': contacts,
+            'signature_html': __import__('shiftreport.reporting', fromlist=['build_prepared_by_signature']).build_prepared_by_signature(report.prepared_by, _config()),
             'config': cfg,
             'mandatory_cc': mandatory_cc,
             'preview_to': preview_to,
@@ -879,6 +1069,7 @@ def shift_report_save(request, report_id):
 
     report.handover_to = handover
     report.shift_continues = continues
+    report.auto_send_after_shift = request.POST.get('auto_send_after_shift') == 'on'
 
     if auto_text_values:
         request.POST = request.POST.copy()
@@ -1458,7 +1649,13 @@ def shift_report_send(request, report_id):
             report_id=report.id,
         )
 
-    filename, workbook = build_shift_report_xlsx(report)
+    from .historical_revisions import reserve_historical_revision, freeze_sent_historical_revision
+    try:
+        revision = reserve_historical_revision(report)
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect('shiftreport:edit', report_id=report.id)
+    filename, workbook = build_shift_report_xlsx(report, revision=revision)
     subject = build_subject(report)
 
     report.email_subject = subject
@@ -1526,6 +1723,13 @@ def shift_report_send(request, report_id):
                 'updated_at',
             ]
         )
+        # Persist main SMTP success *before* finalization so a failed
+        # freeze cannot cause a second email on retry.
+        freeze_sent_historical_revision(revision.pk, report)
+
+    # Repair interrupted finalization without resending SMTP.
+    if report.main_email_sent_at is not None and revision.status != 'SENT':
+        freeze_sent_historical_revision(revision.pk, report)
 
     # ------------------------------------------------------
     # COMPLETE
@@ -1601,6 +1805,7 @@ def mnoc_pfe_home(request):
             'reports': reports,
             'today_report': today_report,
             'config': ShiftReportConfig.objects.filter(pk=1).first(),
+            'signature_html': __import__('shiftreport.reporting', fromlist=['build_prepared_by_signature']).build_prepared_by_signature(request.user, _config()),
         },
     )
 
@@ -1616,7 +1821,12 @@ def mnoc_pfe_create(request):
     from decimal import Decimal, InvalidOperation
     from django.utils import timezone
 
-    report_date = timezone.localtime().date()
+    from datetime import date
+    try:
+        report_date = date.fromisoformat(request.POST.get('report_date', ''))
+    except (ValueError, TypeError):
+        messages.error(request, 'Please select a valid reading date.')
+        return redirect('shiftreport:pfe_home')
 
     existing = (
         MnocPfeReport.objects
@@ -1719,6 +1929,7 @@ def mnoc_pfe_edit(request, report_id):
             'report': report,
             'can_edit': can_edit,
             'config': ShiftReportConfig.objects.filter(pk=1).first(),
+            'signature_html': __import__('shiftreport.reporting', fromlist=['build_prepared_by_signature']).build_prepared_by_signature(report.prepared_by, _config()),
         },
     )
 
@@ -1797,6 +2008,16 @@ def mnoc_pfe_save(request, report_id):
         or 'None'
     )
 
+    from datetime import date
+    try:
+        chosen_date = date.fromisoformat(request.POST.get('report_date', ''))
+    except (ValueError, TypeError):
+        messages.error(request, 'Select a valid reading date.')
+        return redirect('shiftreport:pfe_edit', report_id=report.id)
+    if MnocPfeReport.objects.exclude(pk=report.pk).filter(report_date=chosen_date).exists():
+        messages.error(request, 'A PFE report already exists for that date.')
+        return redirect('shiftreport:pfe_edit', report_id=report.id)
+    report.report_date = chosen_date
     report.save()
 
     messages.success(
@@ -1850,6 +2071,12 @@ def mnoc_pfe_send(request, report_id):
             'shiftreport:pfe_edit',
             report_id=report.id,
         )
+
+    # PFE readings can be drafted for any date, but never emailed
+    # until the following local calendar day.
+    if timezone.localtime().date() <= report.report_date:
+        messages.error(request, 'PFE email can be sent only from the day after its reading date.')
+        return redirect('shiftreport:pfe_edit', report_id=report.pk)
 
     cfg = _config()
 

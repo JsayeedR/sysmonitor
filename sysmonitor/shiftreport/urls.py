@@ -6,6 +6,20 @@ from . import views
 app_name = 'shiftreport'
 
 urlpatterns = [
+    path('availability/', views.shift_report_slot_check, name='slot_check'),
+    path('<int:report_id>/view/', views.shift_report_view, name='view'),
+    path(
+        'historical/<int:revision_id>/save/',
+        views.historical_report_save,
+        name='historical_save',
+    ),
+
+    path(
+        'historical/',
+        views.historical_report_home,
+        name='historical_home',
+    ),
+
     path(
         'mnoc-pfe/',
         views.mnoc_pfe_home,

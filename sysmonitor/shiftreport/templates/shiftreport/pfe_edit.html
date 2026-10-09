@@ -43,6 +43,7 @@
       .grid{grid-template-columns:1fr}
     }
   </style>
+{% include "shiftreport/_section_navigation_styles.html" %}
 </head>
 <body>
 
@@ -50,17 +51,7 @@
 
 <div class="wrap">
 
-  <div style="display:flex;gap:.55rem;margin-bottom:1rem">
-    <a class="btn secondary"
-       href="{{ base_path }}/shift-report/">
-      📝 Shift Handover
-    </a>
-
-    <a class="btn"
-       href="{{ base_path }}/shift-report/mnoc-pfe/">
-      ⚡ MNOC PFE Report
-    </a>
-  </div>
+  {% include "shiftreport/_section_navigation.html" with section_active="pfe" %}
 
   <div class="panel">
     <h2 style="margin-top:0">
@@ -75,38 +66,20 @@
 
     {% if can_edit and report.status != "SENT" %}
 
-    <form method="post"
-          action="{{ base_path }}/shift-report/mnoc-pfe/{{ report.id }}/save/">
-
-      {% csrf_token %}
-
-      <div class="grid">
-
-        <div>
-          <label>Voltage (V)</label>
-          <input
+    <form method="post" action="{{ base_path }}/shift-report/mnoc-pfe/{{ report.id }}/save/">{% csrf_token %}<div class="sm-paper"><div class="sm-paper-subject">COX/SATUN/TUS CLS # Daily Basis PFE Readings</div>
+<p>Dear MNOC,</p><p>Please find the daily PFE reading from COX CLS for your kind perusal.</p><div class="sm-paper-scroll"><table class="sm-paper-table"><thead><tr><th>Date</th><th>Voltage(V)</th><th>Current (mA)</th><th>Mode</th><th>Remark</th><th>Alarm Status</th></tr></thead><tbody><tr><td><input type="date" name="report_date" value="{{ report.report_date|date:'Y-m-d' }}" required aria-label="PFE reading date"></td><td><input
             type="number"
             step="0.01"
             name="voltage_v"
             value="{{ report.voltage_v }}"
             required
-          >
-        </div>
-
-        <div>
-          <label>Current (mA)</label>
-          <input
+          ></td><td><input
             type="number"
             step="0.01"
             name="current_ma"
             value="{{ report.current_ma }}"
             required
-          >
-        </div>
-
-        <div>
-          <label>Mode</label>
-          <select name="mode">
+          ></td><td><select name="mode">
             <option value="CURRENT"
               {% if report.mode == "CURRENT" %}selected{% endif %}>
               CURRENT
@@ -121,67 +94,23 @@
               {% if report.mode == "OTHER" %}selected{% endif %}>
               OTHER
             </option>
-          </select>
-        </div>
-
-        <div>
-          <label>Remark</label>
-          <input
+          </select></td><td><input
             name="remark"
             value="{{ report.remark }}"
             required
-          >
-        </div>
-
-        <div style="grid-column:1/-1">
-          <label>Alarm Status</label>
-          <input
+          ></td><td><input
             name="alarm_status"
             value="{{ report.alarm_status }}"
             required
-          >
-        </div>
-
-      </div>
-
-      <div style="margin-top:1rem">
-        <button class="btn" type="submit">
-          💾 Save PFE Draft
-        </button>
-      </div>
-
-    </form>
+          ></td></tr></tbody></table></div>
+<div class="sm-paper-signature">{{ signature_html|safe }}</div></div><div class="sm-paper-action"><button class="btn" type="submit">💾 Save PFE Draft</button></div></form>
 
     {% else %}
 
-      <div class="grid">
-        <div>
-          <label>Voltage (V)</label>
-          <input value="{{ report.voltage_v }}" readonly>
-        </div>
-
-        <div>
-          <label>Current (mA)</label>
-          <input value="{{ report.current_ma }}" readonly>
-        </div>
-
-        <div>
-          <label>Mode</label>
-          <input value="{{ report.mode }}" readonly>
-        </div>
-
-        <div>
-          <label>Remark</label>
-          <input value="{{ report.remark }}" readonly>
-        </div>
-
-        <div style="grid-column:1/-1">
-          <label>Alarm Status</label>
-          <input value="{{ report.alarm_status }}" readonly>
-        </div>
-      </div>
-
-      {% if not can_edit %}
+      <div class="sm-paper"><div class="sm-paper-subject">COX/SATUN/TUS CLS # Daily Basis PFE Readings</div>
+<p>Dear MNOC,</p><p>Please find the daily PFE reading from COX CLS for your kind perusal.</p><div class="sm-paper-scroll"><table class="sm-paper-table"><thead><tr><th>Date</th><th>Voltage(V)</th><th>Current (mA)</th><th>Mode</th><th>Remark</th><th>Alarm Status</th></tr></thead><tbody><tr><td>{{ report.report_date|date:'d-m-Y' }}</td><td>{{ report.voltage_v }}</td><td>{{ report.current_ma }}</td><td>{{ report.mode }}</td><td>{{ report.remark }}</td><td>{{ report.alarm_status }}</td></tr></tbody></table></div>
+<div class="sm-paper-signature">{{ signature_html|safe }}</div></div>
+{% if not can_edit %}
       <div class="muted" style="margin-top:1rem">
         This PFE report was prepared by another Shift Engineer.
         You can view it, but you cannot modify it.

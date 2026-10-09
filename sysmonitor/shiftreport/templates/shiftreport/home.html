@@ -321,6 +321,23 @@ table.history th{
 }
 
 </style>
+
+
+
+{% include "shiftreport/_section_navigation_styles.html" %}
+
+<style id="sm-a4-slot-style">
+.sm-slot-notice{display:none;border-radius:8px;padding:10px 14px;margin:10px 0;background:#422006;color:#ffedd5;border:1px solid #f59e0b;font:600 13px "Segoe UI",Arial,sans-serif}
+.sm-slot-notice[data-show="1"]{display:block;position:fixed;top:82px;right:16px;width:min(520px,calc(100vw - 32px));z-index:350;box-shadow:0 8px 30px #0008}.sm-slot-notice a{color:#bfdbfe;text-decoration:underline}
+.sm-a4-title{font-size:1.38rem!important;margin:0 0 4px!important}
+.sm-a4-schedule{margin:0 0 12px!important;padding:9px 12px!important;font-size:12px!important}
+.sm-a4-schedule label{font-size:13px!important}
+.sm-a4-hist-tabs{display:flex;gap:8px;margin:0 0 13px}
+.sm-a4-hist-tabs button{background:#334155;border:1px solid #475569;color:#e2e8f0;padding:8px 15px;border-radius:7px;cursor:pointer;font-weight:650}
+.sm-a4-hist-tabs button.is-active{background:#2563eb;border-color:#60a5fa;color:white}
+.sm-a4-hist-panel[hidden]{display:none!important}
+.sm-a4-hist-table th,.sm-a4-hist-table td{font-size:12px;padding:9px}
+</style>
 </head>
 
 <body>
@@ -329,27 +346,13 @@ table.history th{
 
 <div class="wrap">
 
-  <div class="tabs">
-    <a class="btn" href="{{ base_path }}/shift-report/">
-      📝 Shift Handover
-    </a>
 
-    <a class="btn secondary"
-       href="{{ base_path }}/shift-report/mnoc-pfe/">
-      ⚡ MNOC PFE Report
-    </a>
+  {% include "shiftreport/_section_navigation.html" with section_active="shift" %}
 
-    {% if role == "admin" %}
-    <a class="btn secondary"
-       href="{{ base_path }}/shift-report/config/settings/">
-      ⚙️ Configuration
-    </a>
-    {% endif %}
-  </div>
 
   <div class="heading">
     <div>
-      <h2 style="margin:0">COXCLS NOC Shift Report Preparation</h2>
+      <h2 class="sm-a4-title">COXCLS NOC Shift Report Preparation</h2>
       <div class="muted">
         The preparation page below follows the final email layout.
       </div>
@@ -364,12 +367,11 @@ table.history th{
   {% if due_existing %}
 
     <div class="panel">
-      <strong>🔒 {{ due_shift|title }} Shift report already exists.</strong>
-
+      <strong>🔒 {{ due_existing.report_date|date:"d M Y" }} · {{ due_existing.get_shift_display }} · {{ due_existing.get_status_display }}</strong>
       <div class="muted" style="margin-top:.35rem">
-        Prepared by
-        {{ due_existing.prepared_by.get_full_name|default:due_existing.prepared_by.username }}.
-        Only one report can exist for this completed shift.
+        {{ due_existing.shift_start|date:"d M Y, h:i A" }} – {{ due_existing.shift_end|date:"d M Y, h:i A" }} (BDT)
+        · Prepared by {{ due_existing.prepared_by.get_full_name|default:due_existing.prepared_by.username }}.
+        This specific date and shift is already occupied.
       </div>
 
       {% if due_existing.prepared_by_id == user.id or role == "admin" %}
@@ -379,6 +381,8 @@ table.history th{
           Open Report
         </a>
       </div>
+      {% else %}
+      <div style="margin-top:.8rem"><a class="btn secondary" href="{% url 'shiftreport:view' due_existing.id %}">View report (read-only)</a></div>
       {% endif %}
     </div>
 
@@ -389,7 +393,16 @@ table.history th{
         id="reportComposer">
 
     {% csrf_token %}
+    <div class="panel sm-a4-schedule">
+      <label style="display:flex;align-items:center;gap:10px;font-weight:650">
+        <input type="checkbox" name="auto_send_after_shift" value="on"
+               style="width:17px;height:17px" >
+        ⏰ Automatically send this Shift Report after its shift ends
+      </label>
+      <div class="muted" style="margin-top:5px">Optional · send only after the selected shift ends.</div>
+    </div>
 
+    <div id="smShiftAvailability" class="sm-slot-notice" role="status" aria-live="polite"></div>
     <div class="email-paper">
 
       <div class="email-intro">
@@ -703,31 +716,7 @@ table.history th{
       </div>
 
 
-      <div class="signature-preview">
-        -------------------------------------------<br>
-
-        <strong>Regards,</strong><br>
-
-        {{ user.get_full_name|default:user.username }}<br>
-
-        {% if user.userprofile.designation %}
-          {{ user.userprofile.designation }}<br>
-        {% endif %}
-
-        Bangladesh Submarine Cables PLC. (BSCPLC)<br>
-
-        {% if user.userprofile.mobile_number %}
-          Mob/WhatsApp# {{ user.userprofile.mobile_number }}<br>
-        {% endif %}
-
-        {% if config and config.noc_mobile %}
-          NOC Mob/WhatsApp# {{ config.noc_mobile }}<br>
-        {% endif %}
-
-        {% if config and config.website %}
-          Website# {{ config.website }}
-        {% endif %}
-      </div>
+      <div class="signature-preview">{{ signature_html|safe }}</div>
 
     </div>
 
@@ -781,127 +770,40 @@ table.history th{
   </form>
 
 
-  <div class="panel" style="margin-top:1.3rem">
 
-    <h3 style="margin-top:0">
-      Historical Important Issues
-    </h3>
-
-    <div class="muted" style="margin-bottom:.8rem">
-      These records are exported in the
-      <strong>Historical Important Issues.xlsx</strong>
-      attachment sent with the Shift Report.
+  <section class="panel" aria-label="Shift Report History">
+    <h3 style="margin:0 0 12px">Shift Report History</h3>
+    <div class="sm-a4-hist-tabs" role="tablist" aria-label="Report ownership">
+      <button type="button" class="is-active" data-sm-tab="mine" role="tab" aria-selected="true">My Reports</button>
+      <button type="button" data-sm-tab="others" role="tab" aria-selected="false">Others' Reports</button>
     </div>
-
-    <form
-      method="post"
-      action="{{ base_path }}/shift-report/issues/add/"
-    >
-
-      {% csrf_token %}
-
-      <div class="historical-grid">
-
-        <div>
-          <label class="muted">Category-1</label>
-          <input name="category_1">
-        </div>
-
-        <div>
-          <label class="muted">Category-2</label>
-          <input name="category_2">
-        </div>
-
-        <div>
-          <label class="muted">Event Type</label>
-          <select name="event_type">
-            <option value="Followup">Followup</option>
-            <option value="Reporting">Reporting</option>
-          </select>
-        </div>
-
-        <div></div>
-
-        <div>
-          <label class="muted">Details</label>
-          <textarea name="details"></textarea>
-        </div>
-
-        <div>
-          <label class="muted">Remarks</label>
-          <textarea name="remarks"></textarea>
-        </div>
-
-      </div>
-
-      <div style="margin-top:.7rem">
-        <button class="btn secondary" type="submit">
-          + Add Historical Issue
-        </button>
-      </div>
-
-    </form>
-
-  </div>
-
-
-  <div class="panel">
-
-    <h3 style="margin-top:0">
-      My Shift Report History
-    </h3>
-
-    <div style="overflow-x:auto">
-
-      <table class="history">
-
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Shift</th>
-            <th>Handover</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-
-        <tbody>
-
-          {% for r in reports %}
-
-          <tr>
-            <td>{{ r.report_date|date:"d M Y" }}</td>
-            <td>{{ r.get_shift_display }}</td>
-            <td>{{ r.handover_to.name }}</td>
-            <td>{{ r.get_status_display }}</td>
-
-            <td>
-              <a
-                class="btn secondary"
-                href="{{ base_path }}/shift-report/{{ r.id }}/"
-              >
-                Open
-              </a>
-            </td>
-          </tr>
-
-          {% empty %}
-
-          <tr>
-            <td colspan="5" class="muted">
-              No Shift Reports yet.
-            </td>
-          </tr>
-
-          {% endfor %}
-
-        </tbody>
-
-      </table>
-
+    <div id="sm-reports-mine" class="sm-a4-hist-panel" role="tabpanel">
+      <div style="overflow-x:auto"><table class="history sm-a4-hist-table"><thead><tr>
+      <th>Date / Shift</th><th>Operational time (BDT)</th><th>Prepared By</th><th>Handover</th><th>Status</th><th>View</th>
+      </tr></thead><tbody>
+      {% for r in my_reports %}<tr>
+      <td>{{ r.report_date|date:"d M Y" }} · {{ r.get_shift_display }}</td>
+      <td>{{ r.shift_start|date:"d M Y, h:i A" }} – {{ r.shift_end|date:"d M Y, h:i A" }}</td>
+      <td>{{ r.prepared_by.get_full_name|default:r.prepared_by.username }}</td><td>{{ r.handover_to.name }}</td>
+      <td>{{ r.get_status_display }}</td>
+      <td><a class="btn secondary" href="{% url 'shiftreport:edit' r.id %}">Open</a></td></tr>
+      {% empty %}<tr><td colspan="6">No personal Shift Reports yet.</td></tr>{% endfor %}
+      </tbody></table></div>
     </div>
-
-  </div>
+    <div id="sm-reports-others" class="sm-a4-hist-panel" role="tabpanel" hidden>
+      <div style="overflow-x:auto"><table class="history sm-a4-hist-table"><thead><tr>
+      <th>Date / Shift</th><th>Operational time (BDT)</th><th>Prepared By</th><th>Handover</th><th>Status</th><th>View</th>
+      </tr></thead><tbody>
+      {% for r in other_reports %}<tr>
+      <td>{{ r.report_date|date:"d M Y" }} · {{ r.get_shift_display }}</td>
+      <td>{{ r.shift_start|date:"d M Y, h:i A" }} – {{ r.shift_end|date:"d M Y, h:i A" }}</td>
+      <td>{{ r.prepared_by.get_full_name|default:r.prepared_by.username }}</td><td>{{ r.handover_to.name }}</td>
+      <td>{{ r.get_status_display }}</td>
+      <td><a class="btn secondary" href="{% url 'shiftreport:view' r.id %}">View (read-only)</a></td></tr>
+      {% empty %}<tr><td colspan="6">No reports prepared by other engineers.</td></tr>{% endfor %}
+      </tbody></table></div>
+    </div>
+  </section>
 
 </div>
 
@@ -1020,5 +922,60 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
+
+<script id="sm-a4-availability-script">
+(function(){
+  const form=document.getElementById('reportComposer');
+  if(!form) return;
+  const date=form.querySelector('[name="report_date"]');
+  const shift=form.querySelector('[name="shift"]');
+  const message=document.getElementById('smShiftAvailability');
+  const submit=form.querySelector('button[type="submit"]');
+  if(!date||!shift||!message||!submit) return;
+  const endpoint='{% url "shiftreport:slot_check" %}';
+  const exclude=form.dataset.reportId||'';
+  let requestNo=0;
+  function textError(s){message.textContent=s;message.dataset.show='1'}
+  async function check(){
+    const thisRequest=++requestNo;
+    submit.disabled=true;
+    if(!date.value||!shift.value){textError('Please choose a valid date and shift.');return}
+    try{
+      const qs=new URLSearchParams({date:date.value,shift:shift.value});
+      if(exclude)qs.set('exclude',exclude);
+      const response=await fetch(endpoint+'?'+qs.toString(),{credentials:'same-origin'});
+      if(!response.ok)throw new Error('Validation service unavailable');
+      const found=await response.json();
+      if(thisRequest!==requestNo)return;
+      if(found.exists){
+        message.textContent='Already created: '+found.shift+' · '+date.value+' ('+found.window+') · '+found.status+' · By '+found.owner+'. Open the existing report below; another report cannot be created.';
+        message.dataset.show='1';
+        submit.disabled=true;
+      }else{
+        message.textContent='';
+        message.dataset.show='0';
+        submit.disabled=false;
+      }
+    }catch(e){
+      if(thisRequest!==requestNo)return;
+      textError('Unable to verify this date and shift. Please refresh and try again.');
+      submit.disabled=true;
+    }
+  }
+  date.addEventListener('change',check);
+  shift.addEventListener('change',check);
+  form.addEventListener('submit',function(event){if(submit.disabled)event.preventDefault()});
+  check();
+})();
+(function(){
+  const buttons=document.querySelectorAll('[data-sm-tab]');
+  if(!buttons.length)return;
+  buttons.forEach(function(btn){btn.addEventListener('click',function(){
+    buttons.forEach(function(b){const selected=b===btn;b.classList.toggle('is-active',selected);b.setAttribute('aria-selected',String(selected))});
+    document.getElementById('sm-reports-mine').hidden=btn.dataset.smTab!=='mine';
+    document.getElementById('sm-reports-others').hidden=btn.dataset.smTab!=='others';
+  })});
+})();
+</script>
 </body>
 </html>

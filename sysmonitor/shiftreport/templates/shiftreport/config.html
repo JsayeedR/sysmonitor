@@ -64,12 +64,14 @@
       .grid{grid-template-columns:1fr}
     }
   </style>
+{% include "shiftreport/_section_navigation_styles.html" %}
 </head>
 <body>
 
 {% include "monitor/navbar.html" %}
 
 <div class="wrap">
+{% include "shiftreport/_section_navigation.html" with section_active="config" %}
 
   <div class="top">
     <div>
@@ -79,10 +81,7 @@
       </div>
     </div>
 
-    <a href="{{ base_path }}/shift-report/"
-       class="btn secondary">
-      ← Shift Report
-    </a>
+
   </div>
 
   {% for message in messages %}

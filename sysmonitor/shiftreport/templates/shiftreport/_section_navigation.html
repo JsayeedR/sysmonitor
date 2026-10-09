@@ -1,0 +1,31 @@
+
+<nav class="sm-section-tabs"
+     aria-label="Shift Report Section Navigation">
+
+  <a href="{% url 'shiftreport:home' %}"
+     class="sm-section-tab{% if section_active == 'shift' %} active{% endif %}"
+     {% if section_active == 'shift' %}aria-current="page"{% endif %}>
+    📝 Update Shift Report
+  </a>
+
+  <a href="{% url 'shiftreport:historical_home' %}"
+     class="sm-section-tab{% if section_active == 'historical' %} active{% endif %}"
+     {% if section_active == 'historical' %}aria-current="page"{% endif %}>
+    📊 Update Historical Report
+  </a>
+
+  <a href="{% url 'shiftreport:pfe_home' %}"
+     class="sm-section-tab{% if section_active == 'pfe' %} active{% endif %}"
+     {% if section_active == 'pfe' %}aria-current="page"{% endif %}>
+    ⚡ PFE Data Report (MNOC)
+  </a>
+
+  {% if role == "admin" or request.user.userprofile.role == "admin" or request.user.is_staff or request.user.is_superuser %}
+  <a href="{% url 'shiftreport:config' %}"
+     class="sm-section-tab{% if section_active == 'config' %} active{% endif %}"
+     {% if section_active == 'config' %}aria-current="page"{% endif %}>
+    ⚙️ Shift Configuration (Only Admin)
+  </a>
+  {% endif %}
+
+</nav>

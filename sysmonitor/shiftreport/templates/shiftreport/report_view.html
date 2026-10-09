@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shift Report — Read Only</title>
+<style>
+body{margin:0;background:#0f172a;color:#f1f5f9;font-family:"Segoe UI",Arial,sans-serif}
+.wrap{max-width:1250px;margin:0 auto;padding:1.3rem 1rem 3rem}
+.sm-report-view-header{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:14px 18px;margin-bottom:15px}
+.sm-report-view-header h1{font-size:1.3rem;margin:0 0 8px}
+.sm-report-view-header p{color:#cbd5e1;font-size:13px;margin:3px 0}
+.sm-paper-content{background:#fff;color:#111827;border-radius:10px;padding:28px;overflow:auto;font-family:Calibri,Arial,sans-serif}
+.sm-paper-content table{max-width:100%}
+.sm-view-actions{margin-bottom:12px;display:flex;gap:10px}
+.sm-view-actions a{color:#fff;background:#334155;padding:8px 12px;text-decoration:none;border-radius:7px;font-size:13px}
+@media(max-width:700px){.sm-paper-content{padding:14px}}
+</style>
+{% include "shiftreport/_section_navigation_styles.html" %}
+</head><body>
+{% include "monitor/navbar.html" %}
+<div class="wrap">
+{% include "shiftreport/_section_navigation.html" with section_active="shift" %}
+<div class="sm-report-view-header">
+<h1>{{ report.get_shift_display }} — {{ report.report_date|date:"d M Y" }}</h1>
+<p><strong>Operational period:</strong> {{ report.shift_start|date:"d M Y h:i A" }} – {{ report.shift_end|date:"d M Y h:i A" }} (BDT)</p>
+<p><strong>Prepared By:</strong> {{ report.prepared_by.get_full_name|default:report.prepared_by.username }} · <strong>Status:</strong> {{ report.get_status_display }} · Read-only</p>
+</div>
+<div class="sm-view-actions">
+<a href="{% url 'shiftreport:home' %}">← All Shift Reports</a>
+{% if can_edit_report %}<a href="{% url 'shiftreport:edit' report.id %}">Edit my draft</a>{% endif %}
+</div>
+<div class="sm-paper-content">{{ report_body_html }}</div>
+</div></body></html>
