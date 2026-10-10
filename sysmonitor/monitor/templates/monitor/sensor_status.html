@@ -254,7 +254,7 @@
       <div id="card-battery">
         {% if latest and not latest.is_online %}
         <span class="run-state red">
-          <span class="dot"></span>OUT OF BATTERY / UNAVAILABLE
+          <span class="dot"></span>BATTERY STATUS UNAVAILABLE
         </span>
         {% elif latest.battery_pct %}
         <div class="stat-value small">{{ latest.battery_pct|floatformat:0 }}%</div>
@@ -276,7 +276,7 @@
         {% if latest.is_online %}
         <span class="run-state green"><span class="dot"></span>ONLINE</span>
         {% else %}
-        <span class="run-state red"><span class="dot"></span>OFFLINE</span>
+        <span class="run-state red"><span class="dot"></span>UNVERIFIED</span>
         {% endif %}
       </div>
       <div class="stat-sub">Device connectivity</div>
@@ -288,8 +288,8 @@
     </div>
     <div class="stat-card">
       <div class="stat-label">📡 Last Sensor Update</div>
-      <div class="stat-value small" id="card-source-updated">—</div>
-      <div class="stat-sub">Last data received from physical sensor</div>
+      <div class="stat-value small" id="card-source-updated">Loading…</div>
+      <div class="stat-sub">Last Tuya property update (may be stale)</div>
     </div>
   </div>
 
@@ -379,6 +379,7 @@
       <button type="button" id="clear-date-btn" class="date-clear-btn">Clear</button>
     </div>
 
+    <div class="stat-sub" id="chart-data-note" style="margin-bottom:.7rem;">Gaps represent periods without accepted measurements; values are not interpolated.</div>
     <div class="chart-wrap">
       <canvas id="sensorChart"></canvas>
       <div id="chart-empty-msg" class="chart-empty" style="display:none;">No readings in this time range yet.</div>
@@ -390,11 +391,13 @@
   let currentRange = '24h';
   let chart = null;
 
-  function fmtStatus(isOnline) {
+  function fmtStatus(isOnline, label) {
     if (isOnline) {
       return '<span class="run-state green"><span class="dot"></span>ONLINE</span>';
     }
-    return '<span class="run-state red"><span class="dot"></span>OFFLINE</span>';
+    // OFFLINE cannot be proven from the combined historical flag alone.
+    const text = label === 'STALE DATA / UNVERIFIED' ? label : 'UNVERIFIED';
+    return '<span class="run-state yellow"><span class="dot"></span>' + text + '</span>';
   }
 
   function fmtBattery(pct, state) {
@@ -428,12 +431,12 @@
           : (
               '<span class="run-state red">' +
               '<span class="dot"></span>' +
-              'OUT OF BATTERY / UNAVAILABLE' +
+              'BATTERY STATUS UNAVAILABLE' +
               '</span>'
             );
 
       document.getElementById('card-status').innerHTML =
-        fmtStatus(d.is_online);
+        fmtStatus(d.is_online, d.status_label);
 
       document.getElementById('card-lastpoll').textContent =
         d.recorded_at || '—';
@@ -443,7 +446,9 @@
 
       if (sourceUpdatedEl) {
         sourceUpdatedEl.textContent =
-          d.source_updated_at || '—';
+          (d.source_updated_at || '—') +
+          (d.source_age_minutes !== null && d.source_age_minutes !== undefined
+            ? ' (' + d.source_age_minutes + ' min old at poll)' : '');
       }
 
       document.getElementById('last-updated').textContent =
@@ -617,6 +622,12 @@
       .then(r => r.json())
       .then(d => {
         updateReport(d.stats);
+        const dataNote = document.getElementById('chart-data-note');
+        if (dataNote) {
+          const unavailable = (d.stats && d.stats.offline_count) || 0;
+          dataNote.textContent = unavailable + ' poll(s) without accepted measurements in this range. ' +
+            'Graph gaps show unavailable data; no values are invented.';
+        }
 
         const pts = d.points || [];
         const emptyMsg = document.getElementById('chart-empty-msg');
@@ -796,7 +807,8 @@
 
   loadHistory(currentRange);
 
-  // Live cards: every 30 seconds.
+  // Populate live cards immediately, then refresh every 30 seconds.
+  refreshCards();
   setInterval(refreshCards, 30000);
 
   // Report + chart: every 2 minutes.

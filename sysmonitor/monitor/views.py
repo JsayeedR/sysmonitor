@@ -4708,6 +4708,7 @@ def api_sensor_status(request):
             pass
 
     source_updated_at = None
+    source_age_minutes = None
 
     if source_times:
         from datetime import datetime, timezone as dt_timezone
@@ -4722,6 +4723,15 @@ def api_sensor_status(request):
         ).strftime(
             '%d/%m/%Y %I:%M:%S %p'
         )
+        source_age_minutes = max(
+            0, round((latest.recorded_at - source_dt).total_seconds() / 60, 1)
+        )
+
+    # Historical is_online combines Tuya connectivity and property freshness.
+    # It cannot prove a physical disconnection on its own.
+    status_label = ('ONLINE' if latest.is_online else
+                    'STALE DATA / UNVERIFIED' if source_age_minutes is not None
+                    and source_age_minutes > 15 else 'UNVERIFIED')
 
     return JsonResponse({
         'has_data': True,
@@ -4754,9 +4764,11 @@ def api_sensor_status(request):
                 else latest.battery_state
             )
             if latest.is_online
-            else 'Out of battery / unavailable'
+            else 'Battery status unavailable'
         ),
         'is_online': latest.is_online,
+        'status_label': status_label,
+        'source_age_minutes': source_age_minutes,
         'recorded_at': latest.recorded_at.astimezone(bdt).strftime(
             '%d/%m/%Y %I:%M:%S %p'
         ),
