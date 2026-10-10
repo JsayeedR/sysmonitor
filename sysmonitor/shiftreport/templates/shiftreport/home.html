@@ -577,9 +577,9 @@ table.history th{
         <tr>
           <td class="label-cell">Load Shedding</td>
           <td>
-            <div class="readonly-box">{{ load_shedding_text }}</div>
+            <div id="smA9OutageText" class="readonly-box">{{ load_shedding_text }}</div>
 
-            {% if composer_defaults.snapshot.outage.rows %}
+            <div id="smA9OutageDetails">{% if composer_defaults.snapshot.outage.rows %}
             <div style="margin-top:8px;overflow-x:auto">
               <table style="width:100%;border-collapse:collapse">
                 <tr>
@@ -601,7 +601,7 @@ table.history th{
                 {% endfor %}
               </table>
             </div>
-            {% endif %}
+            {% endif %}</div>
           </td>
         </tr>
 
@@ -635,6 +635,10 @@ table.history th{
               style="min-height:175px"
             >{{ composer_defaults.bandwidth_status }}</textarea>
           </td>
+        </tr>
+        <tr id="smA9GeneratorRow" {% if due_shift != "NIGHT" %}style="display:none"{% endif %}>
+          <td class="label-cell">Previous Day Generator Runtime</td>
+          <td><div id="smA9GeneratorDetails">{{ a9_generator_html|safe }}</div></td>
         </tr>
 
       </table>
@@ -949,6 +953,13 @@ document.addEventListener('DOMContentLoaded', function () {
       const response=await fetch(endpoint+'?'+qs.toString(),{credentials:'same-origin'});
       if(!response.ok)throw new Error('Validation service unavailable');
       const found=await response.json();
+      if(thisRequest===requestNo && found.outage_html!==undefined){
+        const o=document.getElementById("smA9OutageText"),d=document.getElementById("smA9OutageDetails"),g=document.getElementById("smA9GeneratorDetails"),r=document.getElementById("smA9GeneratorRow");
+        if(o)o.textContent=found.outage_text||"";
+        if(d)d.innerHTML=found.outage_html||"";
+        if(g)g.innerHTML=found.generator_html||"";
+        if(r)r.style.display=shift.value==="NIGHT"?"":"none";
+      }
       if(thisRequest!==requestNo)return;
       if(found.exists){
         message.textContent='Already created: '+found.shift+' · '+date.value+' ('+found.window+') · '+found.status+' · By '+found.owner+'. Open the existing report below; another report cannot be created.';

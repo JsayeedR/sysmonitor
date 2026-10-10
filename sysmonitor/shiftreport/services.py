@@ -134,7 +134,7 @@ def fmt_duration(seconds):
     minutes, secs = divmod(remainder, 60)
 
     if hours:
-        return f'{hours}h {minutes:02d}m'
+        return f'{hours}h {minutes:02d}m {secs:02d}s'
 
     if minutes:
         return f'{minutes}m {secs:02d}s'
@@ -202,7 +202,7 @@ def build_outage_summary(start, end):
         .filter(outage_start__lt=end)
         .filter(
             Q(pdb_restored__gt=start)
-            | Q(cycle_end__gt=start)
+            | Q(pdb_restored__isnull=True, cycle_end__gt=start)
             | Q(pdb_restored__isnull=True, cycle_end__isnull=True)
         )
         .order_by('outage_start', 'id')
@@ -239,8 +239,8 @@ def build_outage_summary(start, end):
 
         rows.append({
             'id': cycle.id,
-            'start': max(cycle.outage_start, start).astimezone(BDT).strftime('%d-%m %I:%M %p'),
-            'end': min(cycle_end, end).astimezone(BDT).strftime('%d-%m %I:%M %p'),
+            'start': max(cycle.outage_start, start).astimezone(BDT).strftime('%d/%m/%Y %I:%M:%S %p'),
+            'end': min(cycle_end, end).astimezone(BDT).strftime('%d/%m/%Y %I:%M:%S %p'),
             'duration_seconds': overlap,
             'duration': fmt_duration(overlap),
             'cycle_type': cycle.cycle_type,
@@ -367,16 +367,27 @@ def build_generator_runtime_log(start, end):
     """Actual generator-running intervals, independent of PDB outage duration."""
     rows = []
     totals = {'Gen-01': 0, 'Gen-02': 0, 'Unknown': 0}
-    cycles = (OutageCycle.objects.filter(gen_start__isnull=False,
-              gen_start__lt=end).order_by('gen_start', 'id'))
+    cycles = (OutageCycle.objects.filter(
+        Q(gen_start__lt=end) | Q(gen_start__isnull=True, gen_runtime_sec__gt=0),
+    ).order_by('outage_start', 'id'))
     for cycle in cycles:
-        # In an unfinished cycle, only count up to the requested window end.
-        running_end = (cycle.gen_start + timedelta(seconds=cycle.gen_runtime_sec)
-                       if cycle.gen_runtime_sec and cycle.gen_runtime_sec > 0
-                       else cycle.cycle_end or cycle.pdb_restored or end)
-        if running_end <= start:
+        # Never equate PDB outage with generator runtime. Only recorded
+        # positive runtime or a known generator start interval is used.
+        if cycle.gen_start is not None:
+            running_start = cycle.gen_start
+            running_end = (running_start + timedelta(seconds=cycle.gen_runtime_sec)
+                           if cycle.gen_runtime_sec and cycle.gen_runtime_sec > 0
+                           else cycle.cycle_end or cycle.pdb_restored or end)
+        elif cycle.gen_runtime_sec and cycle.gen_runtime_sec > 0:
+            running_end = cycle.cycle_end or cycle.pdb_restored
+            if running_end is None:
+                continue
+            running_start = running_end - timedelta(seconds=cycle.gen_runtime_sec)
+        else:
             continue
-        begin = max(cycle.gen_start, start)
+        if running_start >= end or running_end <= start:
+            continue
+        begin = max(running_start, start)
         finish = min(running_end, end)
         if finish <= begin:
             continue
@@ -402,7 +413,7 @@ def build_previous_day_summary(report_date):
     previous_date = report_date - timedelta(days=1)
     start = localize(datetime.combine(previous_date, time(0, 0)))
     end = localize(datetime.combine(report_date, time(0, 0)))
-    return {'date': previous_date.isoformat(),
+    return {'date': previous_date.strftime('%d/%m/%Y'),
             'outage': build_outage_summary(start, end),
             'generator_log': build_generator_runtime_log(start, end)}
 

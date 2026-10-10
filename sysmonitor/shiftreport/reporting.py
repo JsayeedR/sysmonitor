@@ -236,10 +236,8 @@ def _html_lines(value):
     ).replace('\n', '<br>')
 
 
-def _outage_rows_html(report):
-    rows = (
-        report.outage_summary or {}
-    ).get('rows', [])
+def _outage_summary_html(summary):
+    rows = (summary or {}).get('rows', [])
 
     if not rows:
         return (
@@ -277,7 +275,7 @@ def _outage_rows_html(report):
 
     total = html.escape(
         str(
-            (report.outage_summary or {})
+            (summary or {})
             .get('total_duration', '0m')
         )
     )
@@ -297,10 +295,10 @@ def _outage_rows_html(report):
     )
 
 
-def _previous_day_generator_html(report):
-    if report.shift != 'NIGHT':
+def _previous_day_generator_summary_html(previous, shift):
+    if shift != 'NIGHT':
         return ''
-    previous = report.previous_day_summary or {}
+    previous = previous or {}
     log = previous.get('generator_log') or {}
     rows = log.get('rows', [])
     date = html.escape(str(previous.get('date', '—')))
@@ -313,12 +311,19 @@ def _previous_day_generator_html(report):
     summary = ''.join('<p style="margin:3px 0"><b>' + label + ':</b> ' +
                       html.escape(str(log.get(key, '0s'))) + '</p>'
                       for label, key in (('Gen-01', 'Gen-01'), ('Gen-02', 'Gen-02'),
-                                         ('Unknown', 'Unknown'), ('Grand Total', 'grand_total')))
+                                         ('Grand Total', 'grand_total')))
     return ('<div style="margin-top:16px"><b>Generator Log: ' + date + '</b>'
             '<table style="border-collapse:collapse;width:100%;margin:5px 0">'
             '<tr><th>Start Time</th><th>End Time</th><th>Duration</th><th>GEN</th></tr>'
             + content + '</table>' + summary + '</div>')
 
+
+
+def _outage_rows_html(report):
+    return _outage_summary_html(report.outage_summary or {})
+
+def _previous_day_generator_html(report):
+    return _previous_day_generator_summary_html(report.previous_day_summary or {}, report.shift)
 
 def _activity_rows_html(report):
     rows = list(
@@ -593,6 +598,7 @@ def build_html_body(report, config):
             </td>
           </tr>
         </table>
+        {_previous_day_generator_html(report)}
 
         <br>
 
@@ -629,7 +635,6 @@ def build_html_body(report, config):
 
           {_activity_rows_html(report)}
         </table>
-        {_previous_day_generator_html(report)}
 
         <div style="margin-top:18px">
           {signature}

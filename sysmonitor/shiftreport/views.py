@@ -443,6 +443,16 @@ def shift_report_slot_check(request):
         'window': (start.astimezone(BDT).strftime('%d %b %Y %I:%M %p') + ' – '
                    + end.astimezone(BDT).strftime('%d %b %Y %I:%M %p') + ' BDT'),
     }
+    # The same read-only endpoint also supplies live operational previews
+    # when the engineer changes the selected date or shift.
+    from .reporting import _outage_summary_html, _previous_day_generator_summary_html
+    snapshot = build_shift_snapshot(date_value, shift)
+    previous = build_previous_day_summary(date_value) if shift == 'NIGHT' else {}
+    details.update({
+        'outage_text': load_shedding_text(snapshot['outage']),
+        'outage_html': _outage_summary_html(snapshot['outage']) if snapshot['outage'].get('rows') else '',
+        'generator_html': _previous_day_generator_summary_html(previous, shift),
+    })
     if taken:
         details.update({
             'status': taken.get_status_display(),
@@ -529,6 +539,8 @@ def shift_report_home(request):
             'due_existing': due_existing,
 
             'composer_defaults': composer_defaults,
+            'a9_generator_html': __import__('shiftreport.reporting', fromlist=['_previous_day_generator_summary_html'])._previous_day_generator_summary_html(
+                build_previous_day_summary(due_date) if due_code == 'NIGHT' else {}, due_code),
             'load_shedding_text': load_shedding_text(
                 composer_defaults['snapshot']['outage']
             ),
@@ -796,6 +808,35 @@ def shift_report_create(request):
     )
 
 
+
+def _a91_refresh_unsent_operational_snapshot(report):
+    """Refresh system facts, never engineer fields or an emailed/sent snapshot.
+
+    The shared manual/scheduled send view calls this before constructing SMTP
+    content.  Once SMTP has succeeded, main_email_sent_at prevents overwriting
+    the attached report snapshot even if finalization must be retried.
+    """
+    if report.status == 'SENT' or report.main_email_sent_at is not None:
+        return False
+
+    snapshot = build_shift_snapshot(report.report_date, report.shift)
+    previous = (
+        build_previous_day_summary(report.report_date)
+        if report.shift == 'NIGHT' else {}
+    )
+    report.shift_start = snapshot['start']
+    report.shift_end = snapshot['end']
+    report.outage_summary = snapshot['outage']
+    report.generator_summary = snapshot['generator']
+    report.sensor_summary = snapshot['sensor']
+    report.previous_day_summary = previous
+    report.save(update_fields=[
+        'shift_start', 'shift_end', 'outage_summary',
+        'generator_summary', 'sensor_summary',
+        'previous_day_summary', 'updated_at',
+    ])
+    return True
+
 @login_required
 def shift_report_edit(request, report_id):
     if not _role_allowed(request.user):
@@ -815,6 +856,10 @@ def shift_report_edit(request, report_id):
         return HttpResponseForbidden(
             "You cannot access another engineer's Shift Report."
         )
+
+    # Refresh saved DRAFT snapshots on opening the editor; never touch SENT
+    # or already-emailed records, even during interrupted finalization.
+    _a91_refresh_unsent_operational_snapshot(report)
 
     contacts = ShiftHandoverContact.objects.filter(
         is_active=True
@@ -900,6 +945,8 @@ def shift_report_edit(request, report_id):
             'load_shedding_text': load_shedding_text(
                 report.outage_summary
             ),
+            'a9_generator_html': __import__('shiftreport.reporting', fromlist=['_previous_day_generator_summary_html'])._previous_day_generator_summary_html(
+                report.previous_day_summary or {}, report.shift),
 
             'temperature_text': (
                 report_composer_defaults(
@@ -1014,6 +1061,18 @@ def shift_report_save(request, report_id):
             build_previous_day_summary(selected_date)
             if selected_shift == 'NIGHT'
             else {}
+        )
+
+    # Always resnapshot unsent drafts from current system records when saving.
+    # This also handles outages imported after the draft was first created.
+    if not changed_shift:
+        snapshot = build_shift_snapshot(report.report_date, report.shift)
+        report.outage_summary = snapshot['outage']
+        report.generator_summary = snapshot['generator']
+        report.sensor_summary = snapshot['sensor']
+        report.previous_day_summary = (
+            build_previous_day_summary(report.report_date)
+            if report.shift == 'NIGHT' else {}
         )
 
     # Preserve manual text while refreshing unchanged automatic
@@ -1648,6 +1707,15 @@ def shift_report_send(request, report_id):
             'shiftreport:edit',
             report_id=report.id,
         )
+
+    # A9.1: Finalize factual data immediately before building the first email.
+    # The scheduled sender uses this same view. On interrupted SMTP success
+    # (main_email_sent_at is set), preserve the exact already-emailed snapshot.
+    try:
+        _a91_refresh_unsent_operational_snapshot(report)
+    except Exception as exc:
+        messages.error(request, f'Could not refresh operational data: {exc}')
+        return redirect('shiftreport:edit', report_id=report.id)
 
     from .historical_revisions import reserve_historical_revision, freeze_sent_historical_revision
     try:

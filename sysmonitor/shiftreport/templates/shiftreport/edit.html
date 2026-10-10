@@ -483,9 +483,9 @@ textarea{
           <td class="label-cell">Load Shedding</td>
           <td>
 
-            <div>{{ load_shedding_text }}</div>
+            <div id="smA9OutageText">{{ load_shedding_text }}</div>
 
-            {% if report.outage_summary.rows %}
+            <div id="smA9OutageDetails">{% if report.outage_summary.rows %}
 
             <table
               style="
@@ -515,7 +515,7 @@ textarea{
 
             </table>
 
-            {% endif %}
+            {% endif %}</div>
           </td>
         </tr>
 
@@ -545,6 +545,10 @@ textarea{
               style="min-height:175px"
             >{{ report.bandwidth_status }}</textarea>
           </td>
+        </tr>
+        <tr id="smA9GeneratorRow" {% if report.shift != "NIGHT" %}style="display:none"{% endif %}>
+          <td class="label-cell">Previous Day Generator Runtime</td>
+          <td><div id="smA9GeneratorDetails">{{ a9_generator_html|safe }}</div></td>
         </tr>
 
       </table>
@@ -933,6 +937,13 @@ document.addEventListener('DOMContentLoaded', function () {
       const response=await fetch(endpoint+'?'+qs.toString(),{credentials:'same-origin'});
       if(!response.ok)throw new Error('Validation service unavailable');
       const found=await response.json();
+      if(thisRequest===requestNo && found.outage_html!==undefined){
+        const o=document.getElementById("smA9OutageText"),d=document.getElementById("smA9OutageDetails"),g=document.getElementById("smA9GeneratorDetails"),r=document.getElementById("smA9GeneratorRow");
+        if(o)o.textContent=found.outage_text||"";
+        if(d)d.innerHTML=found.outage_html||"";
+        if(g)g.innerHTML=found.generator_html||"";
+        if(r)r.style.display=shift.value==="NIGHT"?"":"none";
+      }
       if(thisRequest!==requestNo)return;
       if(found.exists){
         message.textContent='Already created: '+found.shift+' · '+date.value+' ('+found.window+') · '+found.status+' · By '+found.owner+'. Open the existing report below; another report cannot be created.';
