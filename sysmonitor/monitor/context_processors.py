@@ -77,6 +77,7 @@ def page_access(request):
     }
 
     admin_keys = {
+        'duty_roster',
         'devices',
         'users',
         'notifications_admin',

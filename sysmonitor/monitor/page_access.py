@@ -127,6 +127,13 @@ PAGE_DEFINITIONS = {
         'prefixes': ('/shift-report/',),
     },
 
+    'duty_roster': {
+        'label': '📅 Duty Roster',
+        'group': 'Administrative',
+        'roles': ('admin',),
+        'prefixes': ('/duty-roster/',),
+    },
+
     'devices': {
         'label': '🖥️ Devices',
         'group': 'Administrative',

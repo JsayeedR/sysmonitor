@@ -240,6 +240,35 @@
     .type-ALARM      { color: var(--orange); font-weight: 600; }
     .type-CRITICAL   { color: var(--red);    font-weight: 600; }
 
+
+    /* DUTY ROSTER CARD */
+    .duty-board {
+      margin: 0 0 1rem;
+      background: linear-gradient(135deg, #111827 0%, #0f1b30 100%);
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: .9rem 1rem;
+      box-shadow: 0 10px 30px #02061725;
+    }
+    .duty-board-head { display:flex; justify-content:space-between; gap:1rem; align-items:center; margin-bottom:.7rem; }
+    .duty-board-title { font-size:.76rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#cbd5e1; }
+    .duty-roster-month { font-size:.68rem; color:var(--faint); }
+    .duty-grid { display:grid; grid-template-columns:1fr auto 1fr; gap:.8rem; align-items:stretch; }
+    .duty-card { min-width:0; background:#0b1220aa; border:1px solid #263449; border-radius:10px; padding:.75rem .9rem; }
+    .duty-card.current { border-color:#10b98166; }
+    .duty-card.next { border-color:#3b82f666; }
+    .duty-kicker { font-size:.64rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+    .duty-name { margin:.25rem 0 .18rem; font-size:1rem; line-height:1.25; font-weight:800; color:#f8fafc; }
+    .duty-meta { font-size:.7rem; color:var(--muted); }
+    .duty-handover { margin-top:.38rem; font-size:.7rem; color:#6ee7b7; font-weight:700; }
+    .duty-arrow { display:flex; align-items:center; justify-content:center; color:#64748b; font-size:1.25rem; padding:0 .15rem; }
+    .duty-missing .duty-name { color:#fbbf24; }
+    @media (max-width: 768px) {
+      .duty-grid { grid-template-columns:1fr; }
+      .duty-arrow { transform:rotate(90deg); min-height:12px; }
+      .duty-board-head { align-items:flex-start; flex-direction:column; gap:.2rem; }
+    }
+
     /* FOOTER */
     footer {
       background: var(--surface); border-top: 1px solid var(--border);
@@ -372,6 +401,92 @@
       </div>
     </div>
   </div>
+
+
+  {% if role != "guest" %}
+  <!-- NOC DUTY ROSTER: current + next operational shift -->
+  <section class="duty-board" id="duty-board" aria-label="NOC duty officer roster">
+    <div class="duty-board-head">
+      <div class="duty-board-title">👥 NOC Duty Officers</div>
+      <div class="duty-roster-month" id="duty-roster-month">Loading roster…</div>
+    </div>
+    <div class="duty-grid">
+      <div class="duty-card current" id="duty-current-card">
+        <div class="duty-kicker">🟢 Current Shift</div>
+        <div class="duty-name" id="duty-current-name">Loading…</div>
+        <div class="duty-meta" id="duty-current-meta">—</div>
+        <div class="duty-handover" id="duty-handover">—</div>
+      </div>
+      <div class="duty-arrow">→</div>
+      <div class="duty-card next" id="duty-next-card">
+        <div class="duty-kicker">⏭ Next Shift</div>
+        <div class="duty-name" id="duty-next-name">Loading…</div>
+        <div class="duty-meta" id="duty-next-meta">—</div>
+      </div>
+    </div>
+  </section>
+  <script>
+  (function () {
+    let currentEndIso = null;
+
+    function dutyCountdown() {
+      const el = document.getElementById('duty-handover');
+      if (!el || !currentEndIso) return;
+      const remaining = new Date(currentEndIso).getTime() - Date.now();
+      if (remaining <= 0) {
+        el.textContent = 'Shift handover due — refreshing…';
+        return;
+      }
+      const mins = Math.floor(remaining / 60000);
+      const hrs = Math.floor(mins / 60);
+      const rem = mins % 60;
+      el.textContent = hrs > 0
+        ? `Handover in ${hrs}h ${rem}m`
+        : `Handover in ${rem}m`;
+    }
+
+    function renderDutySlot(prefix, slot) {
+      const name = document.getElementById(`duty-${prefix}-name`);
+      const meta = document.getElementById(`duty-${prefix}-meta`);
+      const card = document.getElementById(`duty-${prefix}-card`);
+      if (!name || !meta || !card) return;
+      name.textContent = slot.engineer || 'Not assigned';
+      meta.textContent = `${slot.label} · ${slot.start_time}–${slot.end_time} · ${slot.date_label}`;
+      card.classList.toggle('duty-missing', !slot.assigned);
+    }
+
+    async function refreshDutyRoster() {
+      try {
+        const response = await fetch(
+          '{{ base_path }}/api/duty-roster/current/',
+          {headers: {'X-Requested-With': 'XMLHttpRequest'}, cache: 'no-store'}
+        );
+        if (!response.ok) throw new Error('Roster API failed');
+        const data = await response.json();
+        renderDutySlot('current', data.current);
+        renderDutySlot('next', data.next);
+        currentEndIso = data.current.end_iso;
+        const month = document.getElementById('duty-roster-month');
+        if (month) {
+          month.textContent = data.current.roster_month
+            ? `${data.current.roster_month} roster`
+            : 'Roster not uploaded for this shift';
+        }
+        dutyCountdown();
+      } catch (e) {
+        const name = document.getElementById('duty-current-name');
+        const meta = document.getElementById('duty-current-meta');
+        if (name) name.textContent = 'Roster unavailable';
+        if (meta) meta.textContent = 'Could not load current duty assignment';
+      }
+    }
+
+    refreshDutyRoster();
+    setInterval(refreshDutyRoster, 60000);
+    setInterval(dutyCountdown, 30000);
+  })();
+  </script>
+  {% endif %}
 
   <!-- DEVICE STATUS LIGHTS -->
   <div class="devices-row" id="devices-row">

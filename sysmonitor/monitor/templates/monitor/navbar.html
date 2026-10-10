@@ -380,11 +380,12 @@
 
     {% if role == "admin" %}
     <div class="nav-dropdown" id="admin-dropdown">
-      <a href="#" class="nav-dropdown-toggle {% if '/devices/' in request.path or '/users/' in request.path or '/notifications/' in request.path or '/activity/' in request.path or '/system/' in request.path or '/cctv-setup/' in request.path or '/page-access/' in request.path or '/shift-report/config/' in request.path %}active{% endif %}" onclick="toggleAdminDropdown(event)">🗂️ Administrative ▾</a>
+      <a href="#" class="nav-dropdown-toggle {% if '/devices/' in request.path or '/users/' in request.path or '/notifications/' in request.path or '/activity/' in request.path or '/system/' in request.path or '/cctv-setup/' in request.path or '/page-access/' in request.path or '/duty-roster/' in request.path or '/shift-report/config/' in request.path %}active{% endif %}" onclick="toggleAdminDropdown(event)">🗂️ Administrative ▾</a>
       <div class="nav-dropdown-menu">
         {% if "devices" not in page_hidden %}<a href="{{ base_path }}/devices/" class="{% if '/devices/' in request.path %}active{% endif %}">🖥️ Devices</a>{% endif %}
         {% if "users" not in page_hidden %}<a href="{{ base_path }}/users/" class="{% if '/users/' in request.path %}active{% endif %}">👥 Users</a>{% endif %}
         <a href="{{ base_path }}/page-access/" class="{% if '/page-access/' in request.path %}active{% endif %}">🔐 Page Access</a>
+        {% if "duty_roster" not in page_hidden %}<a href="{{ base_path }}/duty-roster/" class="{% if '/duty-roster/' in request.path %}active{% endif %}">📅 Duty Roster</a>{% endif %}
         {% if "cctv_setup" not in page_hidden %}<a href="{{ base_path }}/cctv-setup/" class="{% if '/cctv-setup/' in request.path %}active{% endif %}">🎥 CCTV Setup</a>{% endif %}
         <a href="{{ base_path }}/shift-report/config/settings/" class="{% if '/shift-report/config/' in request.path %}active{% endif %}">⚙️ Shift Report Configuration</a>
         <a href="{{ base_path }}/colocation-setpoints/" class="{% if '/colocation-setpoints/' in request.path %}active{% endif %}">🌡️ Colocation Setpoints</a>

@@ -865,3 +865,60 @@ class CCTVCamera(models.Model):
 
     def __str__(self):
         return f"{self.name} — CH{self.channel}"
+
+
+# ============================================================================
+# NOC MONTHLY DUTY ROSTER
+# ============================================================================
+
+class DutyRoster(models.Model):
+    month = models.DateField(unique=True)
+    source_filename = models.CharField(max_length=200, blank=True)
+    imported_at = models.DateTimeField(auto_now=True)
+    imported_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='duty_rosters_imported',
+    )
+    import_warnings = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ['-month']
+
+    def __str__(self):
+        return f'Duty Roster — {self.month:%B %Y}'
+
+
+class DutyRosterAssignment(models.Model):
+    roster = models.ForeignKey(
+        DutyRoster,
+        on_delete=models.CASCADE,
+        related_name='assignments',
+    )
+    duty_date = models.DateField()
+    engineer_name = models.CharField(max_length=150)
+    duty_code = models.CharField(max_length=12)
+    source_row = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['duty_date', 'duty_code', 'engineer_name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['roster', 'duty_date', 'engineer_name'],
+                name='unique_roster_date_engineer',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['duty_date', 'duty_code'],
+                name='monitor_dut_duty_da_9f4262_idx',
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f'{self.duty_date:%d/%m/%Y} {self.duty_code} — '
+            f'{self.engineer_name}'
+        )

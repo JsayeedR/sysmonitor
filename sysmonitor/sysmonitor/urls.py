@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.urls import include, path, re_path
-from monitor import views
+from monitor import views, roster_views
 
 urlpatterns = [
     path('shift-report/', include('shiftreport.urls')),
@@ -23,6 +23,9 @@ urlpatterns = [
     path('users/<int:user_id>/toggle-active/', views.user_toggle_active, name='user_toggle_active'),
     path('users/<int:user_id>/delete/',       views.user_delete,       name='user_delete'),
     path('page-access/',                       views.page_access_manage, name='page_access_manage'),
+    path('duty-roster/',                       roster_views.duty_roster_manage, name='duty_roster_manage'),
+    path('duty-roster/upload/',                roster_views.duty_roster_upload, name='duty_roster_upload'),
+    path('api/duty-roster/current/',           roster_views.duty_roster_current, name='duty_roster_current'),
     path('colocation-setpoints/',              views.colocation_setpoints, name='colocation_setpoints'),
     path('devices/',                          views.device_list,       name='device_list'),
     path('devices/add/',                      views.device_create,     name='device_create'),
