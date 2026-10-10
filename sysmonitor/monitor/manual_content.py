@@ -135,19 +135,42 @@ PAGE_GUIDES = [
         "icon": "📝",
         "title": "Shift Report",
         "audience": "User · Admin",
-        "purpose": "Supports structured shift handover, historical issue tracking, MNOC/PFE reporting, and scheduled/manual report delivery.",
+        "purpose": "Creates auditable morning, evening, and night handover reports with live operational summaries and controlled email delivery.",
         "how": [
-            "A shift report is created for the relevant date/shift and can be saved as a draft while work is in progress.",
-            "Important issues and handover information are collected into the report and can be reused in historical views.",
-            "When a report is sent successfully, it becomes a formal sent record and editing controls are restricted accordingly.",
-            "Historical revisions preserve the report trail rather than silently replacing previous operational history.",
+            "Choose the report date and Morning, Evening, or Night shift. Drafts let the engineer prepare activities, AC shifting selections, remarks, historical issues, and handover details before the shift finishes.",
+            "Load Shedding is read from SysMonitor outage cycles for the selected shift window. Outage start/end times are shown in Bangladesh time (BDT) with 12-hour AM/PM formatting; duration is based on the outage interval, not assumed generator running time.",
+            "When no outage is recorded for a shift, the report shows 'No load shedding occurred during the shift.' once. Select another date or shift to refresh the on-screen operational preview.",
+            "For Night Shift only, Section B (Regular Shift Activities) includes the PREVIOUS calendar day's Generator Log, directly after SMW4 CIRCUIT & BANDWIDTH STATUS. It shows generator starts/ends and Gen-01, Gen-02, and grand totals where genuine generator runtime is recorded.",
+            "A PDB outage does not by itself establish a generator run. Missing generator-start/runtime records are not silently converted into generator running time; verify or correct the underlying audited cycle if necessary.",
+            "An unsent draft refreshes operational snapshots when reopened or saved. A shared manual/scheduled sending handler refreshes them again before the first main email is prepared. These refreshes must not overwrite the engineer's typed remarks, activities, or AC shifting selections.",
+            "A successfully sent report is retained as a read-only historical record. An already-emailed snapshot is protected during retry/finalization, so fresh system changes do not rewrite what was emailed.",
+            "Use Historical Reports and MNOC/PFE options only for their intended operational reporting and revision workflows. Check recipient/configuration and actual sending status before claiming delivery succeeded.",
         ],
         "means": [
-            "Draft means the report is still being prepared. Sent means it has completed the configured sending workflow.",
-            "Historical Issues are ongoing or previous matters that should remain visible across shifts.",
-            "MNOC/PFE functions are specialized reporting paths and should be used only for the intended operational audience.",
+            "DRAFT = editable work in progress; live outage and sensor records may change before sending. Reopen/save to refresh operational facts.",
+            "SENT = preserved report/revision, not an editable working draft. Corrections to source outage data do not retroactively change a successfully sent report.",
+            "Previous-day Generator Log is deliberately Night-only; load shedding belongs to the selected report shift, not the full preceding day.",
+            "Automated scheduled sending processes only explicitly opted-in eligible drafts after shift end; it is not triggered just by saving a draft.",
         ],
-        "manage": "Authorized admins manage recipients, handover contacts, signatures, scheduling, and report settings through Administrative → Shift Report Configuration.",
+        "manage": "Authorized admins configure handover contacts, email recipients, sending schedule, signatures, and reporting settings in Administrative → Shift Report Configuration.",
+    },
+    {
+        "id": "duty-roster",
+        "group": "Main",
+        "icon": "📅",
+        "title": "Duty Roster and Shift Dashboard",
+        "audience": "Viewer · User · Admin (as permitted)",
+        "purpose": "Helps authorized operators view monthly duty assignments and shift coverage alongside operational reporting.",
+        "how": [
+            "Open the Duty Roster or Shift Dashboard entry available to your role to review the appropriate month's assignment information.",
+            "Read the roster date and assignment before preparing a handover; duty assignments and actual completed Shift Reports are separate records.",
+            "Only authorized users should make roster corrections. Confirm changes through the roster's own approved workflow, not by editing an already-sent Shift Report.",
+        ],
+        "means": [
+            "A roster is a planned or maintained duty assignment; it does not prove an email was sent or a shift report was completed.",
+            "Page availability and editable fields depend on the installed roster workflow and account permissions.",
+        ],
+        "manage": "Use the installed Duty Roster/Shift Dashboard navigation and its role-controlled management functions; contact an administrator if the page is not visible.",
     },
     {
         "id": "generator-shifting",
@@ -448,7 +471,8 @@ PAGE_GUIDES = [
         "audience": "Admin",
         "purpose": "Controls notification gateways, recipients, event selections, templates, and delivery tests.",
         "how": [
-            "Admins configure supported channels and select who receives approved event types.",
+            "Admins configure supported channels and select who receives approved event types, including colocation data updates and sensor alarms when enabled.",
+            "Recipient groups distinguish linked accounts from manually configured contacts; each event/category has its own selection.",
             "Test functions verify delivery without exposing credentials to normal users.",
             "Notification logs help distinguish a generated alert from a successfully delivered message.",
         ],
@@ -499,7 +523,8 @@ PAGE_GUIDES = [
         "audience": "Admin",
         "purpose": "Defines environmental alarm thresholds and related sensor alarm behaviour.",
         "how": [
-            "Admins set acceptable temperature/humidity boundaries used by the alarm workflow.",
+            "Admins set acceptable minimum and maximum temperature/humidity boundaries used by the sensor alarm workflow.",
+            "Alarm confirmation readings and cooldown are configurable so brief spikes and repeated alerts can be handled consistently.",
             "Threshold alerts are meaningful only when fresh sensor data is available.",
         ],
         "means": [
@@ -538,11 +563,20 @@ OPERATING_WORKFLOWS = [
         ],
     },
     {
+        "title": "Shift Report drafted before an outage",
+        "steps": [
+            "Create and save a DRAFT while the shift is under way; do not send it as a completed report prematurely.",
+            "If load shedding occurs later, verify the power cycle appears in SysMonitor; reopening or saving the draft refreshes its system data.",
+            "Check the selected shift's Load Shedding details and, for Night Shift, the separate previous-day Generator Log.",
+            "Before initial delivery, the manual/scheduled send handler refreshes operational facts; after successful email sending, the retained snapshot is protected.",
+        ],
+    },
+    {
         "title": "Report correction",
         "steps": [
             "Correct the source operational record, not the exported PDF/CSV itself.",
             "Regenerate the report after the source data is corrected.",
-            "For sent Shift Reports, preserve the revision/audit workflow rather than silently rewriting history.",
+            "For sent Shift Reports, do not alter the sent snapshot. Correct the underlying records and use the approved historical/revision workflow if a follow-up is needed.",
         ],
     },
 ]
