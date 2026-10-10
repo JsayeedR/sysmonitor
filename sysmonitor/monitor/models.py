@@ -884,6 +884,17 @@ class DutyRoster(models.Model):
     )
     import_warnings = models.JSONField(default=list, blank=True)
 
+    # Keep the validated original workbook in the MASTER database so an
+    # administrator can download exactly what was uploaded. Because SysMonitor
+    # mirrors the database to REMOTE, this avoids a separate media-file sync.
+    original_file = models.BinaryField(blank=True, null=True, editable=False)
+    original_size = models.PositiveIntegerField(default=0, editable=False)
+    original_sha256 = models.CharField(
+        max_length=64,
+        blank=True,
+        editable=False,
+    )
+
     class Meta:
         ordering = ['-month']
 

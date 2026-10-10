@@ -7,6 +7,18 @@
   <style>
     :root{--bg:#0b1120;--surface:#111827;--surface2:#172033;--border:#263449;--text:#e5edf7;--muted:#94a3b8;--blue:#60a5fa;--green:#34d399;--amber:#fbbf24;--red:#fb7185}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{max-width:1180px;margin:0 auto;padding:1.25rem}.hero{display:flex;justify-content:space-between;gap:1rem;align-items:flex-end;margin:1rem 0 1.2rem}.hero h1{margin:0;font-size:1.65rem}.hero p{margin:.35rem 0 0;color:var(--muted);font-size:.88rem}.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:1rem}.panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1rem}.panel h2{font-size:1rem;margin:0 0 .8rem}.upload{border:1px dashed #3b82f6;border-radius:12px;padding:1rem;background:#0f172a}.upload input{width:100%;margin:.55rem 0;color:var(--muted)}button{border:0;border-radius:8px;padding:.6rem 1rem;background:#2563eb;color:white;font-weight:700;cursor:pointer}.shift-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}.shift{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:.9rem}.shift .tag{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}.shift strong{display:block;font-size:1.08rem;margin:.35rem 0}.shift .meta{color:var(--muted);font-size:.78rem}.current{border-color:#10b98166}.next{border-color:#3b82f666}.messages{display:grid;gap:.5rem;margin-bottom:1rem}.msg{padding:.7rem .85rem;border-radius:9px;background:#172033;border:1px solid var(--border);font-size:.83rem}.msg.success{border-color:#10b98166}.msg.warning{border-color:#f59e0b66}.msg.error{border-color:#f43f5e66}.history{margin-top:1rem}.row{display:grid;grid-template-columns:1.2fr 1.2fr .7fr 1fr;gap:.6rem;padding:.65rem .3rem;border-top:1px solid var(--border);font-size:.8rem;align-items:center}.row.head{color:var(--muted);font-size:.7rem;text-transform:uppercase;border-top:0}.warns{margin-top:.55rem;padding:.6rem;background:#0f172a;border-radius:8px;color:#fbbf24;font-size:.75rem}.muted{color:var(--muted)}@media(max-width:800px){.grid,.shift-grid{grid-template-columns:1fr}.row{grid-template-columns:1fr 1fr}.row.head{display:none}.hero{align-items:flex-start;flex-direction:column}}
+    .template-box{margin-top:1rem;padding:.85rem;background:#0f172a;border:1px solid var(--border);border-radius:10px}
+    .template-box h3{margin:0 0 .5rem;font-size:.9rem}
+    .template-preview{font-size:.76rem;color:var(--muted);line-height:1.7;margin:.6rem 0}
+    .template-preview code{color:#93c5fd}
+    .template-download{display:flex;gap:.55rem;align-items:end;flex-wrap:wrap;margin-top:.7rem}
+    .template-download label{font-size:.7rem;color:var(--muted)}
+    .template-download input{display:block;margin-top:.25rem;background:#0b1120;color:var(--text);border:1px solid var(--border);border-radius:7px;padding:.5rem}
+    .btnlink{display:inline-block;text-decoration:none;border-radius:8px;padding:.55rem .8rem;background:#2563eb;color:#fff;font-size:.76rem;font-weight:700}
+    .btnlink.small{padding:.4rem .6rem;font-size:.7rem}
+    .unavailable{font-size:.7rem;color:var(--muted)}
+    .history .row{grid-template-columns:1fr 1.15fr .55fr 1fr .75fr}
+    @media(max-width:800px){.history .row{grid-template-columns:1fr 1fr}}
   </style>
 </head>
 <body>
@@ -29,6 +41,31 @@
         <button type="submit">Validate & Import Roster</button>
       </form>
       <div class="muted" style="font-size:.75rem;margin-top:.75rem">A corrected file for an existing month safely replaces only that month after validation succeeds. No credentials or personal contact details are imported.</div>
+
+      <div class="template-box">
+        <h3>📄 Server-Compatible Excel Template</h3>
+        <div class="muted" style="font-size:.76rem">
+          SysMonitor generates the same monthly structure that its roster parser understands.
+          Complete the engineer names and duty codes before uploading.
+        </div>
+
+        <div class="template-preview">
+          <div><code>B3</code> — NOC Duty Roster Schedule of Duty Officer</div>
+          <div><code>B4</code> — Roster month/year</div>
+          <div><code>Row 6</code> — Date &gt; followed by day numbers</div>
+          <div><code>Row 7</code> — Weekday names</div>
+          <div><code>Rows 8–12</code> — Engineer names and daily duty codes</div>
+          <div><strong>M</strong> Morning · <strong>E</strong> Evening · <strong>N</strong> Night · <strong>G</strong> General · <strong>O</strong> Off</div>
+        </div>
+
+        <form class="template-download" method="get" action="{{ base_path }}/duty-roster/template.xlsx/">
+          <label>
+            Template month
+            <input type="month" name="month" value="{{ template_month }}" required>
+          </label>
+          <button type="submit">⬇ Download Excel Template</button>
+        </form>
+      </div>
     </section>
 
     <section class="panel">
@@ -42,9 +79,29 @@
 
   <section class="panel history">
     <h2>Imported Roster History</h2>
-    <div class="row head"><div>Month</div><div>Source</div><div>Entries</div><div>Imported</div></div>
+    <div class="row head"><div>Month</div><div>Source</div><div>Entries</div><div>Imported</div><div>File</div></div>
     {% for roster in rosters %}
-      <div class="row"><div><strong>{{ roster.month|date:"F Y" }}</strong></div><div class="muted">{{ roster.source_filename }}</div><div>{{ roster.assignment_count }}</div><div class="muted">{{ roster.imported_at|date:"d/m/Y H:i" }}{% if roster.imported_by %}<br>by {{ roster.imported_by.username }}{% endif %}</div></div>
+      <div class="row">
+        <div><strong>{{ roster.month|date:"F Y" }}</strong></div>
+        <div class="muted">
+          {{ roster.source_filename }}
+          {% if roster.original_size %}
+            <br>{{ roster.original_size|filesizeformat }}
+          {% endif %}
+        </div>
+        <div>{{ roster.assignment_count }}</div>
+        <div class="muted">
+          {{ roster.imported_at|date:"d/m/Y H:i" }}
+          {% if roster.imported_by %}<br>by {{ roster.imported_by.username }}{% endif %}
+        </div>
+        <div>
+          {% if roster.original_file %}
+            <a class="btnlink small" href="{{ base_path }}/duty-roster/{{ roster.id }}/download/">⬇ Download</a>
+          {% else %}
+            <span class="unavailable">Re-upload once to enable download</span>
+          {% endif %}
+        </div>
+      </div>
       {% if roster.import_warnings %}<div class="warns">⚠ {{ roster.import_warnings|length }} import warning(s). {% for warning in roster.import_warnings|slice:":3" %}<div>• {{ warning }}</div>{% endfor %}{% if roster.import_warnings|length > 3 %}<div>• …and more</div>{% endif %}</div>{% endif %}
     {% empty %}
       <div class="muted" style="padding:.8rem 0">No roster has been uploaded yet.</div>

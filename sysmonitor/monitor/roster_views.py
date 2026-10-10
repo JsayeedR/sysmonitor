@@ -1,10 +1,19 @@
+from datetime import datetime
+
 from django.contrib import messages
 from django.db.models import Count
-from django.http import JsonResponse
-from django.shortcuts import redirect, render
+from django.http import Http404, HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.utils.http import content_disposition_header
 
 from .models import DutyRoster
-from .roster_service import RosterImportError, import_roster, resolve_current_and_next
+from .roster_service import (
+    RosterImportError,
+    build_roster_template,
+    import_roster,
+    resolve_current_and_next,
+)
 from .views import get_ip, log_activity, role_required
 
 
@@ -23,6 +32,7 @@ def duty_roster_manage(request):
         'role': 'admin',
         'rosters': rosters,
         'duty_state': resolve_current_and_next(),
+        'template_month': timezone.localdate().strftime('%Y-%m'),
     })
 
 
@@ -84,6 +94,71 @@ def duty_roster_upload(request):
         get_ip(request),
     )
     return redirect('duty_roster_manage')
+
+
+
+@role_required('admin')
+def duty_roster_download(request, roster_id):
+    roster = get_object_or_404(DutyRoster, pk=roster_id)
+
+    if not roster.original_file:
+        raise Http404(
+            'The original workbook was not retained for this older import. '
+            'Re-upload the roster once to enable downloading.'
+        )
+
+    filename = roster.source_filename or (
+        f'Roster_{roster.month:%Y_%m}.xlsx'
+    )
+
+    response = HttpResponse(
+        bytes(roster.original_file),
+        content_type=(
+            'application/vnd.openxmlformats-officedocument.'
+            'spreadsheetml.sheet'
+        ),
+    )
+    response['Content-Disposition'] = content_disposition_header(
+        True,
+        filename,
+    )
+    response['Content-Length'] = str(roster.original_size)
+    return response
+
+
+@role_required('admin')
+def duty_roster_template_download(request):
+    raw_month = (request.GET.get('month') or '').strip()
+
+    if raw_month:
+        try:
+            month = datetime.strptime(raw_month, '%Y-%m').date().replace(day=1)
+        except ValueError:
+            messages.error(
+                request,
+                'Invalid template month. Use YYYY-MM.',
+            )
+            return redirect('duty_roster_manage')
+    else:
+        month = timezone.localdate().replace(day=1)
+
+    file_bytes = build_roster_template(month)
+    filename = f'NOC_Duty_Roster_Template_{month:%Y_%m}.xlsx'
+
+    response = HttpResponse(
+        file_bytes,
+        content_type=(
+            'application/vnd.openxmlformats-officedocument.'
+            'spreadsheetml.sheet'
+        ),
+    )
+    response['Content-Disposition'] = content_disposition_header(
+        True,
+        filename,
+    )
+    response['Content-Length'] = str(len(file_bytes))
+    return response
+
 
 
 @role_required('viewer', 'user', 'admin')

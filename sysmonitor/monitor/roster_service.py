@@ -7,6 +7,7 @@ uses a month/date header, engineer names down the left, and daily duty codes
 from __future__ import annotations
 
 import calendar
+import hashlib
 import re
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
@@ -16,9 +17,12 @@ from pathlib import Path
 import pytz
 from django.db import transaction
 from django.utils import timezone
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.styles.numbers import is_date_format
+from openpyxl.utils import get_column_letter
 from openpyxl.utils.datetime import from_excel
+from openpyxl.worksheet.datavalidation import DataValidation
 
 from .models import DutyRoster, DutyRosterAssignment
 
@@ -234,22 +238,32 @@ def parse_roster_xlsx(file_bytes):
 
 @transaction.atomic
 def import_roster(file_bytes, filename, user=None):
+    file_bytes = bytes(file_bytes)
     parsed = parse_roster_xlsx(file_bytes)
     month = parsed['month']
+
+    source_filename = Path(filename or 'Roster.xlsx').name[:200]
+    source_sha256 = hashlib.sha256(file_bytes).hexdigest()
 
     roster, created = DutyRoster.objects.get_or_create(
         month=month,
         defaults={
-            'source_filename': Path(filename or 'Roster.xlsx').name[:200],
+            'source_filename': source_filename,
             'imported_by': user,
             'import_warnings': parsed['warnings'],
+            'original_file': file_bytes,
+            'original_size': len(file_bytes),
+            'original_sha256': source_sha256,
         },
     )
 
     if not created:
-        roster.source_filename = Path(filename or 'Roster.xlsx').name[:200]
+        roster.source_filename = source_filename
         roster.imported_by = user
         roster.import_warnings = parsed['warnings']
+        roster.original_file = file_bytes
+        roster.original_size = len(file_bytes)
+        roster.original_sha256 = source_sha256
         roster.save()
         roster.assignments.all().delete()
 
@@ -265,6 +279,109 @@ def import_roster(file_bytes, filename, user=None):
     ])
 
     return roster, created, parsed
+
+
+
+def build_roster_template(month=None):
+    """Return a server-compatible blank monthly NOC roster workbook."""
+    if month is None:
+        month = timezone.now().astimezone(BDT).date().replace(day=1)
+
+    if isinstance(month, datetime):
+        month = month.date()
+
+    month = month.replace(day=1)
+    last_day = calendar.monthrange(month.year, month.month)[1]
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Duty Roster'
+
+    ws['B3'] = 'NOC Duty Roster Schedule of Duty Officer'
+    ws['B3'].font = Font(bold=True, size=14)
+
+    ws['B4'] = datetime(month.year, month.month, 1)
+    ws['B4'].number_format = 'mmmm yyyy'
+    ws['B4'].font = Font(bold=True)
+
+    ws['B6'] = 'Date >'
+    ws['B6'].font = Font(bold=True)
+
+    header_fill = PatternFill(
+        fill_type='solid',
+        fgColor='D9EAF7',
+    )
+
+    for day in range(1, last_day + 1):
+        col = day + 2
+        current = date(month.year, month.month, day)
+
+        day_cell = ws.cell(6, col, day)
+        day_cell.font = Font(bold=True)
+        day_cell.fill = header_fill
+        day_cell.alignment = Alignment(horizontal='center')
+
+        weekday_cell = ws.cell(
+            7,
+            col,
+            calendar.day_abbr[current.weekday()],
+        )
+        weekday_cell.alignment = Alignment(horizontal='center')
+
+    ws['B7'] = 'Engineer Name'
+    ws['B7'].font = Font(bold=True)
+
+    # Five rows match the normal NOC roster layout. Replace these placeholders
+    # with the actual engineer names before uploading.
+    for offset in range(5):
+        row = 8 + offset
+        ws.cell(row, 2, f'Engineer Name {offset + 1}')
+
+    # Duty-code dropdown makes the downloaded template difficult to mistype.
+    allowed_codes = 'M,E,N,G,O,CL,D,DL,EL,SL,ML,AL,L'
+    validation = DataValidation(
+        type='list',
+        formula1=f'"{allowed_codes}"',
+        allow_blank=True,
+    )
+    validation.error = (
+        'Use a supported duty code such as M, E, N, G, O, CL or D.'
+    )
+    validation.errorTitle = 'Invalid duty code'
+    validation.prompt = 'Choose the duty code for this engineer/date.'
+    validation.promptTitle = 'Duty code'
+    ws.add_data_validation(validation)
+
+    last_col = get_column_letter(last_day + 2)
+    validation.add(f'C8:{last_col}12')
+
+    ws['B15'] = 'Server Template Instructions'
+    ws['B15'].font = Font(bold=True)
+
+    instructions = [
+        ('B16', 'Replace Engineer Name 1-5 with actual engineer names.'),
+        ('B17', 'Enter one duty code for each engineer/date.'),
+        ('B18', 'Do not delete the Date > row or day-number columns.'),
+        ('B19', 'M = Morning 09:00-17:00'),
+        ('B20', 'E = Evening 17:00-23:00'),
+        ('B21', 'N = Night 23:00-09:00'),
+        ('B22', 'G = General Duty'),
+        ('B23', 'O = Off'),
+        ('B24', 'CL/D/DL/EL/SL/ML/AL/L = leave-related codes'),
+    ]
+    for cell, value in instructions:
+        ws[cell] = value
+
+    ws.column_dimensions['B'].width = 34
+    for col in range(3, last_day + 3):
+        ws.column_dimensions[get_column_letter(col)].width = 5
+
+    ws.freeze_panes = 'C8'
+
+    stream = BytesIO()
+    wb.save(stream)
+    return stream.getvalue()
+
 
 
 def _ensure_bdt(now):
