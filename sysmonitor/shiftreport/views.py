@@ -2140,10 +2140,10 @@ def mnoc_pfe_send(request, report_id):
             report_id=report.id,
         )
 
-    # PFE readings can be drafted for any date, but never emailed
-    # until the following local calendar day.
-    if timezone.localtime().date() <= report.report_date:
-        messages.error(request, 'PFE email can be sent only from the day after its reading date.')
+    # PFE reports may be emailed on their reading date or afterward.
+    # Future-dated reports must not be emailed.
+    if timezone.localtime().date() < report.report_date:
+        messages.error(request, 'A future-dated MNOC PFE Report cannot be sent.')
         return redirect('shiftreport:pfe_edit', report_id=report.pk)
 
     cfg = _config()
