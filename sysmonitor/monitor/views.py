@@ -7076,7 +7076,7 @@ def page_access_manage(request):
         profile, _ = UserProfile.objects.get_or_create(user=target)
 
         selected_role = get_role(target)
-        allowed = pages_for_role(selected_role)
+        allowed = {k: v for k, v in pages_for_role(selected_role).items() if k != 'shift_report_config'}
 
         current_hidden = set(profile.hidden_pages or [])
 

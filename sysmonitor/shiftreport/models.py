@@ -461,6 +461,8 @@ class MnocPfeReport(models.Model):
         ('DRAFT', 'Draft'),
         ('SENT', 'Sent'),
         ('FAILED', 'Email Failed'),
+        ('SCHEDULED', 'Scheduled'),
+        ('SENDING', 'Sending'),
     ]
 
     MODE_CHOICES = [
@@ -510,6 +512,8 @@ class MnocPfeReport(models.Model):
         choices=STATUS_CHOICES,
         default='DRAFT',
     )
+
+    scheduled_send_at = models.DateTimeField(null=True, blank=True)
 
     sent_at = models.DateTimeField(
         null=True,

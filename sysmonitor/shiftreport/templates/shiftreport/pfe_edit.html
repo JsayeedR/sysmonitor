@@ -1,3 +1,4 @@
+{% load tz %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -61,7 +62,17 @@
     <div class="muted" style="margin-bottom:1rem">
       Prepared By:
       {{ report.prepared_by.get_full_name|default:report.prepared_by.username }}
-      · Status: {{ report.get_status_display }}
+      · Status: <strong>{{ report.get_status_display }}</strong>
+      {% if report.status == "SCHEDULED" and report.scheduled_send_at %}
+        <div style="margin-top:10px;padding:12px;border:1px solid #0d9488;border-radius:8px">
+          🕒 <strong>Email scheduled for:</strong>
+          {{ report.scheduled_send_at|timezone:"Asia/Dhaka"|date:"d M Y, h:i A" }} BDT
+          <div style="margin-top:5px">
+            This email is awaiting automatic delivery.
+            You may update or cancel its schedule before sending.
+          </div>
+        </div>
+      {% endif %}
     </div>
 
     {% if can_edit and report.status != "SENT" %}
@@ -164,6 +175,7 @@
       </div>
       {% endif %}
 
+      {% if report.status != "SENDING" %}
       <form method="post"
             action="{{ base_path }}/shift-report/mnoc-pfe/{{ report.id }}/send/"
             onsubmit="return confirm('Send this MNOC PFE Report now?');">
@@ -171,12 +183,27 @@
         {% csrf_token %}
 
         <button class="btn" type="submit">
-          📧 Send MNOC PFE Report
+          📧 Send Now
         </button>
       </form>
+      {% endif %}
 
+      {% if report.status == "SCHEDULED" %}
+      <p>🕒 Scheduled for: <strong>{{ scheduled_bdt }} BDT</strong></p>
+      <form method="post" action="{{ base_path }}/shift-report/mnoc-pfe/{{ report.id }}/cancel-schedule/">
+        {% csrf_token %}<button type="submit" class="btn secondary">Cancel Schedule</button>
+      </form>
+      {% endif %}
+      {% if report.status != "SENDING" %}
+      <form method="post" action="{{ base_path }}/shift-report/mnoc-pfe/{{ report.id }}/schedule/" style="margin-top:1rem">
+        {% csrf_token %}
+        <label for="scheduled_at">Schedule Send — Bangladesh time (BDT)</label>
+        <input id="scheduled_at" type="datetime-local" name="scheduled_at" value="{{ scheduled_bdt }}" required style="max-width:280px">
+        <button class="btn secondary" type="submit">🕒 Schedule Send / Update</button>
+      </form>
+      {% else %}<p>Sending in progress. Please refresh shortly.</p>{% endif %}
       <div class="muted" style="margin-top:.7rem">
-        Date, recipients, sender and signature are generated automatically.
+        Date, recipients, sender and signature are generated automatically. Save draft changes before scheduling.
       </div>
 
     {% else %}

@@ -7,10 +7,12 @@ import pytz
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
+from django.utils import timezone
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from monitor.views import get_ip, get_role, log_activity
+from monitor.models import Event
 
 from .models import (
     ShiftHandoverContact,
@@ -31,6 +33,15 @@ from .services import (
     report_composer_defaults,
     shift_window,
 )
+
+
+def _report_event(level, message):
+    """Record an informational report event; never interrupt email delivery."""
+    import logging
+    try:
+        Event.objects.create(device=None, level=level, message=message)
+    except Exception:
+        logging.getLogger(__name__).exception('Could not record Shift Report event')
 
 
 def _role_allowed(user):
@@ -928,6 +939,7 @@ def shift_report_edit(request, report_id):
             'report': report,
             'contacts': contacts,
             'signature_html': __import__('shiftreport.reporting', fromlist=['build_prepared_by_signature']).build_prepared_by_signature(report.prepared_by, _config()),
+            'scheduled_bdt': (timezone.localtime(report.scheduled_send_at, BDT).strftime('%Y-%m-%dT%H:%M') if report.scheduled_send_at else ''),
             'config': cfg,
             'mandatory_cc': mandatory_cc,
             'preview_to': preview_to,
@@ -1774,6 +1786,8 @@ def shift_report_send(request, report_id):
                 ]
             )
 
+            _report_event('NOTICE', f'Shift Report email failed for {report.report_date} {report.shift} (see report status for details)')
+
             messages.error(
                 request,
                 f'Shift Report email failed: {exc}'
@@ -1816,6 +1830,8 @@ def shift_report_send(request, report_id):
             'updated_at',
         ]
     )
+
+    _report_event('INFO', f'Shift Report sent successfully: {report.report_date} {report.shift}; engineer={request.user.username}')
 
     log_activity(
         request.user,
@@ -1998,6 +2014,7 @@ def mnoc_pfe_edit(request, report_id):
             'can_edit': can_edit,
             'config': ShiftReportConfig.objects.filter(pk=1).first(),
             'signature_html': __import__('shiftreport.reporting', fromlist=['build_prepared_by_signature']).build_prepared_by_signature(report.prepared_by, _config()),
+            'scheduled_bdt': (timezone.localtime(report.scheduled_send_at, BDT).strftime('%Y-%m-%dT%H:%M') if report.scheduled_send_at else ''),
         },
     )
 
@@ -2101,156 +2118,55 @@ def mnoc_pfe_save(request, report_id):
 
 @login_required
 @require_POST
-def mnoc_pfe_send(request, report_id):
-    if not _role_allowed(request.user):
-        return HttpResponseForbidden(
-            'You do not have permission to send MNOC PFE Reports.'
-        )
-
+def mnoc_pfe_schedule(request, report_id):
+    from datetime import datetime
     from django.utils import timezone
+    from .pfe_delivery import schedule_pfe
 
-    from .reporting import (
-        build_mnoc_recipient_lists,
-        build_pfe_html_body,
-        build_pfe_subject,
-        send_smtp_email,
-    )
-
-    report = get_object_or_404(
-        MnocPfeReport.objects.select_related('prepared_by'),
-        id=report_id,
-    )
-
-    if (
-        get_role(request.user) != 'admin'
-        and report.prepared_by_id != request.user.id
-    ):
-        return HttpResponseForbidden(
-            "You cannot send another engineer's MNOC PFE Report."
-        )
-
-    if report.status == 'SENT':
-        messages.info(
-            request,
-            'This MNOC PFE Report has already been sent.'
-        )
-
-        return redirect(
-            'shiftreport:pfe_edit',
-            report_id=report.id,
-        )
-
-    # PFE reports may be emailed on their reading date or afterward.
-    # Future-dated reports must not be emailed.
-    if timezone.localtime().date() < report.report_date:
-        messages.error(request, 'A future-dated MNOC PFE Report cannot be sent.')
-        return redirect('shiftreport:pfe_edit', report_id=report.pk)
-
-    cfg = _config()
-
-    if not cfg.noc_from_email:
-        messages.error(
-            request,
-            'NOC From email is not configured.'
-        )
-
-        return redirect(
-            'shiftreport:pfe_edit',
-            report_id=report.id,
-        )
-
-    to_list, cc_list = build_mnoc_recipient_lists(cfg)
-
-    if not to_list:
-        messages.error(
-            request,
-            'MNOC PFE mandatory TO recipient is not configured.'
-        )
-
-        return redirect(
-            'shiftreport:pfe_edit',
-            report_id=report.id,
-        )
-
-    subject = build_pfe_subject()
-
-    report.email_subject = subject
-    report.email_to = to_list
-    report.email_cc = cc_list
-
-    report.save(
-        update_fields=[
-            'email_subject',
-            'email_to',
-            'email_cc',
-            'updated_at',
-        ]
-    )
-
+    report = get_object_or_404(MnocPfeReport, pk=report_id)
+    if not _role_allowed(request.user) or not _can_manage_report(request.user, report):
+        return HttpResponseForbidden('You cannot schedule this MNOC PFE Report.')
     try:
-        send_smtp_email(
-            subject=subject,
-            html_body=build_pfe_html_body(
-                report,
-                cfg,
-            ),
-            to_list=to_list,
-            cc_list=cc_list,
-            shift_config=cfg,
-        )
+        local_naive = datetime.strptime(request.POST.get('scheduled_at', ''), '%Y-%m-%dT%H:%M')
+        local_aware = BDT.localize(local_naive)
+        schedule_pfe(report, local_aware)
+    except (ValueError, TypeError) as exc:
+        messages.error(request, str(exc) or 'Invalid scheduled date/time.')
+    else:
+        messages.success(request, 'MNOC PFE email scheduled (Bangladesh time).')
+    return redirect('shiftreport:pfe_edit', report_id=report.pk)
 
+
+@login_required
+@require_POST
+def mnoc_pfe_cancel_schedule(request, report_id):
+    from django.db.models import Q
+    report = get_object_or_404(MnocPfeReport, pk=report_id)
+    if not _role_allowed(request.user) or not _can_manage_report(request.user, report):
+        return HttpResponseForbidden('You cannot cancel this schedule.')
+    changed = MnocPfeReport.objects.filter(pk=report.pk, status='SCHEDULED').update(
+        status='DRAFT', scheduled_send_at=None,
+    )
+    if changed:
+        messages.success(request, 'Scheduled PFE email canceled.')
+    else:
+        messages.error(request, 'This report is no longer scheduled; it may be sending or already sent.')
+    return redirect('shiftreport:pfe_edit', report_id=report.pk)
+
+
+@login_required
+@require_POST
+def mnoc_pfe_send(request, report_id):
+    from .pfe_delivery import deliver_pfe
+    report = get_object_or_404(MnocPfeReport, pk=report_id)
+    if not _role_allowed(request.user) or not _can_manage_report(request.user, report):
+        return HttpResponseForbidden('You cannot send this MNOC PFE Report.')
+    try:
+        deliver_pfe(report.pk, actor=request.user, ip=get_ip(request))
+    except ValueError as exc:
+        messages.error(request, str(exc))
     except Exception as exc:
-        report.status = 'FAILED'
-        report.email_error = str(exc)[:2000]
-
-        report.save(
-            update_fields=[
-                'status',
-                'email_error',
-                'updated_at',
-            ]
-        )
-
-        messages.error(
-            request,
-            f'MNOC PFE email failed: {exc}'
-        )
-
-        return redirect(
-            'shiftreport:pfe_edit',
-            report_id=report.id,
-        )
-
-    report.status = 'SENT'
-    report.sent_at = timezone.now()
-    report.email_error = ''
-
-    report.save(
-        update_fields=[
-            'status',
-            'sent_at',
-            'email_error',
-            'updated_at',
-        ]
-    )
-
-    log_activity(
-        request.user,
-        'SHIFT_REPORT_SEND',
-        (
-            f'MNOC PFE Report sent: '
-            f'{report.report_date}; '
-            f'to={", ".join(to_list)}.'
-        )[:300],
-        get_ip(request),
-    )
-
-    messages.success(
-        request,
-        'MNOC PFE Report sent successfully.'
-    )
-
-    return redirect(
-        'shiftreport:pfe_edit',
-        report_id=report.id,
-    )
+        messages.error(request, f'MNOC PFE email failed: {exc}')
+    else:
+        messages.success(request, 'MNOC PFE Report sent successfully.')
+    return redirect('shiftreport:pfe_edit', report_id=report.pk)

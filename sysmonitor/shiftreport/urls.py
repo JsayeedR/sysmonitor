@@ -40,6 +40,8 @@ urlpatterns = [
         views.mnoc_pfe_save,
         name='pfe_save',
     ),
+    path('mnoc-pfe/<int:report_id>/schedule/', views.mnoc_pfe_schedule, name='pfe_schedule'),
+    path('mnoc-pfe/<int:report_id>/cancel-schedule/', views.mnoc_pfe_cancel_schedule, name='pfe_cancel_schedule'),
     path(
         'mnoc-pfe/<int:report_id>/send/',
         views.mnoc_pfe_send,

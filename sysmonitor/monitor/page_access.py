@@ -121,10 +121,24 @@ PAGE_DEFINITIONS = {
     },
 
     'shift_report': {
-        'label': '📝 Shift Report',
+        'label': '📝 Shift Report (Main + Historical)',
         'group': 'Main',
         'roles': ('user', 'admin'),
         'prefixes': ('/shift-report/',),
+        'exclude_prefixes': ('/shift-report/mnoc-pfe/', '/shift-report/config/'),
+    },
+
+    'mnoc_pfe': {
+        'label': '⚡ MNOC PFE Report',
+        'group': 'Main',
+        'roles': ('user', 'admin'),
+        'prefixes': ('/shift-report/mnoc-pfe/',),
+    },
+    'shift_report_config': {
+        'label': '⚙️ Shift Report Configuration (Admin only)',
+        'group': 'Administrative',
+        'roles': ('admin',),
+        'prefixes': ('/shift-report/config/',),
     },
 
     'duty_roster': {

@@ -1,3 +1,4 @@
+{% load tz %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -164,7 +165,17 @@
               {{ r.prepared_by.get_full_name|default:r.prepared_by.username }}
             </td>
 
-            <td>{{ r.get_status_display }}</td>
+            <td>
+              <strong>{{ r.get_status_display }}</strong>
+              {% if r.status == "SCHEDULED" and r.scheduled_send_at %}
+                <div style="margin-top:5px;color:#0d9488;font-weight:600">
+                  🕒 Scheduled for
+                </div>
+                <div>
+                  {{ r.scheduled_send_at|timezone:"Asia/Dhaka"|date:"d M Y, h:i A" }} BDT
+                </div>
+              {% endif %}
+            </td>
 
             <td>
               <a class="btn secondary"
