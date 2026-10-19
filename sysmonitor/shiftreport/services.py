@@ -413,9 +413,16 @@ def build_previous_day_summary(report_date):
     previous_date = report_date - timedelta(days=1)
     start = localize(datetime.combine(previous_date, time(0, 0)))
     end = localize(datetime.combine(report_date, time(0, 0)))
+    generator_start = localize(datetime.combine(report_date, time(0, 0)))
+    generator_end = localize(datetime.combine(
+        report_date + timedelta(days=1), time(0, 0)
+    ))
     return {'date': previous_date.strftime('%d/%m/%Y'),
+            'generator_date': report_date.strftime('%d/%m/%Y'),
             'outage': build_outage_summary(start, end),
-            'generator_log': build_generator_runtime_log(start, end)}
+            'generator_log': build_generator_runtime_log(
+                generator_start, generator_end
+            )}
 
 
 def latest_completed_shift(now=None):

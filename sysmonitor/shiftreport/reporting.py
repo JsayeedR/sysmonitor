@@ -301,7 +301,7 @@ def _previous_day_generator_summary_html(previous, shift):
     previous = previous or {}
     log = previous.get('generator_log') or {}
     rows = log.get('rows', [])
-    date = html.escape(str(previous.get('date', '—')))
+    date = html.escape(str(previous.get('generator_date', previous.get('date', '—'))))
     if not rows:
         content = '<tr><td colspan="4">No generator runtime recorded for this date.</td></tr>'
     else:
