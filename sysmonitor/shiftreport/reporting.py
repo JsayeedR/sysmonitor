@@ -224,7 +224,7 @@ def build_mnoc_recipient_lists(config):
 
 def build_subject(report):
     return (
-        f'SysMonitor NOC Shift Report — '
+        f'COX CLS NOC Shift Report — '
         f'{report.get_shift_display()} — '
         f'{report.report_date:%d %b %Y}'
     )

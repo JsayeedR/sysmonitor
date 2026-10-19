@@ -542,7 +542,8 @@ textarea{
           <td class="edit-cell">
             <textarea
               name="bandwidth_status"
-              style="min-height:175px"
+              class="sm-circuit-summary"
+              style="display:none"
             >{{ report.bandwidth_status }}</textarea>
           </td>
         </tr>
@@ -1004,6 +1005,9 @@ document.addEventListener('DOMContentLoaded', function () {
     label.appendChild(input);label.appendChild(document.createTextNode('AC '+n));grid.appendChild(label);checkboxes.push(input);
   }
   widget.appendChild(grid);
+  const reset=document.createElement('button');
+  reset.type='button';reset.textContent='Reset Selection';reset.className='btn secondary';
+  reset.style.marginTop='8px';widget.appendChild(reset);
   const preview=document.createElement('div');preview.className='sm-ac-preview';widget.appendChild(preview);
   textarea.insertAdjacentElement('afterend',widget);
   function sync(){
@@ -1013,8 +1017,55 @@ document.addEventListener('DOMContentLoaded', function () {
     textarea.value='Shifting of active AC as per rotational turn was performed. ('+rotation+')';
     preview.textContent=textarea.value;
   }
+  reset.addEventListener('click',()=>{checkboxes.forEach(c=>{c.checked=false});sync()});
   checkboxes.forEach(c=>c.addEventListener('change',sync));shift.addEventListener('change',sync);
   sync();
+})();
+</script>
+
+{{ wet_limits|json_script:"sm-wet-limits" }}
+<script id="sm-a142-circuit-calculator">
+(function(){
+ const area=document.querySelector('textarea.sm-circuit-summary');
+ if(!area)return;
+ const container=document.createElement('div');container.className='sm-circuit-calculator';
+ const labels=['100GBE','10GE (LAN PHY)','STM-16','STM-1'];
+ const keys=['circuit_100gbe','circuit_10ge','circuit_stm16','circuit_stm1'];
+ const limits=JSON.parse(document.getElementById('sm-wet-limits').textContent), rates=[100,10,2.488,0.15552];
+ const text=area.value;
+ const defaults=[19,51,1,9];
+ const matches=['100G','10G','STM-16','STM-1'].map((label,i)=>{
+   const line=text.split('\n').find(x=>x.trim().startsWith(label+':'));
+   const parsed=line?Number(line.trim().split(':')[1].trim()):NaN;
+   return Number.isInteger(parsed)?parsed:defaults[i];
+ });
+ const inputs=[];
+ labels.forEach((label,i)=>{
+   const row=document.createElement('label');row.style.cssText='display:inline-flex;flex-direction:column;margin:5px 10px 5px 0;min-width:145px';
+   row.appendChild(document.createTextNode(label+' (max '+limits[i]+')'));
+   const field=document.createElement('input');field.type='number';field.min='0';field.max=String(limits[i]);field.step='1';
+   field.name=keys[i];field.value=String(matches[i]);field.required=true;
+   row.appendChild(field);container.appendChild(row);inputs.push(field);
+ });
+ const preview=document.createElement('pre');preview.style.cssText='white-space:pre-wrap;margin-top:8px';container.appendChild(preview);
+ function update(){
+   const values=inputs.map(x=>Number(x.value));
+   const valid=inputs.every((x,i)=>x.value!=='' && Number.isInteger(values[i]) && values[i]>=0 && values[i]<=limits[i]);
+   if(!valid){preview.textContent='Enter valid traffic-carrying circuit counts within the limits.';area.value='';return;}
+   const used=values.reduce((s,n,i)=>s+n*rates[i],0);
+   const f=n=>Number(n.toFixed(5)).toLocaleString('en-US',{maximumFractionDigits:5});
+   area.value=[
+    'Total Capacity: 4,650 Gbps',
+    'Used Capacity: '+f(used)+' Gbps ('+f(used/4650*100)+'%) (Currently Carrying Traffic)',
+    'Free Capacity: '+f(4650-used)+' Gbps ('+f((4650-used)/4650*100)+'%)',
+    'Assigned Capacity: Approx. 2,725 Gbps (Ready for service)',
+    'Total Active Circuits: '+values.reduce((a,b)=>a+b,0),
+    '100G: '+values[0],'10G: '+values[1],'STM-16: '+values[2],'STM-1: '+values[3]
+   ].join('\n');
+   preview.textContent=area.value;
+ }
+ inputs.forEach(x=>x.addEventListener('input',update));
+ area.insertAdjacentElement('afterend',container);update();
 })();
 </script>
 </body>

@@ -1,15 +1,106 @@
 
+<style>
+/* A14.5 COMPACT NAV */
+.sm-section-tabs {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch;
+    gap: 6px !important;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    box-sizing: border-box;
+    padding: 7px !important;
+    margin: 12px 0 18px !important;
+    background: #14233c;
+    border: 1px solid #314461;
+    border-radius: 12px;
+    scrollbar-width: thin;
+}
+.sm-section-tabs .sm-section-tab {
+    display: flex !important;
+    flex: 1 0 0;
+    width: auto !important;
+    min-width: 0;
+    min-height: 38px !important;
+    margin: 0 !important;
+    padding: 8px 9px !important;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    white-space: nowrap;
+    font-size: clamp(10px, .82vw, 13px) !important;
+    line-height: 1.25;
+    font-weight: 600;
+    border-radius: 8px;
+    box-sizing: border-box;
+}
+.sm-section-tabs .sm-section-tab.active {
+    background: #235d9d !important;
+    color: #fff !important;
+}
+@media (max-width: 1100px) {
+    .sm-section-tabs .sm-section-tab {
+        flex: 0 0 auto;
+        min-width: max-content;
+        font-size: 12px !important;
+        padding: 9px 12px !important;
+    }
+}
+</style>
+
 <nav class="sm-section-tabs"
+     style="display:flex !important;
+            flex-direction:row !important;
+            flex-wrap:nowrap !important;
+            grid-template-columns:none !important;
+            align-items:stretch;
+            gap:5px;
+            overflow-x:auto;
+            width:100%;
+            max-width:100%;
+            padding:5px;
+            box-sizing:border-box;"
      aria-label="Shift Report Section Navigation">
 
   {% if "shift_report" not in page_hidden %}
   <a href="{% url 'shiftreport:home' %}"
+     style="display:flex !important;
+            flex:1 1 0 !important;
+            width:auto !important;
+            min-width:0;
+            max-width:none !important;
+            margin:0 !important;
+            padding:7px 5px !important;
+            font-size:11px !important;
+            line-height:1.2 !important;
+            min-height:31px !important;
+            align-items:center;
+            justify-content:center;
+            text-align:center;
+            white-space:nowrap;
+            box-sizing:border-box;"
      class="sm-section-tab{% if section_active == 'shift' %} active{% endif %}"
      {% if section_active == 'shift' %}aria-current="page"{% endif %}>
     📝 Update Shift Report
   </a>
 
   <a href="{% url 'shiftreport:historical_home' %}"
+     style="display:flex !important;
+            flex:1 1 0 !important;
+            width:auto !important;
+            min-width:0;
+            max-width:none !important;
+            margin:0 !important;
+            padding:7px 5px !important;
+            font-size:11px !important;
+            line-height:1.2 !important;
+            min-height:31px !important;
+            align-items:center;
+            justify-content:center;
+            text-align:center;
+            white-space:nowrap;
+            box-sizing:border-box;"
      class="sm-section-tab{% if section_active == 'historical' %} active{% endif %}"
      {% if section_active == 'historical' %}aria-current="page"{% endif %}>
     📊 Update Historical Report
@@ -18,6 +109,21 @@
   {% endif %}
   {% if "mnoc_pfe" not in page_hidden %}
   <a href="{% url 'shiftreport:pfe_home' %}"
+     style="display:flex !important;
+            flex:1 1 0 !important;
+            width:auto !important;
+            min-width:0;
+            max-width:none !important;
+            margin:0 !important;
+            padding:7px 5px !important;
+            font-size:11px !important;
+            line-height:1.2 !important;
+            min-height:31px !important;
+            align-items:center;
+            justify-content:center;
+            text-align:center;
+            white-space:nowrap;
+            box-sizing:border-box;"
      class="sm-section-tab{% if section_active == 'pfe' %} active{% endif %}"
      {% if section_active == 'pfe' %}aria-current="page"{% endif %}>
     ⚡ PFE Data Report (MNOC)
@@ -26,10 +132,55 @@
   {% endif %}
   {% if role == "admin" %}
   <a href="{% url 'shiftreport:config' %}"
+     style="display:flex !important;
+            flex:1 1 0 !important;
+            width:auto !important;
+            min-width:0;
+            max-width:none !important;
+            margin:0 !important;
+            padding:7px 5px !important;
+            font-size:11px !important;
+            line-height:1.2 !important;
+            min-height:31px !important;
+            align-items:center;
+            justify-content:center;
+            text-align:center;
+            white-space:nowrap;
+            box-sizing:border-box;"
      class="sm-section-tab{% if section_active == 'config' %} active{% endif %}"
      {% if section_active == 'config' %}aria-current="page"{% endif %}>
     ⚙️ Shift Configuration (Only Admin)
   </a>
+  <a href="{% url 'shiftreport:wet_circuits' %}" style="display:flex !important;
+            flex:1 1 0 !important;
+            width:auto !important;
+            min-width:0;
+            max-width:none !important;
+            margin:0 !important;
+            padding:7px 5px !important;
+            font-size:11px !important;
+            line-height:1.2 !important;
+            min-height:31px !important;
+            align-items:center;
+            justify-content:center;
+            text-align:center;
+            white-space:nowrap;
+            box-sizing:border-box;"
+     class="sm-section-tab{% if section_active == 'wet' %} active{% endif %}">🔌 WET Active Circuits (Admin)</a>
   {% endif %}
 
 </nav>
+
+<!-- A14.5.1 SINGLE ROW -->
+<style>
+@media (max-width: 850px) {
+  .sm-section-tabs .sm-section-tab {
+    flex: 0 0 auto !important;
+    min-width: max-content !important;
+    padding: 7px 10px !important;
+  }
+}
+.sm-section-tabs .sm-section-tab {
+  text-decoration: none !important;
+}
+</style>

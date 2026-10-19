@@ -1,4 +1,6 @@
 from datetime import datetime, time, timedelta
+from decimal import Decimal
+import re
 
 import pytz
 from django.db.models import Avg, Max, Min, Q
@@ -301,19 +303,23 @@ def build_generator_summary(start, end, outage_summary=None):
 
 
 def build_sensor_summary(start, end):
+    # The poller explicitly marks stale/offline devices and clears stale values.
+    # Use only online samples recorded inside this shift's time window.
     qs = SensorReading.objects.filter(
-        recorded_at__gte=start,
-        recorded_at__lt=end,
+        recorded_at__gte=start, recorded_at__lt=end, is_online=True,
     )
+    temperatures = qs.filter(temperature_c__gte=-40, temperature_c__lte=85)
+    humidities = qs.filter(humidity_pct__gte=0, humidity_pct__lte=100)
 
-    aggregate = qs.aggregate(
+    aggregate = {**temperatures.aggregate(
         temperature_min=Min('temperature_c'),
         temperature_max=Max('temperature_c'),
         temperature_avg=Avg('temperature_c'),
+    ), **humidities.aggregate(
         humidity_min=Min('humidity_pct'),
         humidity_max=Max('humidity_pct'),
         humidity_avg=Avg('humidity_pct'),
-    )
+    )}
 
     latest = qs.order_by('-recorded_at', '-id').first()
 
@@ -322,6 +328,8 @@ def build_sensor_summary(start, end):
 
     result = {
         'reading_count': qs.count(),
+        'temperature_reading_count': temperatures.count(),
+        'humidity_reading_count': humidities.count(),
         'temperature_min': rounded(aggregate['temperature_min']),
         'temperature_max': rounded(aggregate['temperature_max']),
         'temperature_avg': rounded(aggregate['temperature_avg']),
@@ -492,32 +500,18 @@ def automatic_pfe_status(report_date, shift):
     """
     from .models import MnocPfeReport
 
-    candidate_dates = [report_date]
-
-    _, shift_end = shift_window(
-        report_date,
-        shift,
-    )
-
-    end_date = shift_end.astimezone(BDT).date()
-
-    if end_date not in candidate_dates:
-        candidate_dates.append(end_date)
-
-    sent = (
-        MnocPfeReport.objects
-        .filter(
-            report_date__in=candidate_dates,
-            status='SENT',
-        )
-        .order_by('-report_date', '-id')
-        .first()
-    )
-
+    # Night Shift starts on report_date and PFE is read the next morning.
+    # Never use a same-day or neighboring report as an accidental fallback.
+    pfe_date = report_date + timedelta(days=1) if shift == 'NIGHT' else report_date
+    sent = MnocPfeReport.objects.filter(
+        report_date=pfe_date, status='SENT',
+    ).first()
     if sent:
-        return 'Normal. Data sent to MNOC.'
-
-    return 'Not sent to MNOC.'
+        return (
+            f'PFE Data Sent to MNOC ({pfe_date:%d/%m/%Y}): '
+            f'Voltage(V): {sent.voltage_v}; Current (mA): {sent.current_ma}.'
+        )
+    return 'PFE Data Send to MNOC'
 
 
 def automatic_generator_status(start, end):
@@ -551,22 +545,80 @@ def automatic_generator_status(start, end):
 
 
 def automatic_temperature_text(sensor_summary):
-    """
-    Convert sensor summary into the wording used in the report composer.
-    """
+    """Independent valid shift-window averages; no invented normality claims."""
     if not sensor_summary:
-        return 'No colocation sensor readings were recorded during the shift.'
+        return 'Colocation temperature and humidity readings unavailable for this shift.'
+    def description(prefix, label, unit):
+        lo = sensor_summary.get(prefix + '_min')
+        hi = sensor_summary.get(prefix + '_max')
+        avg = sensor_summary.get(prefix + '_avg')
+        if None in (lo, hi, avg):
+            return f'{label}: valid data unavailable.'
+        return f'{label}: min {lo}{unit}, max {hi}{unit}, average {avg}{unit}.'
+    return ' '.join((
+        description('temperature', 'Temperature', '°C'),
+        description('humidity', 'Relative humidity', '%RH'),
+    ))
 
-    low = sensor_summary.get('temperature_min')
-    high = sensor_summary.get('temperature_max')
 
-    if low is None or high is None:
-        return 'No colocation sensor readings were recorded during the shift.'
+CIRCUIT_LIMITS = (20, 76, 1, 11)  # bootstrap only until the WET admin config exists
 
-    return (
-        'No temperature anomalies were observed during the shift; '
-        f'the recorded temperature remained around {low}~{high}°C.'
-    )
+
+def wet_circuit_limits():
+    """Read WET activation limits (not shift carrying counts)."""
+    from .models import WetCircuitConfig
+    config = WetCircuitConfig.objects.filter(pk=1).first()
+    if config is None:
+        return CIRCUIT_LIMITS
+    return (config.gbe100, config.ge10, config.stm16, config.stm1)
+
+
+CIRCUIT_BANDWIDTH = (Decimal('100'), Decimal('10'), Decimal('2.488'), Decimal('0.15552'))
+TOTAL_CAPACITY_GBPS = Decimal('4650')
+
+
+def parse_circuit_counts(text):
+    """Read structured counts from saved report text, including legacy reports."""
+    labels = ('100G', '10G', 'STM-16', 'STM-1')
+    values = []
+    for label in labels:
+        match = re.search(r'(?m)^' + re.escape(label) + r':\s*(\d+)\s*$', text or '')
+        if not match:
+            return (19, 51, 1, 9)  # legacy report without structured counts
+        values.append(int(match.group(1)))
+    return tuple(values)
+
+
+def format_circuit_bandwidth(counts):
+    """Nominal carrying bandwidth from exactly four traffic-carrying counts."""
+    if len(counts) != 4 or any(type(n) is not int or n < 0 or n > cap
+                                for n, cap in zip(counts, wet_circuit_limits())):
+        raise ValueError('Traffic-carrying circuit counts must be within installed limits.')
+    used = sum((n * rate for n, rate in zip(counts, CIRCUIT_BANDWIDTH)), Decimal(0))
+    free = TOTAL_CAPACITY_GBPS - used
+    fmt = lambda x: format(x, ',.5f').rstrip('0').rstrip('.')
+    return '\n'.join((
+        'Total Capacity: 4,650 Gbps',
+        f'Used Capacity: {fmt(used)} Gbps ({fmt(used * 100 / TOTAL_CAPACITY_GBPS)}%) (Currently Carrying Traffic)',
+        f'Free Capacity: {fmt(free)} Gbps ({fmt(free * 100 / TOTAL_CAPACITY_GBPS)}%)',
+        'Assigned Capacity: Approx. 2,725 Gbps (Ready for service)',
+        f'Total Active Circuits: {sum(counts)}',
+        *(f'{label}: {n}' for label, n in zip(('100G', '10G', 'STM-16', 'STM-1'), counts)),
+    ))
+
+
+def bandwidth_from_post(post, fallback=''):
+    keys = ('circuit_100gbe', 'circuit_10ge', 'circuit_stm16', 'circuit_stm1')
+    if not any(key in post for key in keys):
+        return post.get('bandwidth_status', fallback).strip()
+    try:
+        raw = [post[key].strip() for key in keys]
+        if any(not re.fullmatch(r'\d+', x) for x in raw):
+            raise ValueError()
+        counts = tuple(map(int, raw))
+    except (KeyError, ValueError):
+        raise ValueError('Enter valid whole-number circuit counts for all four categories.')
+    return format_circuit_bandwidth(counts)
 
 
 def automatic_ac_shifting(shift):
@@ -594,39 +646,33 @@ def report_composer_defaults(report_date, shift):
         shift,
     )
 
+    # Only a completed earlier shift may seed a new report. Never use
+    # another engineer's draft or a later-dated SENT report.
+    from .models import ShiftReport
+    previous = ShiftReport.objects.filter(
+        status='SENT', shift_start__lt=snapshot['start'],
+    ).order_by('-shift_start', '-pk').first()
+    carried = {
+        field: getattr(previous, field) if previous else fallback
+        for field, fallback in {
+            'ac_shifting': automatic_ac_shifting(shift),
+            'network_status': 'Normal',
+            'cable_status': 'Normal',
+            'dwdm_status': 'Normal',
+            'maintenance_activity': 'None',
+            'rain_water_leakage': 'No significant rain was observed',
+            'bandwidth_status': DEFAULT_BANDWIDTH_STATUS,
+        }.items()
+    }
     return {
         'snapshot': snapshot,
-
-        'ac_shifting': automatic_ac_shifting(
-            shift
-        ),
-
-        'network_status': 'Normal',
-        'cable_status': 'Normal',
-
-        'pfe_status': automatic_pfe_status(
-            report_date,
-            shift,
-        ),
-
-        'dwdm_status': 'Normal',
-
-        'maintenance_activity': 'None',
-
+        **carried,
+        # These are always calculated for the NEW operational shift.
+        'pfe_status': automatic_pfe_status(report_date, shift),
         'generator_status_text': automatic_generator_status(
-            snapshot['start'],
-            snapshot['end'],
+            snapshot['start'], snapshot['end'],
         ),
-
-        'temperature_text': automatic_temperature_text(
-            snapshot['sensor'],
-        ),
-
-        'rain_water_leakage': (
-            'No significant rain was observed'
-        ),
-
-        'bandwidth_status': DEFAULT_BANDWIDTH_STATUS,
+        'temperature_text': automatic_temperature_text(snapshot['sensor']),
     }
 
 

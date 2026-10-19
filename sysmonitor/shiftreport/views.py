@@ -32,6 +32,7 @@ from .services import (
     parse_email_list,
     report_composer_defaults,
     shift_window,
+    bandwidth_from_post,
 )
 
 
@@ -270,10 +271,7 @@ def _apply_structured_report_fields(report, request):
         or 'No significant rain was observed'
     )
 
-    report.bandwidth_status = request.POST.get(
-        'bandwidth_status',
-        '',
-    ).strip()
+    report.bandwidth_status = bandwidth_from_post(request.POST, report.bandwidth_status)
 
 
 @login_required
@@ -463,7 +461,27 @@ def shift_report_slot_check(request):
         'outage_text': load_shedding_text(snapshot['outage']),
         'outage_html': _outage_summary_html(snapshot['outage']) if snapshot['outage'].get('rows') else '',
         'generator_html': _previous_day_generator_summary_html(previous, shift),
+        'pfe_status': __import__(
+            'shiftreport.services',
+            fromlist=['automatic_pfe_status']
+        ).automatic_pfe_status(date_value, shift),
     })
+    # A14.6: expose defaults for the SELECTED shift, not the page's
+    # original shift. SENT reports remain read-only.
+    defaults = report_composer_defaults(date_value, shift)
+    details['carry_forward'] = {
+        field: defaults[field]
+        for field in (
+            'ac_shifting',
+            'network_status',
+            'cable_status',
+            'dwdm_status',
+            'maintenance_activity',
+            'rain_water_leakage',
+            'bandwidth_status',
+        )
+    }
+
     if taken:
         details.update({
             'status': taken.get_status_display(),
@@ -534,6 +552,7 @@ def shift_report_home(request):
         request,
         'shiftreport/home.html',
         {
+            'wet_limits': __import__('shiftreport.services', fromlist=['wet_circuit_limits']).wet_circuit_limits(),
             'self_contact_id': self_contact_id,
             'role': get_role(request.user),
             'user': request.user,
@@ -728,10 +747,19 @@ def shift_report_create(request):
             or 'Normal'
         ),
 
-        pfe_status=request.POST.get(
-            'pfe_status',
-            defaults['pfe_status'],
-        ).strip(),
+        pfe_status=(
+            defaults['pfe_status']
+            if (
+                not request.POST.get('pfe_status', '').strip()
+                or request.POST.get('pfe_status', '').strip()
+                    in ('Not sent to MNOC.', 'Normal. Data sent to MNOC.',
+                        'PFE Data Send to MNOC')
+                or request.POST.get('pfe_status', '').strip().startswith(
+                    'PFE Data Sent to MNOC ('
+                )
+            )
+            else request.POST['pfe_status'].strip()
+        ),
 
         dwdm_status=(
             request.POST.get(
@@ -756,10 +784,7 @@ def shift_report_create(request):
             defaults['rain_water_leakage'],
         ).strip(),
 
-        bandwidth_status=request.POST.get(
-            'bandwidth_status',
-            defaults['bandwidth_status'],
-        ).strip(),
+        bandwidth_status=bandwidth_from_post(request.POST, defaults['bandwidth_status']),
 
         regular_activities=request.POST.get(
             'regular_activities',
@@ -841,11 +866,25 @@ def _a91_refresh_unsent_operational_snapshot(report):
     report.generator_summary = snapshot['generator']
     report.sensor_summary = snapshot['sensor']
     report.previous_day_summary = previous
-    report.save(update_fields=[
+    update_fields = [
         'shift_start', 'shift_end', 'outage_summary',
         'generator_summary', 'sensor_summary',
         'previous_day_summary', 'updated_at',
-    ])
+    ]
+    # Refresh PFE only when the field still contains an automatic system
+    # message; never replace an engineer's own notes or a SENT snapshot.
+    current_pfe = (report.pfe_status or '').strip()
+    auto_pfe = (
+        not current_pfe
+        or current_pfe in ('Not sent to MNOC.', 'Normal. Data sent to MNOC.',
+                           'PFE Data Send to MNOC')
+        or current_pfe.startswith('PFE Data Sent to MNOC (')
+    )
+    if auto_pfe:
+        from .services import automatic_pfe_status
+        report.pfe_status = automatic_pfe_status(report.report_date, report.shift)
+        update_fields.append('pfe_status')
+    report.save(update_fields=update_fields)
     return True
 
 @login_required
@@ -933,13 +972,14 @@ def shift_report_edit(request, report_id):
         request,
         'shiftreport/edit.html',
         {
+            'wet_limits': __import__('shiftreport.services', fromlist=['wet_circuit_limits']).wet_circuit_limits(),
             'self_contact_id': self_contact_id,
             'role': get_role(request.user),
             'user': request.user,
             'report': report,
             'contacts': contacts,
             'signature_html': __import__('shiftreport.reporting', fromlist=['build_prepared_by_signature']).build_prepared_by_signature(report.prepared_by, _config()),
-            'scheduled_bdt': (timezone.localtime(report.scheduled_send_at, BDT).strftime('%Y-%m-%dT%H:%M') if report.scheduled_send_at else ''),
+            'scheduled_bdt': '',
             'config': cfg,
             'mandatory_cc': mandatory_cc,
             'preview_to': preview_to,
@@ -2014,7 +2054,7 @@ def mnoc_pfe_edit(request, report_id):
             'can_edit': can_edit,
             'config': ShiftReportConfig.objects.filter(pk=1).first(),
             'signature_html': __import__('shiftreport.reporting', fromlist=['build_prepared_by_signature']).build_prepared_by_signature(report.prepared_by, _config()),
-            'scheduled_bdt': (timezone.localtime(report.scheduled_send_at, BDT).strftime('%Y-%m-%dT%H:%M') if report.scheduled_send_at else ''),
+            'scheduled_bdt': '',
         },
     )
 

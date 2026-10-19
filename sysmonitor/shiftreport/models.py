@@ -2,6 +2,29 @@ from django.conf import settings
 from django.db import models
 
 
+class WetCircuitConfig(models.Model):
+    """Admin-maintained WET activated circuits; one singleton configuration."""
+    gbe100 = models.PositiveIntegerField(default=20, verbose_name='100GBE activated circuits')
+    ge10 = models.PositiveIntegerField(default=76, verbose_name='10GE (LAN PHY) activated circuits')
+    stm16 = models.PositiveIntegerField(default=1, verbose_name='STM-16 activated circuits')
+    stm1 = models.PositiveIntegerField(default=11, verbose_name='STM-1 activated circuits')
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        verbose_name = 'WET Active Circuit Configuration'
+        verbose_name_plural = 'WET Active Circuit Configuration'
+
+    def __str__(self):
+        return 'WET Active Circuit Configuration'
+
+    def save(self, *args, **kwargs):
+        if self.pk is not None and self.pk != 1:
+            raise ValueError('Only one WET active circuit configuration is allowed.')
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+
 class ShiftReportConfig(models.Model):
     """
     MASTER-owned Shift Report configuration.

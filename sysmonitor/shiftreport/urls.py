@@ -1,11 +1,13 @@
 from django.urls import path
 
 from . import views
+from .wet_admin import wet_circuit_admin
 
 
 app_name = 'shiftreport'
 
 urlpatterns = [
+    path('config/wet-circuits/', wet_circuit_admin, name='wet_circuits'),
     path('availability/', views.shift_report_slot_check, name='slot_check'),
     path('<int:report_id>/view/', views.shift_report_view, name='view'),
     path(

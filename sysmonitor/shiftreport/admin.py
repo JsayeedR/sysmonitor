@@ -111,3 +111,25 @@ class ShiftReportActivityAdmin(admin.ModelAdmin):
         'status',
         'remarks',
     )
+
+# A14.3: centrally managed activated WET circuit counts.
+from django.contrib import admin as _a143_admin
+from .models import WetCircuitConfig as _A143WetCircuitConfig
+
+@_a143_admin.register(_A143WetCircuitConfig)
+class _A143WetCircuitConfigAdmin(_a143_admin.ModelAdmin):
+    list_display = ('gbe100', 'ge10', 'stm16', 'stm1', 'updated_at', 'updated_by')
+    readonly_fields = ('updated_at', 'updated_by')
+
+    def has_add_permission(self, request):
+        return request.user.is_superuser and not _A143WetCircuitConfig.objects.exists()
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def save_model(self, request, obj, form, change):
+        obj.updated_by = request.user.get_username()
+        super().save_model(request, obj, form, change)
