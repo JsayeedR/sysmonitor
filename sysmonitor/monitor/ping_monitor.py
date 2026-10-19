@@ -16,6 +16,7 @@ from monitor.models import (
     Device, DeviceStatus, Event, SystemStatus, OutageCycle, MaintenanceMode
 )
 from monitor.notifications import dispatch as notify_dispatch
+from monitor.nvr_critical import tick as nvr_critical_tick
 
 
 def is_maintenance_active():
@@ -875,6 +876,12 @@ def run():
 
         handle_changes(holder_dev, nvr_dev, holder_up, nvr_up)
         periodic_checks(holder_dev, nvr_dev)
+
+        # Separate opt-in NVR critical alarm. Never alters legacy outage logic.
+        try:
+            nvr_critical_tick(nvr_up, holder_up)
+        except Exception as exc:
+            print(f'[NVR-ALARM] isolated extension error: {exc}')
 
         time.sleep(PING_INTERVAL)
 
