@@ -1,25 +1,77 @@
-<!DOCTYPE html><html><head><meta charset="utf-8"><title>Outage Cycle Remarks · SysMonitor</title><style>
-body{margin:0;background:#0b1120;color:#e5edf7;font-family:system-ui,Arial}.content{max-width:1280px;margin:30px auto;padding:20px}.panel{background:#111827;border:1px solid #263449;padding:20px;border-radius:13px}table{border-collapse:collapse;width:100%;font-size:13px}td,th{padding:11px;border-bottom:1px solid #263449;text-align:left;vertical-align:top}textarea,input{background:#172033;border:1px solid #34445d;border-radius:6px;color:white;padding:8px}textarea{width:100%;min-width:210px}button{background:#2563eb;color:white;border:0;border-radius:6px;padding:8px 12px;cursor:pointer}button.danger{background:#991b1b}.comment{margin:5px 0;padding:8px;background:#19263b;border-radius:5px;white-space:pre-wrap}.muted{color:#94a3b8}form{margin:6px 0}.filters{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:14px}.ranges{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:15px}.ranges a{display:inline-block;background:#26364f;color:#e5edf7;border:1px solid #40536b;border-radius:6px;padding:8px 11px;text-decoration:none;font-size:13px}.ranges a.active{background:#2563eb;border-color:#60a5fa}.ranges a:hover{background:#36547d}</style></head><body>
-{% include 'monitor/navbar.html' %}<main class="content"><h1>⚡ Outage Cycle Remarks</h1><p class="muted">One remark per engineer, per outage. Administrators may edit or delete submitted remarks.</p><section class="panel">
-<nav class="ranges" aria-label="Outage date quick filters">
-<a href="?range=last_10" {% if active_range == 'last_10' %}class="active"{% endif %}>Last 10</a>
-<a href="?range={{ active_range }}{% if active_range == 'custom' %}&amp;from={{ from_date }}&amp;to={{ to_date }}{% endif %}">🔄 Refresh</a>
-<a href="?range=this_week" {% if active_range == 'this_week' %}class="active"{% endif %}>This Week</a>
-<a href="?range=last_week" {% if active_range == 'last_week' %}class="active"{% endif %}>Last Week</a>
-<a href="?range=this_month" {% if active_range == 'this_month' %}class="active"{% endif %}>This Month</a>
-<a href="?range=last_month" {% if active_range == 'last_month' %}class="active"{% endif %}>Last Month</a>
-<a href="?range=this_year" {% if active_range == 'this_year' %}class="active"{% endif %}>This Year</a>
-<a href="?range=all_time" {% if active_range == 'all_time' %}class="active"{% endif %}>All Time</a>
-<a href="?{{ export_query }}&amp;format=csv">⬇ CSV</a>
-<a href="?{{ export_query }}&amp;format=pdf">📄 PDF</a>
-</nav>
-<form method="get" class="filters"><input type="hidden" name="range" value="custom">
-<label>From <input type="date" name="from" value="{{ from_date }}"></label>
-<label>To <input type="date" name="to" value="{{ to_date }}"></label>
-<button type="submit">Filter</button></form>
-<div style="overflow:auto"><table><thead><tr><th>Cycle</th><th>Start (BDT)</th><th>Duration</th><th>Type</th><th>Remarks / Notes</th></tr></thead><tbody>
-{% for cycle in cycles %}<tr><td>#{{ cycle.id }}</td><td>{{ cycle.outage_start|date:'d M Y, h:i A' }}</td><td>{{ cycle.pdb_duration_fmt }}</td><td>{{ cycle.cycle_type }}</td><td>
-{% for remark in cycle.engineer_remarks.all %}<div class="comment"><strong>{{ remark.author.get_full_name|default:remark.author.username }}</strong> <span class="muted">{{ remark.created_at|date:'d M Y, h:i A' }}</span><div>{{ remark.text }}</div>
-{% if is_admin %}<form method="post" action="{{ base_path }}/outage-cycle-remarks/{{ remark.id }}/edit/">{% csrf_token %}<textarea name="text" maxlength="2000" required>{{ remark.text }}</textarea><button>Save Edit</button></form><form method="post" action="{{ base_path }}/outage-cycle-remarks/{{ remark.id }}/delete/">{% csrf_token %}<button class="danger">Delete</button></form>{% endif %}</div>{% endfor %}
-{% if role == 'admin' or role == 'user' %}<form method="post" action="{{ base_path }}/outage-cycle-remarks/cycle/{{ cycle.id }}/add/">{% csrf_token %}<textarea name="text" maxlength="2000" required placeholder="Add one remark for this cycle"></textarea><button>Add Remark</button></form>{% endif %}</td></tr>
-{% empty %}<tr><td colspan="5">No cycles found.</td></tr>{% endfor %}</tbody></table></div></section></main></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Outage Cycle Remarks — SysMonitor</title>
+<style>
+:root{--bg:#0b1120;--surface:#111827;--surface2:#0f172a;--border:#263244;--text:#e5e7eb;--muted:#9ca3af;--blue:#60a5fa;--green:#34d399;--red:#f87171}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif;font-size:14px}a{color:inherit}.page{max-width:1250px;margin:0 auto;padding:2rem}.page-header{margin-bottom:1.4rem}.page-header h1{font-size:1.55rem;margin:0 0 .4rem}.page-header p{margin:0;color:var(--muted);font-size:.9rem;line-height:1.5}.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.15rem;margin-bottom:1rem}.card-head{display:flex;justify-content:space-between;gap:1rem;align-items:start;flex-wrap:wrap}.card-title{font-size:1rem;font-weight:700;margin-bottom:.35rem}.card-sub{font-size:.79rem;color:var(--muted);line-height:1.5}.range-toolbar{display:flex;justify-content:space-between;gap:.7rem;flex-wrap:wrap;align-items:center;padding:.75rem;margin:1rem 0;background:var(--surface2);border:1px solid var(--border);border-radius:9px}.range-group{display:flex;gap:.38rem;align-items:center;flex-wrap:wrap}.range-btn{display:inline-flex;align-items:center;justify-content:center;min-height:33px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:7px;padding:.48rem .72rem;font-size:.75rem;font-weight:600;text-decoration:none;transition:.15s}.range-btn:hover{border-color:#3b82f6;background:#1e293b}.range-btn.active{background:#2563eb;border-color:#3b82f6;color:white}.range-btn.export{border-color:#37536a}.date-filter{display:flex;gap:.8rem;flex-wrap:wrap;align-items:end;margin:0 0 1rem}.date-field{display:flex;flex-direction:column;gap:.35rem;min-width:180px}.date-field label{color:var(--muted);font-size:.75rem}.date-field input{width:100%;min-height:36px;background:var(--surface2);border:1px solid #344054;border-radius:8px;padding:.55rem .65rem;color:var(--text);color-scheme:dark}.btn{display:inline-flex;justify-content:center;align-items:center;border:1px solid transparent;border-radius:8px;padding:.52rem .8rem;min-height:35px;font-size:.78rem;font-weight:700;cursor:pointer}.btn-primary{background:#2563eb;color:white}.btn-danger{background:#7f1d1d;color:#fee2e2;border-color:#b91c1c}.btn-subtle{background:#374151;color:white}.btn:hover{filter:brightness(1.12)}.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:9px}.cycle-table{border-collapse:collapse;width:100%;min-width:860px;font-size:.81rem}.cycle-table th{background:#0f172a;color:#cbd5e1;font-size:.73rem;text-align:left;font-weight:700;letter-spacing:.01em;padding:.8rem .85rem;border-bottom:1px solid #334155}.cycle-table td{padding:.9rem .85rem;vertical-align:top;border-bottom:1px solid #233044}.cycle-table tbody tr:last-child td{border-bottom:0}.cycle-table tbody tr:hover{background:#172235}.cycle-id{color:var(--blue);font-weight:700;white-space:nowrap}.start-time{white-space:nowrap;font-variant-numeric:tabular-nums}.type-tag{display:inline-block;border:1px solid #355077;border-radius:6px;color:#bfdbfe;background:#172b48;padding:.24rem .48rem;font-size:.73rem}.comment{padding:.75rem;margin-bottom:.6rem;border:1px solid #304258;border-radius:8px;background:#152236}.comment-head{display:flex;flex-wrap:wrap;gap:.3rem .7rem;align-items:center;margin-bottom:.4rem}.comment-author{font-weight:700;font-size:.78rem;color:#e2e8f0}.comment-date{color:var(--muted);font-size:.7rem}.comment-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55;color:#dbeafe}.editor{margin-top:.65rem}.editor textarea{width:100%;min-height:65px;resize:vertical;border:1px solid #384960;border-radius:8px;padding:.65rem;background:var(--surface2);color:var(--text);font:inherit}.editor textarea:focus,.date-field input:focus{outline:2px solid #2563eb;outline-offset:1px}.editor-actions{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.5rem}.editor.add{padding:.8rem;border:1px dashed #3b4b63;background:#101b2e;border-radius:8px}.muted{color:var(--muted)}.empty{padding:2.5rem 1rem;text-align:center;color:var(--muted)}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.tip{font-size:.72rem;color:var(--muted);margin-top:.45rem}.footer-spacer{margin-top:1.25rem}@media(max-width:700px){.page{padding:1rem}.card{padding:.85rem}.date-field{flex:1;min-width:135px}.range-toolbar{padding:.55rem}.range-btn{font-size:.72rem;padding:.42rem .58rem}}
+</style>
+</head>
+<body>
+{% include "monitor/navbar.html" %}
+<main class="page">
+  <header class="page-header">
+    <h1>⚡ Outage Cycle Remarks</h1>
+    <p>Review load-shedding and outage cycles, filter by date, and maintain engineer notes. Each engineer can submit one remark per cycle; administrators may edit or remove remarks.</p>
+  </header>
+  <section class="card" aria-label="Outage cycle history and remarks">
+    <div class="card-head">
+      <div><div class="card-title">📋 Outage Cycle History</div><div class="card-sub">All recorded cycles matching the selected period · Bangladesh local time (BDT)</div></div>
+      <div class="card-sub">{% if active_range == 'this_week' %}Current week{% elif active_range == 'custom' %}Custom date range{% elif active_range == 'last_10' %}Latest 10 cycles{% else %}Selected history{% endif %}</div>
+    </div>
+    <nav class="range-toolbar" aria-label="Quick date filters">
+      <div class="range-group">
+        <a class="range-btn{% if active_range == 'last_10' %} active{% endif %}" href="?range=last_10">Last 10</a>
+        <a class="range-btn" href="?{{ export_query }}" title="Refresh current selection">↻ Refresh</a>
+        <a class="range-btn{% if active_range == 'this_week' %} active{% endif %}" href="?range=this_week">This Week</a>
+        <a class="range-btn{% if active_range == 'last_week' %} active{% endif %}" href="?range=last_week">Last Week</a>
+        <a class="range-btn{% if active_range == 'this_month' %} active{% endif %}" href="?range=this_month">This Month</a>
+        <a class="range-btn{% if active_range == 'last_month' %} active{% endif %}" href="?range=last_month">Last Month</a>
+        <a class="range-btn{% if active_range == 'this_year' %} active{% endif %}" href="?range=this_year">This Year</a>
+        <a class="range-btn{% if active_range == 'all_time' %} active{% endif %}" href="?range=all_time">All Time</a>
+      </div>
+      {% if request.user.username|lower != 'fullviewer@sysmonitor' %}
+      <div class="range-group"><a class="range-btn export" href="?{{ export_query }}&amp;format=csv">⬇ CSV</a><a class="range-btn export" href="?{{ export_query }}&amp;format=pdf">▣ PDF</a></div>
+      {% endif %}
+    </nav>
+    <form method="get" class="date-filter" aria-label="Custom date range">
+      <input type="hidden" name="range" value="custom">
+      <div class="date-field"><label for="remarks-from">From</label><input id="remarks-from" type="date" name="from" value="{{ from_date }}"></div>
+      <div class="date-field"><label for="remarks-to">To</label><input id="remarks-to" type="date" name="to" value="{{ to_date }}"></div>
+      <button class="btn btn-primary" type="submit">Filter</button>
+      <span class="card-sub">Default: This Week</span>
+    </form>
+    <div class="table-wrap"><table class="cycle-table"><thead><tr><th scope="col">Cycle</th><th scope="col">Start (BDT)</th><th scope="col">Duration</th><th scope="col">Type</th><th scope="col">Remarks / Notes</th></tr></thead>
+    <tbody>
+      {% for cycle in cycles %}
+      <tr>
+        <td><span class="cycle-id">#{{ cycle.id }}</span></td>
+        <td class="start-time">{{ cycle.outage_start|date:'d M Y, h:i A' }}</td>
+        <td>{{ cycle.pdb_duration_fmt }}</td>
+        <td><span class="type-tag">{{ cycle.cycle_type }}</span></td>
+        <td>
+          {% for remark in cycle.engineer_remarks.all %}
+          <article class="comment"><div class="comment-head"><span class="comment-author">{{ remark.author.get_full_name|default:remark.author.username }}</span><span class="comment-date">{{ remark.created_at|date:'d M Y, h:i A' }}</span></div><div class="comment-text">{{ remark.text }}</div>
+            {% if is_admin and request.user.username|lower != 'fullviewer@sysmonitor' %}
+              <form class="editor" method="post" action="{{ base_path }}/outage-cycle-remarks/{{ remark.id }}/edit/">{% csrf_token %}<label class="sr-only" for="edit-remark-{{ remark.id }}">Edit remark</label><textarea id="edit-remark-{{ remark.id }}" name="text" maxlength="2000" required>{{ remark.text }}</textarea><div class="editor-actions"><button class="btn btn-subtle" type="submit">Save Edit</button></div></form>
+              <form class="editor" method="post" action="{{ base_path }}/outage-cycle-remarks/{{ remark.id }}/delete/" onsubmit="return confirm('Delete this remark? This action cannot be undone.');">{% csrf_token %}<button class="btn btn-danger" type="submit">Delete Remark</button></form>
+            {% endif %}
+          </article>
+          {% empty %}<div class="muted">No remarks submitted.</div>{% endfor %}
+          {% if request.user.username|lower != 'fullviewer@sysmonitor' %}
+            {% if role == 'admin' or role == 'user' %}
+            <form class="editor add" method="post" action="{{ base_path }}/outage-cycle-remarks/cycle/{{ cycle.id }}/add/">{% csrf_token %}<label class="sr-only" for="new-remark-{{ cycle.id }}">New remark for cycle {{ cycle.id }}</label><textarea id="new-remark-{{ cycle.id }}" name="text" maxlength="2000" required placeholder="Add your remark or operational note for this cycle..."></textarea><div class="editor-actions"><button class="btn btn-primary" type="submit">+ Add Remark</button><span class="tip">One remark per engineer per cycle</span></div></form>
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="5"><div class="empty">No outage cycles found for the selected period. Try another date range.</div></td></tr>{% endfor %}
+    </tbody></table></div>
+    <p class="tip">Showing up to 150 cycles per range (Last 10 displays up to 10). Remarks are also visible in Load Shedding Reports and Generator Cycle Audit.</p>
+  </section>
+</main>
+{% include "monitor/footer.html" %}
+</body>
+</html>
