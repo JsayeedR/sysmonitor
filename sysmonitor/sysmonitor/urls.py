@@ -1,3 +1,4 @@
+from monitor import outage_remarks as outage_remark_views
 from django.contrib import admin
 from django.urls import include, path, re_path
 from monitor import views, roster_views
@@ -64,6 +65,10 @@ urlpatterns += [
     path('genruntime/', views.generator_runtime_report, name='generator_runtime_report'),
     path('generator-fuel/', views.generator_fuel, name='generator_fuel'),
     path('generator-fuel-report/', views.generator_fuel_report, name='generator_fuel_report'),
+    path('outage-cycle-remarks/', outage_remark_views.remark_list, name='outage_cycle_remarks'),
+    path('outage-cycle-remarks/cycle/<int:cycle_id>/add/', outage_remark_views.remark_save, name='outage_remark_add'),
+    path('outage-cycle-remarks/<int:remark_id>/edit/', outage_remark_views.remark_admin_edit, name='outage_remark_edit'),
+    path('outage-cycle-remarks/<int:remark_id>/delete/', outage_remark_views.remark_admin_delete, name='outage_remark_delete'),
     path('generator-cycle-audit/', views.generator_cycle_audit, name='generator_cycle_audit'),
     path('generator-cycle-audit/data/', views.generator_cycle_audit_data, name='generator_cycle_audit_data'),
     path('generator-cycle-audit/add/', views.system_manual_cycle_add, name='generator_cycle_audit_add'),

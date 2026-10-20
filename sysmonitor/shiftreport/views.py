@@ -817,6 +817,12 @@ def shift_report_create(request):
         previous_day_summary=previous_day,
     )
 
+    from .optional_attachments import store_optional_uploads
+    try:
+        store_optional_uploads(request, shift_report=report)
+    except Exception as exc:
+        messages.error(request, f'Optional attachment not accepted: {exc}')
+
     _replace_activity_rows(
         report,
         _activity_rows_from_post(request),
@@ -1219,6 +1225,11 @@ def shift_report_save(request, report_id):
     ).strip()
 
     report.save()
+    from .optional_attachments import store_optional_uploads
+    try:
+        store_optional_uploads(request, shift_report=report)
+    except Exception as exc:
+        messages.error(request, f'Optional attachment not accepted: {exc}')
 
     _replace_activity_rows(
         report,
@@ -1810,6 +1821,7 @@ def shift_report_send(request, report_id):
                     workbook,
                     XLSX_MIME,
                 ),
+                attachments=__import__('shiftreport.optional_attachments', fromlist=['outgoing_attachments']).outgoing_attachments(report),
                 shift_config=cfg,
             )
 
@@ -2016,6 +2028,12 @@ def mnoc_pfe_create(request):
         ),
     )
 
+    from .optional_attachments import store_optional_uploads
+    try:
+        store_optional_uploads(request, pfe_report=report)
+    except Exception as exc:
+        messages.error(request, f'Optional attachment not accepted: {exc}')
+
     messages.success(
         request,
         'MNOC PFE draft created.'
@@ -2144,6 +2162,11 @@ def mnoc_pfe_save(request, report_id):
         return redirect('shiftreport:pfe_edit', report_id=report.id)
     report.report_date = chosen_date
     report.save()
+    from .optional_attachments import store_optional_uploads
+    try:
+        store_optional_uploads(request, pfe_report=report)
+    except Exception as exc:
+        messages.error(request, f'Optional attachment not accepted: {exc}')
 
     messages.success(
         request,

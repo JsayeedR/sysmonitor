@@ -683,6 +683,7 @@ def send_smtp_email(
     to_list,
     cc_list=None,
     attachment=None,
+    attachments=None,
     shift_config=None,
 ):
     """
@@ -780,8 +781,8 @@ def send_smtp_email(
         )
     )
 
-    if attachment:
-        filename, content, mime_type = attachment
+    all_attachments = ([attachment] if attachment else []) + list(attachments or [])
+    for filename, content, mime_type in all_attachments:
 
         part = MIMEApplication(
             content,

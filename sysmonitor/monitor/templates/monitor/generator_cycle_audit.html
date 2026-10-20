@@ -820,6 +820,7 @@ async function loadManualCycles() {
           <td>${escHtml(c.added_by)}</td>
           <td>${escHtml(c.created_at)}</td>
           <td class="note-cell">${escHtml(c.note || '—')}</td>
+          <td class="note-cell">${escHtml(c.remarks || '—')}</td>
           ${adminActions}
         </tr>
       `;
@@ -838,6 +839,7 @@ async function loadManualCycles() {
               <th>Added By</th>
               <th>Added At</th>
               <th>Note</th>
+              <th>Engineer Remarks</th>
               ${adminColumn}
             </tr>
           </thead>

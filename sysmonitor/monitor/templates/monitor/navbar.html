@@ -1,4 +1,8 @@
 {% load i18n %}
+{% if is_fullviewer %}
+<div style="background:#334155;color:#f8fafc;text-align:center;padding:7px;font-size:13px">👁 Full Viewer — Read Only · Changes and downloads disabled</div>
+<style>form[method="post"],form[method="POST"]{display:none !important}</style>
+{% endif %}
 {% if is_mirror %}
 <div
   id="mirror-banner"
@@ -371,6 +375,7 @@
         {% if "cctv" not in page_hidden %}<a href="{{ base_path }}/cctv/" class="{% if '/cctv/' in request.path %}active{% endif %}">🎥 NOC CCTV</a>{% endif %}
         {% if "notification_request" not in page_hidden %}<a href="{{ base_path }}/notification-request/" class="{% if '/notification-request/' in request.path %}active{% endif %}">🔔 Notification Request</a>{% endif %}
         {% if "profile" not in page_hidden %}<a href="{{ base_path }}/profile/" class="{% if '/profile/' in request.path %}active{% endif %}">👤 My Profile</a>{% endif %}
+        {% if "outage_cycle_remarks" not in page_hidden %}<a href="{{ base_path }}/outage-cycle-remarks/">⚡ Outage Cycle Remarks</a>{% endif %}
         {% if "manual" not in page_hidden %}<a href="{{ base_path }}/manual/" class="{% if '/manual/' in request.path %}active{% endif %}">📘 Manual v{{ sys_version }}</a>{% endif %}
         <a href="{{ base_path }}/about/" class="{% if '/about/' in request.path %}active{% endif %}">ℹ️ About Us</a>
       </div>
@@ -385,6 +390,7 @@
         {% if "cctv" not in page_hidden %}<a href="{{ base_path }}/cctv/" class="{% if '/cctv/' in request.path %}active{% endif %}">🎥 NOC CCTV</a>{% endif %}
         {% if "notification_request" not in page_hidden %}<a href="{{ base_path }}/notification-request/" class="{% if '/notification-request/' in request.path %}active{% endif %}">🔔 Notification Request</a>{% endif %}
         {% if "profile" not in page_hidden %}<a href="{{ base_path }}/profile/" class="{% if '/profile/' in request.path %}active{% endif %}">👤 My Profile</a>{% endif %}
+        {% if "outage_cycle_remarks" not in page_hidden %}<a href="{{ base_path }}/outage-cycle-remarks/">⚡ Outage Cycle Remarks</a>{% endif %}
         {% if "manual" not in page_hidden %}<a href="{{ base_path }}/manual/" class="{% if '/manual/' in request.path %}active{% endif %}">📘 Manual v{{ sys_version }}</a>{% endif %}
         <a href="{{ base_path }}/about/" class="{% if '/about/' in request.path %}active{% endif %}">ℹ️ About Us</a>
       </div>

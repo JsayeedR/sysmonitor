@@ -493,6 +493,17 @@ def _serialize_slot(slot):
     }
 
 
+def _future_slots(current, count):
+    slots=[]
+    cursor=current
+    for number in range(count):
+        cursor=_next_slot(cursor)
+        item=_serialize_slot(cursor)
+        item['offset']=number+1
+        slots.append(item)
+    return slots
+
+
 def resolve_current_and_next(now=None):
     current = _slot_for(now)
     next_slot = _next_slot(current)
@@ -500,4 +511,5 @@ def resolve_current_and_next(now=None):
         'generated_at': _ensure_bdt(now).isoformat(),
         'current': _serialize_slot(current),
         'next': _serialize_slot(next_slot),
+        'upcoming': _future_slots(current, 8),
     }

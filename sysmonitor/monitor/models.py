@@ -76,10 +76,11 @@ class UserProfile(models.Model):
         ('admin',  'Admin'),
         ('user',   'User'),
         ('viewer', 'Viewer'),
+        ('fullviewer', 'Full Viewer (Read Only)'),
         ('guest',  'Guest'),
     ]
     user        = models.OneToOneField('auth.User', on_delete=models.CASCADE)
-    role        = models.CharField(max_length=10, choices=ROLE_CHOICES, default='viewer')
+    role        = models.CharField(max_length=12, choices=ROLE_CHOICES, default='viewer')
 
     # Profile fields — self-service editable
     designation     = models.CharField(max_length=100, blank=True)
@@ -933,3 +934,16 @@ class DutyRosterAssignment(models.Model):
             f'{self.duty_date:%d/%m/%Y} {self.duty_code} — '
             f'{self.engineer_name}'
         )
+
+
+class OutageCycleRemark(models.Model):
+    """An engineer may submit exactly one remark per cycle; admins moderate."""
+    cycle = models.ForeignKey('OutageCycle', on_delete=models.CASCADE, related_name='engineer_remarks')
+    author = models.ForeignKey('auth.User', on_delete=models.PROTECT, related_name='outage_remarks')
+    text = models.TextField(max_length=2000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['cycle', 'author'], name='unique_cycle_engineer_remark')]
+        ordering = ['created_at', 'pk']

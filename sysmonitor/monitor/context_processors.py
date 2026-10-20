@@ -74,6 +74,7 @@ def page_access(request):
         'notification_request',
         'profile',
         'manual',
+        'outage_cycle_remarks',
     }
 
     admin_keys = {

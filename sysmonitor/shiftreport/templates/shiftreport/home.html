@@ -393,9 +393,10 @@ table.history th{
 
   <form method="post"
         action="{{ base_path }}/shift-report/create/"
-        id="reportComposer">
+        id="reportComposer" enctype="multipart/form-data">
 
     {% csrf_token %}
+    <div class="panel"><label>Optional attachments (PDF, XLSX, CSV, images or TXT, up to 3 files of 3 MB each)</label><input type="file" name="report_attachments" multiple accept=".pdf,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.txt"></div>
     <div class="panel sm-a4-schedule">
       <label style="display:flex;align-items:center;gap:10px;font-weight:650">
         <input type="checkbox" name="auto_send_after_shift" value="on"

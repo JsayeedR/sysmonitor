@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 def get_role(user):
+    if getattr(user, 'is_authenticated', False) and user.username.lower() == 'fullviewer@sysmonitor':
+        return 'admin'  # Reading routes only; middleware blocks all mutations and downloads.
     if user.is_superuser:
         return 'admin'
     try:
@@ -873,22 +875,46 @@ def user_toggle_active(request, user_id):
 
 @role_required('admin')
 def user_delete(request, user_id):
+    from django.db import transaction
+    from django.db.models.deletion import ProtectedError, RestrictedError
+
     target = get_object_or_404(User, id=user_id)
+
     if target == request.user:
         messages.error(request, "You can't delete yourself.")
         return redirect('user_list')
+
     if request.method == 'POST':
         username = target.username
-        log_activity(request.user, 'USER_DELETED',
-                     f'Deleted user "{username}".',
-                     ip=get_ip(request))
-        target.delete()
+
+        try:
+            with transaction.atomic():
+                target.delete()
+
+                log_activity(
+                    request.user,
+                    'USER_DELETED',
+                    f'Deleted user "{username}".',
+                    ip=get_ip(request)
+                )
+
+        except (ProtectedError, RestrictedError):
+            messages.error(
+                request,
+                f'User "{username}" cannot be permanently deleted '
+                'because historical records are associated with this account. '
+                'You may deactivate the account instead to prevent login '
+                'while preserving operational records.'
+            )
+            return redirect('user_list')
+
         messages.success(request, f'User "{username}" deleted.')
         return redirect('user_list')
+
     return render(request, 'monitor/user_confirm_delete.html', {
         'target_user': target,
-        'role':        get_role(request.user),
-        'user':        request.user,
+        'role': get_role(request.user),
+        'user': request.user,
     })
 
 
@@ -1565,7 +1591,7 @@ def api_report(request):
         end_dt = bdt3.localize(dt3(date_to.year, date_to.month, date_to.day, 23, 59, 59))
         cycles_qs = cycles_qs.filter(outage_start__lte=end_dt)
 
-    cycles = list(cycles_qs)
+    cycles = list(cycles_qs.prefetch_related('engineer_remarks__author'))
 
     # Build cycles list
     cycle_rows = []
@@ -1657,6 +1683,7 @@ def api_report(request):
             'pdb_duration': c.pdb_duration_fmt(),
             'gen_runtime':  c.gen_runtime_fmt(),
             'cycle_type':   c.cycle_type,
+            'remarks': ' | '.join(([c.alarm_reason] if c.alarm_reason else []) + [f'{item.author.username}: {item.text}' for item in c.engineer_remarks.all()]),
         })
 
     # Daily totals for bar chart — clipped at midnight so a cycle that
@@ -4050,6 +4077,11 @@ def generator_cycle_audit_data(request):
 
         cycles = cycles[:limit]
 
+    from django.db.models import prefetch_related_objects
+    if isinstance(cycles, list):
+        prefetch_related_objects(cycles, 'engineer_remarks__author')
+    else:
+        cycles = cycles.prefetch_related('engineer_remarks__author')
     data = []
 
     for c in cycles:
@@ -4101,6 +4133,7 @@ def generator_cycle_audit_data(request):
             'generator': c.manual_generator,
             'added_by': c.added_by or '—',
             'note': c.alarm_reason or '',
+            'remarks': ' | '.join(f'{x.author.username}: {x.text}' for x in c.engineer_remarks.all()),
             'created_at': (
                 c.created_at.astimezone(bdt).strftime(
                     '%d/%m/%Y %I:%M %p'

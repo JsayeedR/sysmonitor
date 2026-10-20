@@ -56,6 +56,7 @@ def deliver_pfe(report_id, actor=None, ip='', scheduled_only=False):
         send_smtp_email(
             subject=subject, html_body=build_pfe_html_body(report, cfg),
             to_list=to_list, cc_list=cc_list, shift_config=cfg,
+            attachments=__import__('shiftreport.optional_attachments', fromlist=['outgoing_attachments']).outgoing_attachments(report),
         )
     except Exception as exc:
         MnocPfeReport.objects.filter(pk=report_id, status='SENDING').update(

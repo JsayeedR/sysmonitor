@@ -278,10 +278,13 @@ textarea{
     method="post"
     action="{{ base_path }}/shift-report/{{ report.id }}/save/"
     id="reportComposer"
+    enctype="multipart/form-data"
     data-report-id="{{ report.id }}"
   >
 
     {% csrf_token %}
+    {% if report.status != 'SENT' %}<div class="panel"><label>Optional attachments (up to 3 files, each max 3 MB)</label><input type="file" name="report_attachments" multiple accept=".pdf,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.txt"></div>{% endif %}
+    {% for f in report.uploads.all %}<div class="muted">📎 {{ f.name }}</div>{% endfor %}
     <div class="panel sm-a4-schedule">
       <label style="display:flex;align-items:center;gap:10px;font-weight:650">
         <input type="checkbox" name="auto_send_after_shift" value="on"

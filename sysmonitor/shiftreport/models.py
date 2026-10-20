@@ -644,3 +644,15 @@ class ShiftReportActivity(models.Model):
             f'{self.report} — '
             f'{self.activity_type or "Activity"}'
         )
+
+
+class OptionalReportAttachment(models.Model):
+    """Small optional private files; stored inside protected DB, never public media."""
+    shift_report = models.ForeignKey('ShiftReport', null=True, blank=True, on_delete=models.CASCADE, related_name='uploads')
+    pfe_report = models.ForeignKey('MnocPfeReport', null=True, blank=True, on_delete=models.CASCADE, related_name='uploads')
+    name = models.CharField(max_length=160)
+    mime_type = models.CharField(max_length=120, default='application/octet-stream')
+    content = models.BinaryField()
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        constraints = [models.CheckConstraint(condition=(models.Q(shift_report__isnull=False, pfe_report__isnull=True) | models.Q(shift_report__isnull=True, pfe_report__isnull=False)), name='report_attachment_one_owner')]

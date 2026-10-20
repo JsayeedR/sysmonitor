@@ -74,8 +74,17 @@
         <div class="shift current"><div class="tag">🟢 Current Shift</div><strong>{{ duty_state.current.engineer }}</strong><div class="meta">{{ duty_state.current.label }} · {{ duty_state.current.start_time }}–{{ duty_state.current.end_time }}<br>{{ duty_state.current.date_label }}</div></div>
         <div class="shift next"><div class="tag">⏭ Next Shift</div><strong>{{ duty_state.next.engineer }}</strong><div class="meta">{{ duty_state.next.label }} · {{ duty_state.next.start_time }}–{{ duty_state.next.end_time }}<br>{{ duty_state.next.date_label }}</div></div>
       </div>
+      <h3 style="font-size:.86rem;margin:1.2rem 0 .7rem">Upcoming Duty Assignments</h3>
+      <div class="shift-grid" style="max-height:600px;overflow-y:auto">
+        {% for slot in duty_state.upcoming %}
+        <div class="shift" style="border-color:#34445d"><div class="tag">{{ slot.label }} · +{{ slot.offset }}</div>
+          <strong class="roster-engineer" data-engineer="{{ slot.engineer }}">{{ slot.engineer }}</strong>
+          <div class="meta">{{ slot.start_time }}–{{ slot.end_time }} · {{ slot.date_label }}</div></div>
+        {% endfor %}
+      </div>
     </section>
   </div>
+  <script>(function(){const colors=['#60a5fa','#34d399','#fbbf24','#f472b6','#c4b5fd','#fb923c','#67e8f9'];const map=new Map();document.querySelectorAll('.shift strong').forEach(el=>{let n=(el.dataset.engineer||el.textContent).trim();if(!map.has(n))map.set(n,colors[map.size%colors.length]);el.style.color=map.get(n);});})();</script>
 
   <section class="panel history">
     <h2>Imported Roster History</h2>

@@ -1,0 +1,25 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Outage Cycle Remarks · SysMonitor</title><style>
+body{margin:0;background:#0b1120;color:#e5edf7;font-family:system-ui,Arial}.content{max-width:1280px;margin:30px auto;padding:20px}.panel{background:#111827;border:1px solid #263449;padding:20px;border-radius:13px}table{border-collapse:collapse;width:100%;font-size:13px}td,th{padding:11px;border-bottom:1px solid #263449;text-align:left;vertical-align:top}textarea,input{background:#172033;border:1px solid #34445d;border-radius:6px;color:white;padding:8px}textarea{width:100%;min-width:210px}button{background:#2563eb;color:white;border:0;border-radius:6px;padding:8px 12px;cursor:pointer}button.danger{background:#991b1b}.comment{margin:5px 0;padding:8px;background:#19263b;border-radius:5px;white-space:pre-wrap}.muted{color:#94a3b8}form{margin:6px 0}.filters{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:14px}.ranges{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:15px}.ranges a{display:inline-block;background:#26364f;color:#e5edf7;border:1px solid #40536b;border-radius:6px;padding:8px 11px;text-decoration:none;font-size:13px}.ranges a.active{background:#2563eb;border-color:#60a5fa}.ranges a:hover{background:#36547d}</style></head><body>
+{% include 'monitor/navbar.html' %}<main class="content"><h1>⚡ Outage Cycle Remarks</h1><p class="muted">One remark per engineer, per outage. Administrators may edit or delete submitted remarks.</p><section class="panel">
+<nav class="ranges" aria-label="Outage date quick filters">
+<a href="?range=last_10" {% if active_range == 'last_10' %}class="active"{% endif %}>Last 10</a>
+<a href="?range={{ active_range }}{% if active_range == 'custom' %}&amp;from={{ from_date }}&amp;to={{ to_date }}{% endif %}">🔄 Refresh</a>
+<a href="?range=this_week" {% if active_range == 'this_week' %}class="active"{% endif %}>This Week</a>
+<a href="?range=last_week" {% if active_range == 'last_week' %}class="active"{% endif %}>Last Week</a>
+<a href="?range=this_month" {% if active_range == 'this_month' %}class="active"{% endif %}>This Month</a>
+<a href="?range=last_month" {% if active_range == 'last_month' %}class="active"{% endif %}>Last Month</a>
+<a href="?range=this_year" {% if active_range == 'this_year' %}class="active"{% endif %}>This Year</a>
+<a href="?range=all_time" {% if active_range == 'all_time' %}class="active"{% endif %}>All Time</a>
+<a href="?{{ export_query }}&amp;format=csv">⬇ CSV</a>
+<a href="?{{ export_query }}&amp;format=pdf">📄 PDF</a>
+</nav>
+<form method="get" class="filters"><input type="hidden" name="range" value="custom">
+<label>From <input type="date" name="from" value="{{ from_date }}"></label>
+<label>To <input type="date" name="to" value="{{ to_date }}"></label>
+<button type="submit">Filter</button></form>
+<div style="overflow:auto"><table><thead><tr><th>Cycle</th><th>Start (BDT)</th><th>Duration</th><th>Type</th><th>Remarks / Notes</th></tr></thead><tbody>
+{% for cycle in cycles %}<tr><td>#{{ cycle.id }}</td><td>{{ cycle.outage_start|date:'d M Y, h:i A' }}</td><td>{{ cycle.pdb_duration_fmt }}</td><td>{{ cycle.cycle_type }}</td><td>
+{% for remark in cycle.engineer_remarks.all %}<div class="comment"><strong>{{ remark.author.get_full_name|default:remark.author.username }}</strong> <span class="muted">{{ remark.created_at|date:'d M Y, h:i A' }}</span><div>{{ remark.text }}</div>
+{% if is_admin %}<form method="post" action="{{ base_path }}/outage-cycle-remarks/{{ remark.id }}/edit/">{% csrf_token %}<textarea name="text" maxlength="2000" required>{{ remark.text }}</textarea><button>Save Edit</button></form><form method="post" action="{{ base_path }}/outage-cycle-remarks/{{ remark.id }}/delete/">{% csrf_token %}<button class="danger">Delete</button></form>{% endif %}</div>{% endfor %}
+{% if role == 'admin' or role == 'user' %}<form method="post" action="{{ base_path }}/outage-cycle-remarks/cycle/{{ cycle.id }}/add/">{% csrf_token %}<textarea name="text" maxlength="2000" required placeholder="Add one remark for this cycle"></textarea><button>Add Remark</button></form>{% endif %}</td></tr>
+{% empty %}<tr><td colspan="5">No cycles found.</td></tr>{% endfor %}</tbody></table></div></section></main></body></html>
