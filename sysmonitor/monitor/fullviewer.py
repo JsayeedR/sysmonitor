@@ -39,6 +39,27 @@ def is_fullviewer(user):
 
 
 def forbidden_request(request):
+    # Permit only the two exact logout URLs.
+    # The reverse-proxied public portal retains /sysmonitor/.
+    logout_path = request.path_info.rstrip('/').lower()
+    if (
+        request.method in ('GET', 'POST')
+        and logout_path in ('/logout', '/sysmonitor/logout')
+    ):
+        return False
+
+
+    from django.urls import resolve, Resolver404
+
+    if request.method in ('GET', 'POST'):
+        try:
+            match = resolve(request.path_info)
+            if match.url_name == 'logout':
+                return False
+        except Resolver404:
+            pass
+
+
     if request.method not in ('GET', 'HEAD'):
         return True
     if any(key.casefold() in DENIED_QUERY_KEYS for key in request.GET):
