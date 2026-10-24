@@ -34,8 +34,8 @@
 
     /* BANNER */
     .banner {
-      border-radius: 10px; padding: .6rem .9rem;
-      display: flex; align-items: center; gap: 1rem;
+      border-radius: 10px; padding: .42rem .65rem;
+      display: flex; align-items: center; gap: .55rem;
       border: 1px solid transparent; height: 100%;
     }
     .banner.NORMAL      { background:#052e16; border-color:#166534; }
@@ -48,7 +48,7 @@
       0%,100%{ box-shadow:0 0 0 0 rgba(185,28,28,.4); }
       50%    { box-shadow:0 0 0 8px rgba(185,28,28,0); }
     }
-    .banner-icon { font-size: 1.3rem; flex-shrink: 0; }
+    .banner-icon { font-size: 1.05rem; flex-shrink: 0; }
     .banner-text { flex: 1; }
     .banner-label {
       font-size: .65rem; color: var(--faint);
@@ -69,8 +69,8 @@
 
     /* BANNER GRID */
     .banner-grid {
-      display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
-      gap: 1rem; margin-bottom: 1.25rem;
+      display: grid; grid-template-columns: repeat(5, minmax(0,1fr));
+      gap: .6rem; margin-bottom: .85rem;
     }
     @media (max-width: 1300px) { .banner-grid { grid-template-columns: 1fr 1fr; } }
     /* GEN/ATS AUTO MODE — neon accents inside the 3rd banner */
@@ -109,6 +109,18 @@
       margin-right:5px; box-shadow:0 0 5px currentColor;
       animation: glow-g 2s infinite;
     }
+
+
+    .sm-power-lights { display:flex;gap:.35rem;flex-wrap:wrap;align-items:center;margin:.35rem 0; }
+    .sm-power-lights span { display:inline-flex;align-items:center;gap:.25rem;font-size:.69rem;white-space:nowrap; }
+    .sm-power-lights small {font-size:.62rem;color:var(--muted)}
+    .sm-light {display:inline-block;width:11px;height:11px;border-radius:50%;background:#64748b;box-shadow:0 0 0 1px #94a3b8;}
+    .sm-light.pdb-up {background:#3b82f6;box-shadow:0 0 9px 3px #3b82f688;}
+    .sm-light.gen-on {background:#fb923c;box-shadow:0 0 9px 3px #fb923c88;}
+    .sm-light.nvr-up {background:#22c55e;box-shadow:0 0 9px 3px #22c55e88;}
+    .sm-light.down {background:#ef4444;box-shadow:0 0 4px #ef444499;}
+    .sm-light.unknown {background:#64748b;box-shadow:none;}
+    .sm-power-lights .sm-light {flex:none;}
 
     /* DEVICES */
     .devices-row {
@@ -318,23 +330,6 @@
 
 <div class="main">
 
-  {% if role == "admin" %}
-  <div id="maint-start-card" style="background:#1e293b; border:1px solid #334155; border-radius:10px; padding:.85rem 1.1rem; margin-bottom:1rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
-    <div style="display:flex; align-items:center; gap:.6rem; font-size:.82rem; color:#94a3b8;">
-      🔧 Planning network maintenance (router restart, switch reboot, etc.)?
-    </div>
-    <div style="display:flex; gap:.5rem; align-items:center;">
-      <select id="maint-minutes" style="background:#0f172a; border:1px solid #334155; color:#f1f5f9; padding:.4rem .6rem; border-radius:6px; font-size:.8rem;">
-        <option value="5">5 min</option>
-        <option value="10" selected>10 min</option>
-        <option value="15">15 min</option>
-        <option value="30">30 min</option>
-      </select>
-      <button onclick="startMaintenance()" style="background:#3b82f6; color:white; border:none; padding:.45rem .9rem; border-radius:6px; cursor:pointer; font-size:.8rem; font-weight:500;">Start Maintenance Mode</button>
-    </div>
-  </div>
-  {% endif %}
-
   <!-- BANNER GRID -->
   <div class="banner-grid">
 
@@ -381,6 +376,19 @@
       <div class="banner-time gen-mode-time">
         <div>Since</div>
         <div id="gen-mode-meta">—</div>
+      </div>
+    </div>
+
+    <!-- Recorded power supply indicators. Unknown is distinct from DOWN. -->
+    <div class="banner UNKNOWN" id="power-indicator-banner" aria-label="Power source indicator status">
+      <div class="banner-text" style="min-width:0">
+        <div class="banner-label">Power sources</div>
+        <div class="sm-power-lights">
+          <span><b class="sm-light unknown" id="sm-pdb-light" aria-hidden="true"></b> PDB <small id="sm-pdb-text">Unknown</small></span>
+          <span><b class="sm-light unknown" id="sm-gen-light" aria-hidden="true"></b> Generator <small id="sm-gen-text">Unknown</small></span>
+          <span><b class="sm-light unknown" id="sm-nvr-light" aria-hidden="true"></b> Equipment <small id="sm-nvr-text">Unknown</small></span>
+        </div>
+        <small style="font-size:.62rem;color:var(--muted)">PDB: 192.168.30.56 · Equipment: monitored NVR reachability</small>
       </div>
     </div>
 
@@ -677,6 +685,20 @@ function refresh() {
         }
       }
 
+      const p=data.power_indicators || {};
+      const assignLight=(id,textId,value,onValue,onClass)=>{
+        const el=document.getElementById(id),txt=document.getElementById(textId);
+        if(!el||!txt)return;
+        el.className='sm-light '+(value===onValue?onClass:(value==='UNKNOWN'||!value?'unknown':'down'));
+        txt.textContent=value==='UNKNOWN'||!value?'Unknown':(value===onValue?'ON':'OFF');
+        el.setAttribute('aria-label',txt.textContent);
+      };
+      assignLight('sm-pdb-light','sm-pdb-text',p.pdb,'UP','pdb-up');
+      assignLight('sm-gen-light','sm-gen-text',p.generator,'ON','gen-on');
+      assignLight('sm-nvr-light','sm-nvr-text',p.equipment,'UP','nvr-up');
+      const nvr=document.getElementById('sm-nvr-text');
+      if(nvr)nvr.title=p.equipment_source||'No recorded NVR state';
+
       // GEN/ATS Auto Mode
       const genModeMeta = document.getElementById('gen-mode-meta');
       const genPill1 = document.getElementById('gen-pill-1');
@@ -687,10 +709,10 @@ function refresh() {
         genPill2.classList.remove('active');
         if (gm && gm.active === 'Gen-01') {
           genPill1.classList.add('active');
-          if (genModeMeta) { genModeMeta.textContent = gm.switched_at.replace(/^(\d{1,2}:\d{2}):\d{2}/, '$1'); genModeMeta.title = 'Since ' + gm.switched_at + ' on ' + gm.switched_date; }
+          if (genModeMeta) { genModeMeta.textContent = gm.switched_date + ' · ' + gm.switched_at.replace(/^(\d{1,2}:\d{2}):\d{2}/, '$1'); genModeMeta.title = 'Since ' + gm.switched_at + ' on ' + gm.switched_date; }
         } else if (gm && gm.active === 'Gen-02') {
           genPill2.classList.add('active');
-          if (genModeMeta) { genModeMeta.textContent = gm.switched_at.replace(/^(\d{1,2}:\d{2}):\d{2}/, '$1'); genModeMeta.title = 'Since ' + gm.switched_at + ' on ' + gm.switched_date; }
+          if (genModeMeta) { genModeMeta.textContent = gm.switched_date + ' · ' + gm.switched_at.replace(/^(\d{1,2}:\d{2}):\d{2}/, '$1'); genModeMeta.title = 'Since ' + gm.switched_at + ' on ' + gm.switched_date; }
         } else if (genModeMeta) {
           genModeMeta.textContent = 'No mode log recorded';
         }

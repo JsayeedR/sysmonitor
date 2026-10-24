@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.conf import settings
 from django.db import transaction
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
 from .models import Device, DeviceStatus, Event, SystemStatus, UserProfile, ActivityLog, OutageCycle, SensorAlarmConfig
 from django.http import JsonResponse
 from .kuma_client import get_kuma_monitors, get_monitor_log
@@ -625,7 +625,11 @@ def api_status(request):
             'switched_date': latest_gen_log.switched_at.astimezone(bdt).strftime('%d/%m/%Y'),
         }
 
+    from .power_lights import indicators
+    light_state = indicators(devices, active_cycle)
+
     return JsonResponse({
+        'power_indicators': light_state,
         'devices':    devices,
         'overall':    overall,
         'note':       note,
@@ -964,6 +968,8 @@ def user_delete(request, user_id):
     Retain the confirmation route so old links fail safely. Permanent deletion
     will only be enabled after the historical actor migration and DB rehearsal.
     """
+    if not request.user.is_superuser or not request.user.is_active:
+        return HttpResponseForbidden('Only an active Superadmin may access account deletion.')
     target = get_object_or_404(User, id=user_id)
     messages.error(
         request,

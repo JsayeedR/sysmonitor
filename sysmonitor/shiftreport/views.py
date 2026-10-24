@@ -22,7 +22,7 @@ from .models import (
     MnocPfeReport,
     ShiftReportActivity,
 )
-from .activity_carryforward import carry_forward_rows
+from .activity_carryforward import carry_forward_rows, manual_source_rows
 from .services import (
     BDT,
     build_previous_day_summary,
@@ -241,6 +241,11 @@ def _validated_activity_rows(report, rows, engineer, prior_rows=()):
     """
     historical = carry_forward_rows(report.report_date, report.shift,
                                     engineer, exclude_id=report.pk)
+    manual = (manual_source_rows(report.report_date, report.shift, engineer,
+                                 'mine', exclude_id=report.pk) +
+              manual_source_rows(report.report_date, report.shift, engineer,
+                                 'latest', exclude_id=report.pk))
+    historical += manual
     eligible = {
         (r['activity_type'], r['client_vendor'], r['details'], r['status'],
          r['remarks'], r['source_reference'])
@@ -454,6 +459,38 @@ def shift_report_view(request, report_id):
         'report_body_html': mark_safe(body),
         'can_edit_report': _can_manage_report(request.user, report) and report.status != 'SENT',
     })
+
+
+@login_required
+def shift_activity_source_preview(request):
+    """Read-only, explicit Section C source choice; never alters a saved report."""
+    from datetime import date
+    from django.http import JsonResponse
+    if not _role_allowed(request.user):
+        return HttpResponseForbidden('Not permitted.')
+    if request.method != 'GET':
+        return JsonResponse({'error': 'GET required'}, status=405)
+    try:
+        selected_date = date.fromisoformat(request.GET.get('date', ''))
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'Invalid date'}, status=400)
+    shift = request.GET.get('shift', '').upper()
+    mode = request.GET.get('mode', '').lower()
+    if shift not in ('MORNING','EVENING','NIGHT') or mode not in ('mine','latest'):
+        return JsonResponse({'error':'Invalid shift or selection'}, status=400)
+    exclude = request.GET.get('exclude', '')
+    if exclude and (not exclude.isdigit() or len(exclude) > 12):
+        return JsonResponse({'error':'Invalid current report'}, status=400)
+    exclude_id = int(exclude) if exclude else None
+    if exclude_id:
+        current = ShiftReport.objects.filter(pk=exclude_id).first()
+        if current is None or current.status == 'SENT' or not _can_manage_report(request.user, current):
+            return HttpResponseForbidden('Cannot edit this report')
+    rows = manual_source_rows(selected_date, shift, request.user, mode,
+                              exclude_id=exclude_id)
+    response = JsonResponse({'rows': rows, 'found': bool(rows)})
+    response['Cache-Control'] = 'private, no-store'
+    return response
 
 
 @login_required

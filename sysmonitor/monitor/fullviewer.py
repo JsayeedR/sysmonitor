@@ -39,6 +39,15 @@ def is_fullviewer(user):
 
 
 def forbidden_request(request):
+    # A signed, nonce-checked mirror request has already passed through
+    # MirrorInboundMiddleware, which marks it _mirror_forwarded. Permit ONLY
+    # the exact internal, read-only identity verification POST; the endpoint
+    # itself still compares the identity proof with the master's live account.
+    # Browser POSTs, invalid signatures, and all other mutations stay denied.
+    if (request.method == 'POST'
+            and request.path_info == '/mirror/auth/validate/'
+            and getattr(request, '_mirror_forwarded', False) is True):
+        return False
     # Permit only the two exact logout URLs.
     # The reverse-proxied public portal retains /sysmonitor/.
     logout_path = request.path_info.rstrip('/').lower()

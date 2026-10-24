@@ -84,3 +84,46 @@ def carry_forward_rows(report_date, shift, engineer, exclude_id=None):
         if any((row.activity_type, row.client_vendor, row.details,
                 row.status, row.remarks))
     ]
+
+
+MANUAL_MODES = ('mine', 'latest')
+
+def find_manual_source(report_date, shift, engineer, mode, exclude_id=None):
+    """Choose a strictly older submitted report; never copy draft/future data.
+
+    `mine`: this engineer's latest SENT report with Section C rows.
+    `latest`: newest available SENT/SUBMITTED report with Section C rows.
+    """
+    if mode not in MANUAL_MODES:
+        raise ValueError('Unrecognized Section C source mode')
+    start, _ = shift_window(report_date, shift)
+    qs = (ShiftReport.objects.filter(status__in=ELIGIBLE, shift_start__lt=start)
+          .select_related('prepared_by','preparer_snapshot')
+          .prefetch_related('activity_rows').order_by('-shift_start','-id'))
+    if exclude_id is not None:
+        qs = qs.exclude(pk=exclude_id)
+    if mode == 'mine':
+        if engineer is None or not getattr(engineer, 'pk', None):
+            return None
+        qs = qs.filter(prepared_by=engineer, status='SENT')
+    for report in qs.iterator(chunk_size=100):
+        if _has_rows(report):
+            return report
+    return None
+
+def rows_from_source(source):
+    if source is None:
+        return []
+    label = source_label(source)
+    return [
+        {'activity_type': row.activity_type,
+         'client_vendor': row.client_vendor, 'details': row.details,
+         'status': row.status, 'remarks': row.remarks,
+         'source_reference': label}
+        for row in source.activity_rows.all()
+        if any((row.activity_type,row.client_vendor,row.details,row.status,row.remarks))
+    ]
+
+def manual_source_rows(report_date, shift, engineer, mode, exclude_id=None):
+    return rows_from_source(find_manual_source(
+        report_date, shift, engineer, mode, exclude_id))

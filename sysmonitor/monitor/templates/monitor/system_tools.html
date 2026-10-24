@@ -83,6 +83,22 @@
   <div class="page-title">🛠️ System Admin Tools</div>
   <div class="page-sub">Admin-only diagnostic and recovery tools. Always check the journal log before taking action on a cycle.</div>
 
+  <!-- Maintenance controls belong on the administrator System page. -->
+  <div class="card" id="maintenance-panel" style="margin-bottom:1rem;border-color:#475569;">
+    <div class="card-title">🔧 Maintenance Mode <small id="maint-state" style="font-weight:400;opacity:.8">Checking…</small></div>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:.7rem;">Temporarily pause outage alerts during planned router or switch maintenance. This affects live monitoring.</p>
+    <div style="display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;">
+      <label for="maint-minutes">Duration</label>
+      <select id="maint-minutes" style="background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:.4rem;">
+        <option value="5">5 min</option><option value="10" selected>10 min</option>
+        <option value="15">15 min</option><option value="30">30 min</option>
+      </select>
+      <button class="btn btn-primary" id="maint-start-button" type="button" onclick="startMaintenanceFromSystem()">Start Maintenance Mode</button>
+      <button class="btn btn-warning" id="maint-stop-button" type="button" onclick="stopMaintenanceFromSystem()" hidden>End Maintenance</button>
+    </div>
+    <p id="maint-result" role="status" aria-live="polite" style="font-size:.78rem;margin-top:.55rem;"></p>
+  </div>
+
   <div class="grid2">
 
     <!-- Live State -->
@@ -1348,6 +1364,25 @@ loadRecentCycles();
 
 
 <script>
+</script>
+
+<script id="sm-system-maintenance">
+(function(){
+ const api='{{ base_path }}/maintenance/';
+ const result=document.getElementById('maint-result');
+ const state=document.getElementById('maint-state');
+ const start=document.getElementById('maint-start-button');
+ const stop=document.getElementById('maint-stop-button');
+ function csrf(){const cookie=document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);return cookie?decodeURIComponent(cookie[1]):'{{ csrf_token }}';}
+ async function refresh(){try{const response=await fetch(api+'status/',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error();const data=await response.json();state.textContent=data.active?'ACTIVE until '+(data.expires_at||'expiry'):'INACTIVE';start.hidden=!!data.active;stop.hidden=!data.active;}catch(e){state.textContent='Status unavailable';}}
+ async function send(action){if(!confirm(action==='start'?'Start Maintenance Mode? Monitoring alerts will be paused.':'End Maintenance Mode now?'))return;
+  const minutes=Number(document.getElementById('maint-minutes').value);
+  result.textContent='Processing…';start.disabled=true;stop.disabled=true;
+  try{const response=await fetch(api+action+'/',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':csrf()},body:action==='start'?JSON.stringify({minutes,reason:'Started from System Admin Tools'}):'{}'});if(!response.ok)throw Error('HTTP '+response.status);const payload=await response.json();if(payload.ok!==true)throw Error('Action denied');result.textContent='Maintenance '+(action==='start'?'started':'stopped')+'.';}catch(e){result.textContent='Action failed; no success confirmed.';}finally{start.disabled=false;stop.disabled=false;refresh();}}
+ window.startMaintenanceFromSystem=()=>send('start');
+ window.stopMaintenanceFromSystem=()=>send('stop');
+ refresh();setInterval(refresh,30000);
+})();
 </script>
 </body>
 </html>

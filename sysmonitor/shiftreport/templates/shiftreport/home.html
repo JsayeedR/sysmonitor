@@ -654,6 +654,17 @@ table.history th{
               C. Shift Activities and the Issues.
             </th>
           </tr>
+          <tr class="sm-source-selector-row"><th colspan="6" style="text-align:left;padding:.65rem .75rem;">
+            <label for="smActivitySourceMode" style="font-size:.82rem;font-weight:600;">Load Section C from:</label>
+            <select id="smActivitySourceMode" style="margin:.3rem .5rem;padding:.4rem;border-radius:7px;color:inherit;background:#1e293b;">
+              <option value="auto">Automatic (previous eligible shifts)</option>
+              <option value="mine">My last SENT report</option>
+              <option value="latest">Last available submitted shift report</option>
+            </select>
+            <button type="button" id="smActivitySourceLoad" class="btn secondary">Load selected source</button>
+            <small id="smActivitySourceFeedback" aria-live="polite" style="display:block;margin-top:.35rem;opacity:.83;">Automatic Section C carry-forward is used unless you load another source.</small>
+          </th></tr>
+
 
           <tr>
             <th>Type</th>
@@ -936,7 +947,8 @@ document.addEventListener('DOMContentLoaded', function () {
  });
  window.addEventListener('sm:activity-prefill', event=>{
    // Never overwrite hand-entered or already edited Section C information.
-   if(changed)return;
+   if(changed && !event.detail.force)return;
+   if(event.detail.force)changed=true;
    const rows=event.detail.rows;
    tbody.textContent='';
    const values=['activity_type','client_vendor','activity_details','activity_status','activity_remarks'];
@@ -1221,6 +1233,39 @@ document.addEventListener('DOMContentLoaded', function () {
  });
 
  area.insertAdjacentElement('afterend',container);update();
+})();
+</script>
+
+<script id="sm-activity-manual-source">
+(function(){
+ const pick=document.getElementById('smActivitySourceMode');
+ const button=document.getElementById('smActivitySourceLoad');
+ const message=document.getElementById('smActivitySourceFeedback');
+ const form=document.getElementById('reportComposer') || document.querySelector('form:has([name="report_date"])');
+ const tbody=document.getElementById('activityRows');
+ if(!pick||!button||!form||!tbody)return;
+ button.addEventListener('click',async function(){
+  const date=form.querySelector('[name="report_date"]');
+  const shift=form.querySelector('[name="shift"]');
+  if(!date||!shift||!date.value||!shift.value){message.textContent='Select report date and shift first.';return;}
+  if(pick.value==='auto'){message.textContent='Automatic mode remains active when preparing the report. Select a manual source to replace Section C.';return;}
+  const hasContent=Array.from(tbody.querySelectorAll('.activity-row')).some(row=>
+   Array.from(row.querySelectorAll('textarea,input:not([type="hidden"])')).some(field=>field.value.trim()));
+  if(hasContent&&!confirm('Replace current Section C entries with the selected report? Unsaved edits in Section C will be lost.'))return;
+  const url=new URL('{% url "shiftreport:activity_source" %}',window.location.href);
+  url.searchParams.set('mode',pick.value);url.searchParams.set('date',date.value);url.searchParams.set('shift',shift.value);
+  if(form.dataset.reportId)url.searchParams.set('exclude',form.dataset.reportId);
+  button.disabled=true;message.textContent='Loading source...';
+  try{
+   const response=await fetch(url,{credentials:'same-origin',cache:'no-store'});
+   if(!response.ok)throw new Error('Source request denied ('+response.status+')');
+   const data=await response.json();
+   if(!data.found){message.textContent='No eligible submitted report with Section C activities was found; existing entries kept.';return;}
+   window.dispatchEvent(new CustomEvent('sm:activity-prefill',{detail:{rows:data.rows,force:true}}));
+   message.textContent='Loaded '+data.rows.length+' Section C entr'+(data.rows.length===1?'y':'ies')+'. Source labels are editor-only.';
+  }catch(error){message.textContent='Could not load the source. Existing entries were kept.';}
+  finally{button.disabled=false;}
+ });
 })();
 </script>
 </body>
