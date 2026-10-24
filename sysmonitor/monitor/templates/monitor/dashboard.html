@@ -111,16 +111,41 @@
     }
 
 
-    .sm-power-lights { display:flex;gap:.35rem;flex-wrap:wrap;align-items:center;margin:.35rem 0; }
-    .sm-power-lights span { display:inline-flex;align-items:center;gap:.25rem;font-size:.69rem;white-space:nowrap; }
-    .sm-power-lights small {font-size:.62rem;color:var(--muted)}
-    .sm-light {display:inline-block;width:11px;height:11px;border-radius:50%;background:#64748b;box-shadow:0 0 0 1px #94a3b8;}
-    .sm-light.pdb-up {background:#3b82f6;box-shadow:0 0 9px 3px #3b82f688;}
-    .sm-light.gen-on {background:#fb923c;box-shadow:0 0 9px 3px #fb923c88;}
-    .sm-light.nvr-up {background:#22c55e;box-shadow:0 0 9px 3px #22c55e88;}
-    .sm-light.down {background:#ef4444;box-shadow:0 0 4px #ef444499;}
-    .sm-light.unknown {background:#64748b;box-shadow:none;}
-    .sm-power-lights .sm-light {flex:none;}
+    /* Three large, physically styled indicator lamps with labels underneath. */
+    #power-indicator-banner { justify-content:center; padding:.42rem .65rem; }
+    .sm-power-lights {
+      display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+      width:100%; gap:.45rem; align-items:center; justify-items:center;
+    }
+    .sm-indicator {
+      display:flex; flex-direction:column; align-items:center;
+      justify-content:center; gap:.36rem; min-width:0;
+    }
+    .sm-indicator-label {
+      font-size:.65rem; line-height:1.2; font-weight:700;
+      color:#cbd5e1; white-space:nowrap; text-align:center;
+    }
+    .sm-light {
+      --lamp:#64748b; --glow:rgba(100,116,139,.12);
+      position:relative; display:block; flex:none;
+      width:32px; height:32px; border-radius:50%;
+      border:2px solid rgba(226,232,240,.25);
+      background:radial-gradient(circle at 34% 25%, rgba(255,255,255,.5) 0%,
+        var(--lamp) 32%, var(--lamp) 72%, rgba(15,23,42,.8) 100%);
+      box-shadow:inset 0 -4px 6px rgba(0,0,0,.35),
+                 0 0 0 3px rgba(15,23,42,.75),
+                 0 0 16px 5px var(--glow);
+    }
+    .sm-light.pdb-up {--lamp:#3b82f6;--glow:rgba(59,130,246,.7);}
+    .sm-light.gen-on {--lamp:#fb923c;--glow:rgba(251,146,60,.7);}
+    .sm-light.nvr-up {--lamp:#22c55e;--glow:rgba(34,197,94,.65);}
+    .sm-light.down {--lamp:#ef4444;--glow:rgba(239,68,68,.52);}
+    .sm-light.unknown {--lamp:#64748b;--glow:rgba(100,116,139,.08);}
+    .sm-visually-hidden {
+      position:absolute; width:1px; height:1px; padding:0;
+      margin:-1px; overflow:hidden; clip:rect(0,0,0,0);
+      white-space:nowrap; border:0;
+    }
 
     /* DEVICES */
     .devices-row {
@@ -379,16 +404,24 @@
       </div>
     </div>
 
-    <!-- Recorded power supply indicators. Unknown is distinct from DOWN. -->
+    <!-- Power indicators: status still comes exclusively from /api/status/. -->
     <div class="banner UNKNOWN" id="power-indicator-banner" aria-label="Power source indicator status">
-      <div class="banner-text" style="min-width:0">
-        <div class="banner-label">Power sources</div>
-        <div class="sm-power-lights">
-          <span><b class="sm-light unknown" id="sm-pdb-light" aria-hidden="true"></b> PDB <small id="sm-pdb-text">Unknown</small></span>
-          <span><b class="sm-light unknown" id="sm-gen-light" aria-hidden="true"></b> Generator <small id="sm-gen-text">Unknown</small></span>
-          <span><b class="sm-light unknown" id="sm-nvr-light" aria-hidden="true"></b> Equipment <small id="sm-nvr-text">Unknown</small></span>
+      <div class="sm-power-lights">
+        <div class="sm-indicator" role="img" aria-label="PDB: Unknown" data-light-label="PDB">
+          <b class="sm-light unknown" id="sm-pdb-light" aria-hidden="true"></b>
+          <small class="sm-indicator-label">PDB</small>
+          <span class="sm-visually-hidden" id="sm-pdb-text">Unknown</span>
         </div>
-        <small style="font-size:.62rem;color:var(--muted)">PDB: 192.168.30.56 · Equipment: monitored NVR reachability</small>
+        <div class="sm-indicator" role="img" aria-label="Generator: Unknown" data-light-label="Generator">
+          <b class="sm-light unknown" id="sm-gen-light" aria-hidden="true"></b>
+          <small class="sm-indicator-label">Generator</small>
+          <span class="sm-visually-hidden" id="sm-gen-text">Unknown</span>
+        </div>
+        <div class="sm-indicator" role="img" aria-label="Equipment: Unknown" data-light-label="Equipment">
+          <b class="sm-light unknown" id="sm-nvr-light" aria-hidden="true"></b>
+          <small class="sm-indicator-label">Equipment</small>
+          <span class="sm-visually-hidden" id="sm-nvr-text">Unknown</span>
+        </div>
       </div>
     </div>
 
@@ -691,13 +724,21 @@ function refresh() {
         if(!el||!txt)return;
         el.className='sm-light '+(value===onValue?onClass:(value==='UNKNOWN'||!value?'unknown':'down'));
         txt.textContent=value==='UNKNOWN'||!value?'Unknown':(value===onValue?'ON':'OFF');
-        el.setAttribute('aria-label',txt.textContent);
+        const item=el.closest('.sm-indicator');
+        if(item){
+          const label=item.dataset.lightLabel||'Power';
+          item.setAttribute('aria-label',label+': '+txt.textContent);
+          item.title=label+': '+txt.textContent;
+        }
       };
       assignLight('sm-pdb-light','sm-pdb-text',p.pdb,'UP','pdb-up');
       assignLight('sm-gen-light','sm-gen-text',p.generator,'ON','gen-on');
       assignLight('sm-nvr-light','sm-nvr-text',p.equipment,'UP','nvr-up');
       const nvr=document.getElementById('sm-nvr-text');
-      if(nvr)nvr.title=p.equipment_source||'No recorded NVR state';
+      if(nvr && nvr.closest('.sm-indicator')) {
+        nvr.closest('.sm-indicator').title='Equipment: '+nvr.textContent+
+          ' · '+(p.equipment_source||'No recorded NVR state');
+      }
 
       // GEN/ATS Auto Mode
       const genModeMeta = document.getElementById('gen-mode-meta');

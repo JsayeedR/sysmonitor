@@ -320,6 +320,52 @@ table.history th{
   }
 }
 
+
+/* RC24.4: High-contrast editor-only Section C source control. */
+#activityTable .sm-source-selector-row th {
+  text-align:left; padding:.85rem 1rem;
+  background:#eff6ff; color:#142b4a;
+  border-color:#bfdbfe;
+  font-family:"Segoe UI",Arial,sans-serif;
+}
+#activityTable .sm-source-selector-row label {
+  display:inline-block; font-size:.82rem; font-weight:700;
+  color:#1e3a8a; margin-right:.45rem;
+}
+#activityTable #smActivitySourceMode {
+  display:inline-block; width:auto; min-width:260px; max-width:100%;
+  margin:.25rem .6rem .25rem 0; padding:.56rem .75rem;
+  color:#0f172a !important; background:#ffffff !important;
+  border:1.5px solid #64748b; border-radius:8px;
+  font:600 .82rem "Segoe UI",Arial,sans-serif;
+  color-scheme:light;
+}
+#activityTable #smActivitySourceMode option {
+  color:#0f172a; background:#ffffff;
+}
+#activityTable #smActivitySourceMode:focus-visible {
+  outline:3px solid #93c5fd; outline-offset:2px;
+  border-color:#2563eb;
+}
+#activityTable #smActivitySourceLoad {
+  display:inline-block; margin:.2rem 0; padding:.6rem .9rem;
+  border:1px solid #1d4ed8; border-radius:8px;
+  background:#2563eb; color:#ffffff !important;
+  font-weight:700; font-size:.8rem; cursor:pointer;
+}
+#activityTable #smActivitySourceLoad:hover {background:#1d4ed8;}
+#activityTable #smActivitySourceLoad:focus-visible {
+  outline:3px solid #93c5fd; outline-offset:2px;
+}
+#activityTable #smActivitySourceFeedback {
+  display:block; margin-top:.4rem; color:#334155;
+  font-weight:500; font-size:.74rem; opacity:1 !important;
+}
+@media (max-width:650px) {
+  #activityTable .sm-source-selector-row label {display:block;}
+  #activityTable #smActivitySourceMode {display:block;width:100%;min-width:0;}
+}
+
 </style>
 
 
@@ -654,15 +700,15 @@ table.history th{
               C. Shift Activities and the Issues.
             </th>
           </tr>
-          <tr class="sm-source-selector-row"><th colspan="6" style="text-align:left;padding:.65rem .75rem;">
-            <label for="smActivitySourceMode" style="font-size:.82rem;font-weight:600;">Load Section C from:</label>
-            <select id="smActivitySourceMode" style="margin:.3rem .5rem;padding:.4rem;border-radius:7px;color:inherit;background:#1e293b;">
+          <tr class="sm-source-selector-row"><th colspan="6">
+            <label for="smActivitySourceMode">Load Section C from:</label>
+            <select id="smActivitySourceMode">
               <option value="auto">Automatic (previous eligible shifts)</option>
               <option value="mine">My last SENT report</option>
               <option value="latest">Last available submitted shift report</option>
             </select>
             <button type="button" id="smActivitySourceLoad" class="btn secondary">Load selected source</button>
-            <small id="smActivitySourceFeedback" aria-live="polite" style="display:block;margin-top:.35rem;opacity:.83;">Automatic Section C carry-forward is used unless you load another source.</small>
+            <small id="smActivitySourceFeedback" aria-live="polite">Automatic Section C carry-forward is used unless you load another source.</small>
           </th></tr>
 
 

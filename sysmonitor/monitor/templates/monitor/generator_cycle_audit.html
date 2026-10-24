@@ -50,6 +50,23 @@
       color:var(--muted);
       font-size:.9rem;
     }
+    .sm-remarks-entry {
+      display:flex; align-items:center; justify-content:space-between;
+      flex-wrap:wrap; gap:.7rem; padding:.8rem 1rem;
+      background:#16243a; border:1px solid #35557a;
+      border-radius:10px; margin:0 0 1.2rem;
+    }
+    .sm-remarks-entry strong { font-size:.88rem; color:#dbeafe; }
+    .sm-remarks-entry p { margin:.25rem 0 0; color:#a9bed8; font-size:.75rem; }
+    .sm-remarks-entry a {
+      display:inline-flex; align-items:center; justify-content:center;
+      padding:.62rem .9rem; border-radius:8px;
+      background:#2563eb; color:white; font-size:.82rem;
+      font-weight:700; text-decoration:none;
+      border:1px solid #60a5fa;
+    }
+    .sm-remarks-entry a:hover,
+    .sm-remarks-entry a:focus-visible {background:#1d4ed8;outline:2px solid #93c5fd;outline-offset:2px;}
 
     .card {
       background:var(--surface);
@@ -306,6 +323,16 @@
     <h1>🕵️ Generator Cycle Audit</h1>
     <p>Manual / audited generator-cycle entry and audit history.</p>
   </div>
+
+  {% if "outage_cycle_remarks" not in page_hidden %}
+  <div class="sm-remarks-entry">
+    <div>
+      <strong>⚡ Outage Cycle Remarks</strong>
+      <p>Review and update remarks for recorded outage cycles.</p>
+    </div>
+    <a href="{{ base_path }}/outage-cycle-remarks/">Open Outage Cycle Remarks →</a>
+  </div>
+  {% endif %}
 
   <section class="card">
     <div class="card-title">➕ Add Manual / Audited Cycle</div>

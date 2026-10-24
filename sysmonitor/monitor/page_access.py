@@ -175,7 +175,7 @@ PAGE_DEFINITIONS = {
     },
 
     'outage_cycle_remarks': {
-        'label': '⚡ Outage Cycle Remarks', 'group': 'Others',
+        'label': '⚡ Outage Cycle Remarks', 'group': 'Generator Data',
         'roles': ('user','admin'), 'prefixes': ('/outage-cycle-remarks/',),
     },
     'duty_roster': {

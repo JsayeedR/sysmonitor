@@ -342,7 +342,7 @@
     </div>
     {% elif role == "user" or role == "admin" %}
     <div class="nav-dropdown" id="generator-data-dropdown">
-      <a href="#" class="nav-dropdown-toggle {% if '/generator-log/' in request.path or '/generator-fuel/' in request.path or '/generator-fuel-report/' in request.path or '/generator-cycle-audit/' in request.path or '/genruntime/' in request.path %}active{% endif %}" onclick="toggleGeneratorDataDropdown(event)">⚙️ Generator Data ▾</a>
+      <a href="#" class="nav-dropdown-toggle {% if '/generator-log/' in request.path or '/generator-fuel/' in request.path or '/generator-fuel-report/' in request.path or '/generator-cycle-audit/' in request.path or '/outage-cycle-remarks/' in request.path or '/genruntime/' in request.path %}active{% endif %}" onclick="toggleGeneratorDataDropdown(event)">⚙️ Generator Data ▾</a>
       <div class="nav-dropdown-menu">
         {% if "generator_shifting" not in page_hidden %}<a href="{{ base_path }}/generator-log/" class="{% if '/generator-log/' in request.path %}active{% endif %}">🔄 Generator Shifting Entry</a>{% endif %}
         {% if "generator_fuel_entry" not in page_hidden %}<a href="{{ base_path }}/generator-fuel/" class="{% if request.path == '/generator-fuel/' %}active{% endif %}">⛽ Generator Fuel Entry</a>{% endif %}
@@ -379,7 +379,6 @@
         {% if "cctv" not in page_hidden %}<a href="{{ base_path }}/cctv/" class="{% if '/cctv/' in request.path %}active{% endif %}">🎥 NOC CCTV</a>{% endif %}
         {% if "notification_request" not in page_hidden %}<a href="{{ base_path }}/notification-request/" class="{% if '/notification-request/' in request.path %}active{% endif %}">🔔 Notification Request</a>{% endif %}
         {% if "profile" not in page_hidden %}<a href="{{ base_path }}/profile/" class="{% if '/profile/' in request.path %}active{% endif %}">👤 My Profile</a>{% endif %}
-        {% if "outage_cycle_remarks" not in page_hidden %}<a href="{{ base_path }}/outage-cycle-remarks/">⚡ Outage Cycle Remarks</a>{% endif %}
         {% if "manual" not in page_hidden %}<a href="{{ base_path }}/manual/" class="{% if '/manual/' in request.path %}active{% endif %}">📘 Manual v{{ sys_version }}</a>{% endif %}
         {% if "security_patch_updates" not in page_hidden %}<a href="{{ base_path }}/security-patch-updates/" class="{% if '/security-patch-updates/' in request.path %}active{% endif %}">🛡️ Security Patch Updates</a>{% endif %}
         <a href="{{ base_path }}/about/" class="{% if '/about/' in request.path %}active{% endif %}">ℹ️ About Us</a>
@@ -395,7 +394,6 @@
         {% if "cctv" not in page_hidden %}<a href="{{ base_path }}/cctv/" class="{% if '/cctv/' in request.path %}active{% endif %}">🎥 NOC CCTV</a>{% endif %}
         {% if "notification_request" not in page_hidden %}<a href="{{ base_path }}/notification-request/" class="{% if '/notification-request/' in request.path %}active{% endif %}">🔔 Notification Request</a>{% endif %}
         {% if "profile" not in page_hidden %}<a href="{{ base_path }}/profile/" class="{% if '/profile/' in request.path %}active{% endif %}">👤 My Profile</a>{% endif %}
-        {% if "outage_cycle_remarks" not in page_hidden %}<a href="{{ base_path }}/outage-cycle-remarks/">⚡ Outage Cycle Remarks</a>{% endif %}
         {% if "manual" not in page_hidden %}<a href="{{ base_path }}/manual/" class="{% if '/manual/' in request.path %}active{% endif %}">📘 Manual v{{ sys_version }}</a>{% endif %}
         {% if "security_patch_updates" not in page_hidden %}<a href="{{ base_path }}/security-patch-updates/" class="{% if '/security-patch-updates/' in request.path %}active{% endif %}">🛡️ Security Patch Updates</a>{% endif %}
         <a href="{{ base_path }}/about/" class="{% if '/about/' in request.path %}active{% endif %}">ℹ️ About Us</a>

@@ -75,7 +75,6 @@ def page_access(request):
         'profile',
         'manual',
         'security_patch_updates',
-        'outage_cycle_remarks',
     }
 
     admin_keys = {

@@ -71,7 +71,14 @@
       background:var(--surface2); border:1px solid var(--border);
       border-radius:9px; padding:.7rem .8rem; cursor:pointer;
     }
-    .item input { width:17px; height:17px; }
+    .item input[type="checkbox"] {
+      width:18px; height:18px; flex:0 0 18px;
+      accent-color:#60a5fa; cursor:pointer;
+    }
+    .item:has(input[type="checkbox"]:focus-visible) {
+      outline:2px solid #93c5fd; outline-offset:2px;
+    }
+    .item input[type="checkbox"]:disabled { cursor:not-allowed; }
     .item span { font-size:.82rem; }
     .is-unavailable { opacity:.48; cursor:not-allowed; }
     .is-locked { border-color:#436389; background:#193149; cursor:default; }
@@ -150,7 +157,7 @@
         {% for page in pages %}
         <label class="item{% if not page.eligible %} is-unavailable{% endif %}{% if page.locked %} is-locked{% endif %}">
           <input
-            type="checkbox
+            type="checkbox"
             name="visible_pages"
             value="{{ page.key }}"
             {% if page.visible %}checked{% endif %}
