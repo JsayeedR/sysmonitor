@@ -165,7 +165,8 @@
           >
           <span>{{ page.label }}
             {% if page.locked %}<small class="small-note">Always available · recovery</small>
-            {% elif not page.eligible %}<small class="small-note">Not available to this role</small>{% endif %}
+            {% elif not page.eligible %}<small class="small-note">Not available to this role</small>
+            {% elif page.key == 'page_access' %}<small class="small-note">Superadmin-controlled for Admin accounts</small>{% endif %}
           </span>
         </label>
         {% endfor %}

@@ -7191,8 +7191,15 @@ def page_access_manage(request):
 
         selected_role = get_role(target)
         allowed = pages_for_role(selected_role)
+        # Superadmin can hide Page Access for ordinary Admin accounts, but
+        # never for Superadmin itself. Existing role ceiling stays enforced.
+        def locked_for_target(key, cfg):
+            return bool(cfg.get('locked')) and not (
+                key == 'page_access' and not target.is_superuser
+            )
+
         editable_keys = {
-            k for k, cfg in allowed.items() if not cfg.get('locked')
+            k for k, cfg in allowed.items() if not locked_for_target(k, cfg)
         }
 
         current_hidden = set(profile.hidden_pages or [])
@@ -7241,7 +7248,7 @@ def page_access_manage(request):
                 'label': cfg['label'],
                 'visible': key not in current_hidden and key in allowed,
                 'eligible': key in allowed,
-                'locked': bool(cfg.get('locked')),
+                'locked': locked_for_target(key, cfg),
             })
 
     return render(request, 'monitor/page_access.html', {

@@ -256,7 +256,10 @@ def hidden_pages_for_user(user):
     return {
         key
         for key in raw
-        if key in PAGE_DEFINITIONS and not PAGE_DEFINITIONS[key].get('locked')
+        if key in PAGE_DEFINITIONS and (
+            not PAGE_DEFINITIONS[key].get('locked')
+            or (key == 'page_access' and not user.is_superuser)
+        )
     }
 
 
@@ -317,4 +320,8 @@ def user_can_access_page(user, key):
     if role not in cfg['roles']:
         return False
 
+    # Only the Superadmin retains guaranteed recovery access. Normal Admin
+    # access to the Page Access screen is controlled by a Superadmin.
+    if key == 'page_access':
+        return bool(user.is_superuser) or key not in hidden_pages_for_user(user)
     return cfg.get('locked', False) or key not in hidden_pages_for_user(user)

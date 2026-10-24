@@ -105,9 +105,10 @@ class PageAccessMiddleware:
         user = getattr(request, 'user', None)
 
         if user is not None and user.is_authenticated:
-            # The Page Access administration screen is intentionally
-            # non-hideable so administrators always have a recovery route.
-            if not request.path_info.startswith('/page-access/'):
+            # Keep recovery permanently available for Superadmin only.
+            # Ordinary Admin access to this route is configurable by Superadmin.
+            if not (request.path_info.startswith('/page-access/')
+                    and user.is_superuser):
                 from django.shortcuts import render
                 from .page_access import (
                     page_key_for_path,
