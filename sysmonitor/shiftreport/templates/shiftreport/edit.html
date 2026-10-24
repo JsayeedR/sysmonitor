@@ -257,6 +257,7 @@ textarea{
 .sm-a4-hist-panel[hidden]{display:none!important}
 .sm-a4-hist-table th,.sm-a4-hist-table td{font-size:12px;padding:9px}
 </style>
+<style>.sm-source-note{display:block;font-size:11px;margin-top:5px;color:#0369a1;font-weight:600}@media print{.sm-source-note{display:none!important}}</style>
 </head>
 
 <body>
@@ -608,6 +609,10 @@ textarea{
 
             <td>
               <textarea name="activity_remarks">{{ row.remarks }}</textarea>
+              <input type="hidden" name="activity_source_reference" value="{{ row.source_reference }}">
+              {% if row.source_reference %}
+              <small class="sm-source-note">Source: {{ row.source_reference }}</small>
+              {% endif %}
             </td>
 
             <td>
@@ -636,7 +641,8 @@ textarea{
               >
             </td>
 
-            <td><textarea name="activity_remarks"></textarea></td>
+            <td><textarea name="activity_remarks"></textarea>
+              <input type="hidden" name="activity_source_reference" value=""></td>
 
             <td>
               <button
@@ -662,6 +668,7 @@ textarea{
         <option value="N/A">
       </datalist>
 
+      <p class="sm-source-note" style="margin:8px 0 0">Source indicators are for editing only and are excluded from delivered reports.</p>
       <div style="margin-top:.65rem">
 
         {% if report.status != "SENT" %}
@@ -820,7 +827,7 @@ function addActivityRow() {
         list="issue-status-options"
       >
     </td>
-    <td><textarea name="activity_remarks"></textarea></td>
+    <td><textarea name="activity_remarks"></textarea><input type="hidden" name="activity_source_reference" value=""></td>
     <td>
       <button
         class="btn secondary"
@@ -843,6 +850,7 @@ function removeActivityRow(button) {
     row.querySelectorAll('input, textarea').forEach(
       element => element.value = ''
     );
+    row.querySelectorAll('.sm-source-note').forEach(note => note.remove());
 
     return;
   }

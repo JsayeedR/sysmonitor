@@ -11,7 +11,7 @@ IDENTITY = 'fullviewer@sysmonitor'
 # Explicit safe read-only route names, checked against Django's URL resolver.
 # Unsafe/unknown admin, mutation, attachment and export routes fail closed.
 SAFE_ROUTES = frozenset({
-    'dashboard', 'about', 'manual', 'api_status', 'api_daily_summary',
+    'dashboard', 'about', 'manual', 'security_patch_updates', 'api_status', 'api_daily_summary',
     'api_report', 'user_list', 'duty_roster_manage', 'duty_roster_current',
     'device_list', 'event_log', 'activity_log', 'report', 'uptime_status',
     'uptime_status_log', 'pac_status', 'sensor_status', 'api_sensor_status',

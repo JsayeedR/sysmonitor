@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Security Patch Updates · SysMonitor</title>
+  <meta name="description" content="Verified SysMonitor security improvements and release guidance for signed-in staff.">
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    :root{color-scheme:dark;--bg:#0b1220;--surface:#141f32;--surface2:#1c2b42;--border:#32445e;--text:#edf4ff;--muted:#a8b9cf;--dim:#71849e;--blue:#70adff;--green:#66dbaf;--amber:#ffd38a}
+    html{scroll-behavior:smooth}
+    body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:radial-gradient(ellipse at 85% -12%,#17365e 0,transparent 52%),var(--bg);color:var(--text);font:14px/1.65 'Segoe UI',system-ui,sans-serif}
+    a{color:var(--blue)}a:focus-visible,summary:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+    .security-shell{width:min(1130px,100%);margin:0 auto;padding:34px 24px 62px;flex:1}
+    .hero{position:relative;overflow:hidden;border:1px solid #42608b;border-radius:22px;padding:36px;background:linear-gradient(120deg,rgba(35,79,131,.8),rgba(19,35,57,.93) 68%);box-shadow:0 24px 60px #02071455}
+    .hero:after{content:"";position:absolute;width:260px;height:260px;border:1px solid #88bfff32;border-radius:50%;top:-140px;right:-85px;pointer-events:none}
+    .eyebrow{color:#bfe5ff;text-transform:uppercase;letter-spacing:.14em;font-size:.72rem;font-weight:800}
+    h1{font-size:clamp(2rem,4.2vw,3.1rem);letter-spacing:-.045em;line-height:1.15;margin:12px 0 14px}
+    .hero p{font-size:1rem;max-width:690px;color:#d3e3f6;margin:0}
+    .hero-pills{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border:1px solid #88bfff50;border-radius:99px;background:#081c36a8;color:#cbe7ff;font-size:.76rem;font-weight:650}
+    .hero .pill.ok{border-color:#83eac354;color:#a7f4d1}
+    .section-heading{display:flex;justify-content:space-between;align-items:end;gap:15px;margin:32px 0 14px;flex-wrap:wrap}
+    h2{font-size:1.25rem;letter-spacing:-.02em;line-height:1.25;margin:0}.section-heading p{margin:5px 0 0;color:var(--muted)}
+    .release-kpis,.control-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .metric,.control,.notice,.timeline-card{background:linear-gradient(145deg,var(--surface),#101b2d);border:1px solid var(--border);border-radius:15px}
+    .metric{padding:20px;min-height:122px}.metric strong{display:block;font-size:1.8rem;line-height:1.2;letter-spacing:-.025em;margin:6px 0 7px;color:#d9eaff}.metric span{color:var(--muted);font-size:.83rem}
+    .control{padding:22px;min-height:207px;transition:border-color .15s ease,transform .15s ease}.control:hover{border-color:#587fae;transform:translateY(-2px)}
+    .control-top{display:flex;justify-content:space-between;gap:10px;align-items:center}.symbol{width:39px;height:39px;display:grid;place-items:center;border-radius:12px;background:#234565;border:1px solid #4779a8;font-size:1.1rem}.tag{color:#96edc6;font-weight:750;font-size:.69rem;text-transform:uppercase;letter-spacing:.07em}
+    .control h3{font-size:1rem;margin:13px 0 6px}.control p{font-size:.86rem;line-height:1.6;color:var(--muted);margin:0}
+    .timeline-card{padding:23px 26px}.timeline{list-style:none;padding:0;margin:0;display:grid;gap:17px}.timeline li{position:relative;padding-left:26px;border-left:1px solid #56789b;margin-left:6px}.timeline li:before{content:"";position:absolute;left:-5px;top:6px;background:var(--green);width:9px;height:9px;border-radius:50%}.timeline strong{display:block;color:#ecf5ff;font-size:.94rem}.timeline span{color:var(--muted);font-size:.85rem}
+    .notice{padding:22px 24px;border-color:#82704e;background:#2b261c}.notice h3{margin:0 0 8px;font-size:1rem;color:#ffe3ae}.notice p,.notice li{color:#e3cfaa;font-size:.85rem}.notice p{margin:0 0 9px}.notice ul{padding-left:20px;margin:0}
+    .reference{font-size:.82rem;color:var(--muted);margin-top:24px}.reference code{color:#d6e6f9;overflow-wrap:anywhere}
+    .quick{display:flex;gap:10px;flex-wrap:wrap;margin-top:19px}.quick a{display:inline-flex;align-items:center;border:1px solid #5b83b1;border-radius:10px;padding:8px 14px;text-decoration:none;color:#d7eaff;background:#152c46;font-weight:650;font-size:.82rem}.quick a:hover{border-color:#a4d2ff}
+    @media(max-width:850px){.release-kpis,.control-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:580px){.security-shell{padding:17px 12px 36px}.hero{padding:24px 19px;border-radius:15px}.release-kpis,.control-grid{grid-template-columns:1fr}.metric{min-height:unset}.control{min-height:unset}.section-heading{margin-top:25px}}
+    @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+  </style>
+</head>
+<body>
+  {% include "monitor/navbar.html" %}
+  <main class="security-shell" id="main-content">
+    <header class="hero">
+      <div class="eyebrow">SysMonitor · Security release bulletin</div>
+      <h1>Security Patch <span style="color:#b7d9ff">Updates</span></h1>
+      <p>A transparent summary of security improvements delivered with RC24, the controls verified during release testing, and areas that still require attention.</p>
+      <div class="hero-pills"><span class="pill ok">● Release deployed</span><span class="pill">RC24 · 24 October 2026</span><span class="pill">For authorized personnel</span></div>
+      <div class="quick"><a href="#controls">Explore improvements ↓</a><a href="#limitations">Known limitations</a><a href="{{ base_path }}/manual/">Operations manual ↗</a></div>
+    </header>
+
+    <section aria-labelledby="release-heading">
+      <div class="section-heading"><div><h2 id="release-heading">Release verification</h2><p>Recorded during RC24 acceptance, not a real-time security rating.</p></div></div>
+      <div class="release-kpis">
+        <article class="metric"><span>Offline automated tests</span><strong>94 / 94</strong><span>Passed in the isolated release rehearsal</span></article>
+        <article class="metric"><span>Master database migrations</span><strong>6 / 6</strong><span>Applied with integrity verification</span></article>
+        <article class="metric"><span>Release deployment</span><strong>2 sites</strong><span>Master and remote mirror verified</span></article>
+      </div>
+    </section>
+
+    <section id="controls" aria-labelledby="controls-heading">
+      <div class="section-heading"><div><h2 id="controls-heading">What was improved</h2><p>Security concerns addressed by this release, explained without exposing sensitive implementation details.</p></div></div>
+      <div class="control-grid">
+        <article class="control"><div class="control-top"><span class="symbol" aria-hidden="true">🔐</span><span class="tag">Hardened</span></div><h3>Authentication &amp; sessions</h3><p>Improved password-reset safeguards and session invalidation behavior. Changes to account status or credentials are covered by security tests.</p></article>
+        <article class="control"><div class="control-top"><span class="symbol" aria-hidden="true">👥</span><span class="tag">Hardened</span></div><h3>Role-based permissions</h3><p>Strengthened admin privilege checks, Full Viewer read-only rules, and protection of sensitive actions from unauthorized access.</p></article>
+        <article class="control"><div class="control-top"><span class="symbol" aria-hidden="true">🌐</span><span class="tag">Live verified</span></div><h3>Master &amp; mirror trust</h3><p>Mirror sessions now use master-authoritative identity verification. Requests fail closed when identity validation cannot be completed.</p></article>
+        <article class="control"><div class="control-top"><span class="symbol" aria-hidden="true">📚</span><span class="tag">Preserved</span></div><h3>Historical records</h3><p>Added non-login identity snapshots and account-removal safety checks to protect audit attribution, operational records, and report history.</p></article>
+        <article class="control"><div class="control-top"><span class="symbol" aria-hidden="true">📝</span><span class="tag">Protected</span></div><h3>Shift &amp; PFE reports</h3><p>Improved sent-report signature capture and report-delivery locking. Existing history was checked against the migrated database.</p></article>
+        <article class="control"><div class="control-top"><span class="symbol" aria-hidden="true">🗂️</span><span class="tag">Restricted</span></div><h3>Access to sensitive files</h3><p>Added stronger controls around authenticated media access and protection of operational configuration and backups.</p></article>
+        <article class="control"><div class="control-top"><span class="symbol" aria-hidden="true">🛡️</span><span class="tag">Guarded</span></div><h3>Release &amp; update controls</h3><p>Automatic code activation now requires explicit release approval. RC24 was staged, checked and deployed under controlled steps.</p></article>
+        <article class="control"><div class="control-top"><span class="symbol" aria-hidden="true">🧪</span><span class="tag">Tested</span></div><h3>Safe change verification</h3><p>Database migrations, account-removal rehearsals, cookie behavior, and representative report rendering were exercised in isolated tests.</p></article>
+        <article class="control"><div class="control-top"><span class="symbol" aria-hidden="true">♻️</span><span class="tag">Prepared</span></div><h3>Recovery readiness</h3><p>Verified pre-deployment backups and database integrity checks were retained to support controlled recovery if needed.</p></article>
+      </div>
+    </section>
+
+    <section aria-labelledby="timeline-heading">
+      <div class="section-heading"><div><h2 id="timeline-heading">RC24 validation milestones</h2><p>Evidence observed during this release—not a guarantee against future vulnerabilities.</p></div></div>
+      <div class="timeline-card"><ol class="timeline">
+        <li><strong>Offline security regression</strong><span>94 tests passed; private database migrations, retention checks, and eight reversible account-deletion rehearsals completed.</span></li>
+        <li><strong>Master cutover</strong><span>48 verified source files installed; six database migrations succeeded; monitoring and HTTP health checks passed.</span></li>
+        <li><strong>Remote mirror activation</strong><span>Public login returned HTTP 200, remote-to-master identity verification passed, and the mirrored schema was confirmed.</span></li>
+        <li><strong>Update approval guard</strong><span>Automatic-update timer restored with unapproved code activation blocked.</span></li>
+      </ol></div>
+    </section>
+
+    <section id="limitations" aria-labelledby="limitations-heading">
+      <div class="section-heading"><div><h2 id="limitations-heading">Remaining safeguards and follow-ups</h2><p>Transparent release notes are more useful than an unsupported “100% secure” claim.</p></div></div>
+      <div class="notice"><h3>Security is maintained, not permanently completed.</h3>
+        <p>RC24 was validated against the tests and deployment checks described above. It is not a comprehensive penetration-test certification or proof that no weaknesses remain.</p>
+        <ul>
+          <li>Permanent account deletion remains disabled pending separate operational authorization. Legacy SENT-report authors retain additional protections where original signature snapshots were unavailable.</li>
+          <li>Interactive end-user acceptance, ongoing dependency review and infrastructure exposure checks remain part of operational security.</li>
+          <li>A post-release colocation notification reported missing live sensor data; device/connectivity health requires separate investigation.</li>
+          <li>GitHub publication is separate from the deployed RC24 release and should follow release-control approval.</li>
+        </ul>
+      </div>
+      <p class="reference">Release record: <strong>Security RC24</strong> · Verified 24 October 2026 · Commit <code>3b69731c256da942dfb6fb87161d7bbdfb3f7382</code>. This page is a static release bulletin. For suspected security problems, contact your designated SysMonitor administrator through approved internal channels; never post passwords, tokens or personal data in reports.</p>
+    </section>
+  </main>
+  {% include "monitor/footer.html" %}
+</body>
+</html>

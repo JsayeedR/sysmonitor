@@ -7147,7 +7147,7 @@ def page_access_manage(request):
     """
     from collections import OrderedDict
 
-    from .page_access import pages_for_role
+    from .page_access import PAGE_DEFINITIONS, pages_for_role
 
     users = (
         User.objects
@@ -7184,14 +7184,17 @@ def page_access_manage(request):
         profile, _ = UserProfile.objects.get_or_create(user=target)
 
         selected_role = get_role(target)
-        allowed = {k: v for k, v in pages_for_role(selected_role).items() if k != 'shift_report_config'}
+        allowed = pages_for_role(selected_role)
+        editable_keys = {
+            k for k, cfg in allowed.items() if not cfg.get('locked')
+        }
 
         current_hidden = set(profile.hidden_pages or [])
 
         if request.method == 'POST':
             # Browser submits ONLY pages currently allowed by the role.
             visible = set(request.POST.getlist('visible_pages'))
-            allowed_keys = set(allowed.keys())
+            allowed_keys = editable_keys
 
             # The administrator can only hide pages inside the role.
             hidden = sorted(allowed_keys - visible)
@@ -7220,15 +7223,19 @@ def page_access_manage(request):
                 f'/page-access/?user={target.id}'
             )
 
-        current_hidden &= set(allowed.keys())
+        current_hidden &= editable_keys
 
-        for key, cfg in allowed.items():
+        # Show the complete navigable page inventory, including pages the
+        # selected role may not use and the non-hideable recovery route.
+        for key, cfg in PAGE_DEFINITIONS.items():
             group = cfg['group']
             grouped_pages.setdefault(group, [])
             grouped_pages[group].append({
                 'key': key,
                 'label': cfg['label'],
-                'visible': key not in current_hidden,
+                'visible': key not in current_hidden and key in allowed,
+                'eligible': key in allowed,
+                'locked': bool(cfg.get('locked')),
             })
 
     return render(request, 'monitor/page_access.html', {
@@ -7237,6 +7244,8 @@ def page_access_manage(request):
         'target_role': selected_role,
         'grouped_pages': grouped_pages,
         'hidden_count': len(current_hidden),
+        'page_count': len(PAGE_DEFINITIONS) if target is not None else 0,
+        'editable_count': len(editable_keys) if target is not None else 0,
         'role': get_role(request.user),
         'user': request.user,
     })

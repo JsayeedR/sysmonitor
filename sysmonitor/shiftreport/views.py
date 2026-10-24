@@ -22,6 +22,7 @@ from .models import (
     MnocPfeReport,
     ShiftReportActivity,
 )
+from .activity_carryforward import carry_forward_rows
 from .services import (
     BDT,
     build_previous_day_summary,
@@ -155,6 +156,7 @@ def _activity_rows_from_post(request):
     details = request.POST.getlist('activity_details')
     statuses = request.POST.getlist('activity_status')
     remarks = request.POST.getlist('activity_remarks')
+    sources = request.POST.getlist('activity_source_reference')
 
     length = max(
         len(types),
@@ -194,9 +196,14 @@ def _activity_rows_from_post(request):
                 if index < len(remarks)
                 else ''
             ),
+            'source_reference': (
+                sources[index].strip()[:255]
+                if index < len(sources) else ''
+            ),
         }
 
-        if any(row.values()):
+        if any(row[k] for k in (
+                'activity_type','client_vendor','details','status','remarks')):
             rows.append(row)
 
     return rows
@@ -216,12 +223,39 @@ def _replace_activity_rows(report, rows):
                 details=row['details'],
                 status=row['status'],
                 remarks=row['remarks'],
+                source_reference=row.get('source_reference', ''),
                 display_order=index * 10,
             )
         )
 
     if objects:
         ShiftReportActivity.objects.bulk_create(objects)
+
+
+def _validated_activity_rows(report, rows, engineer, prior_rows=()):
+    """Accept a provenance label only if a matching server-known source exists.
+
+    Matching all five operational fields prevents a browser from making up an
+    arbitrary source for a manually typed row. An original persisted source
+    remains attributable on subsequent draft saves if unchanged.
+    """
+    historical = carry_forward_rows(report.report_date, report.shift,
+                                    engineer, exclude_id=report.pk)
+    eligible = {
+        (r['activity_type'], r['client_vendor'], r['details'], r['status'],
+         r['remarks'], r['source_reference'])
+        for r in historical
+    }
+    eligible.update((r.activity_type,r.client_vendor,r.details,r.status,
+                     r.remarks,r.source_reference) for r in prior_rows
+                    if r.source_reference)
+    for row in rows:
+        record = tuple(row[k] for k in
+            ('activity_type','client_vendor','details','status','remarks',
+             'source_reference'))
+        if record not in eligible:
+            row['source_reference'] = ''
+    return rows
 
 
 def _apply_structured_report_fields(report, request):
@@ -482,6 +516,9 @@ def shift_report_slot_check(request):
         )
     }
 
+    details['activity_prefill'] = (
+        carry_forward_rows(date_value, shift, request.user) if not taken else []
+    )
     if taken:
         details.update({
             'status': taken.get_status_display(),
@@ -569,6 +606,7 @@ def shift_report_home(request):
             'due_existing': due_existing,
 
             'composer_defaults': composer_defaults,
+            'activity_prefill_rows': carry_forward_rows(due_date, due_code, request.user),
             'a9_generator_html': __import__('shiftreport.reporting', fromlist=['_previous_day_generator_summary_html'])._previous_day_generator_summary_html(
                 build_previous_day_summary(due_date) if due_code == 'NIGHT' else {}, due_code),
             'load_shedding_text': load_shedding_text(
@@ -822,10 +860,14 @@ def shift_report_create(request):
     except Exception as exc:
         messages.error(request, f'Optional attachment not accepted: {exc}')
 
-    _replace_activity_rows(
-        report,
-        _activity_rows_from_post(request),
-    )
+    submitted_rows = _activity_rows_from_post(request)
+    if submitted_rows:
+        submitted_rows = _validated_activity_rows(
+            report, submitted_rows, request.user)
+    else:
+        submitted_rows = carry_forward_rows(report_date, shift, request.user,
+                                          exclude_id=report.pk)
+    _replace_activity_rows(report, submitted_rows)
 
     log_activity(
         request.user,
@@ -1230,10 +1272,10 @@ def shift_report_save(request, report_id):
     except Exception as exc:
         messages.error(request, f'Optional attachment not accepted: {exc}')
 
-    _replace_activity_rows(
-        report,
-        _activity_rows_from_post(request),
-    )
+    saved_rows = list(report.activity_rows.all())
+    submitted_rows = _validated_activity_rows(
+        report, _activity_rows_from_post(request), request.user, saved_rows)
+    _replace_activity_rows(report, submitted_rows)
 
     log_activity(
         request.user,

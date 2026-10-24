@@ -119,15 +119,48 @@ PAGE_DEFINITIONS = {
         'roles': ('viewer', 'user', 'admin'),
         'prefixes': ('/manual/',),
     },
+    'about': {
+        'label': 'ℹ️ About Us', 'group': 'Others',
+        'roles': ('guest', 'viewer', 'user', 'admin', 'fullviewer'),
+        'prefixes': ('/about/',), 'locked': True,
+    },
+    'account_recovery': {
+        'label': '🔑 Login, Logout & Password Recovery',
+        'group': 'Account & Recovery',
+        'roles': ('guest', 'viewer', 'user', 'admin', 'fullviewer'),
+        'prefixes': ('/login/', '/logout/', '/password-reset/',
+                     '/profile/password/'), 'locked': True,
+    },
+    'page_access': {
+        'label': '🔐 Page Access (recovery)', 'group': 'Administrative',
+        'roles': ('admin',), 'prefixes': ('/page-access/',),
+        'locked': True,
+    },
+    'maintenance': {
+        'label': '🛠️ Maintenance Controls', 'group': 'Administrative',
+        'roles': ('admin',), 'prefixes': ('/maintenance/',),
+    },
+    'security_patch_updates': {
+        'label': '🛡️ Security Patch Updates',
+        'group': 'Others',
+        'roles': ('viewer', 'user', 'admin', 'fullviewer'),
+        'prefixes': ('/security-patch-updates/',),
+    },
 
     'shift_report': {
         'label': '📝 Shift Report (Main + Historical)',
         'group': 'Main',
         'roles': ('user', 'admin'),
         'prefixes': ('/shift-report/',),
-        'exclude_prefixes': ('/shift-report/mnoc-pfe/', '/shift-report/config/'),
+        'exclude_prefixes': ('/shift-report/mnoc-pfe/', '/shift-report/config/',
+                             '/shift-report/historical/'),
     },
 
+    'historical_report': {
+        'label': '📊 Historical Shift Report', 'group': 'Main',
+        'roles': ('user', 'admin'),
+        'prefixes': ('/shift-report/historical/',),
+    },
     'mnoc_pfe': {
         'label': '⚡ MNOC PFE Report',
         'group': 'Main',
@@ -223,7 +256,7 @@ def hidden_pages_for_user(user):
     return {
         key
         for key in raw
-        if key in PAGE_DEFINITIONS
+        if key in PAGE_DEFINITIONS and not PAGE_DEFINITIONS[key].get('locked')
     }
 
 
@@ -284,4 +317,4 @@ def user_can_access_page(user, key):
     if role not in cfg['roles']:
         return False
 
-    return key not in hidden_pages_for_user(user)
+    return cfg.get('locked', False) or key not in hidden_pages_for_user(user)

@@ -681,6 +681,10 @@ class ShiftReportActivity(models.Model):
         blank=True,
     )
 
+    # Visible in the EDITOR only. The final email renderer uses the five
+    # operational columns and never emits this metadata.
+    source_reference = models.CharField(max_length=255, blank=True, default='')
+
     display_order = models.PositiveIntegerField(
         default=100,
     )

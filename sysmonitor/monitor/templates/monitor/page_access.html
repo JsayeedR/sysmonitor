@@ -73,6 +73,9 @@
     }
     .item input { width:17px; height:17px; }
     .item span { font-size:.82rem; }
+    .is-unavailable { opacity:.48; cursor:not-allowed; }
+    .is-locked { border-color:#436389; background:#193149; cursor:default; }
+    .small-note { display:block; font-size:.68rem; color:#94a3b8; margin-top:3px; }
     .actions {
       display:flex; justify-content:flex-end; margin-top:1.2rem;
     }
@@ -103,7 +106,8 @@
 
   <div class="notice">
     <strong>Role permission is always the maximum.</strong>
-    This page can only hide pages the selected user's role already permits.
+    All registered pages are listed below. Unavailable pages cannot be granted;
+    the Page Access recovery screen and About page are non-hideable.
     It cannot grant Viewer/User/Admin pages outside that role.
   </div>
 
@@ -127,6 +131,8 @@
       <span class="pill">User: {{ target_user.username }}</span>
       <span class="pill">Role ceiling: {{ target_role|upper }}</span>
       <span class="pill">Hidden pages: {{ hidden_count }}</span>
+      <span class="pill">Registered pages: {{ page_count }}</span>
+      <span class="pill">Configurable for this role: {{ editable_count }}</span>
     </div>
     {% endif %}
   </div>
@@ -142,14 +148,18 @@
 
       <div class="grid">
         {% for page in pages %}
-        <label class="item">
+        <label class="item{% if not page.eligible %} is-unavailable{% endif %}{% if page.locked %} is-locked{% endif %}">
           <input
-            type="checkbox"
+            type="checkbox
             name="visible_pages"
             value="{{ page.key }}"
             {% if page.visible %}checked{% endif %}
+            {% if page.locked or not page.eligible %}disabled{% endif %}
           >
-          <span>{{ page.label }}</span>
+          <span>{{ page.label }}
+            {% if page.locked %}<small class="small-note">Always available · recovery</small>
+            {% elif not page.eligible %}<small class="small-note">Not available to this role</small>{% endif %}
+          </span>
         </label>
         {% endfor %}
       </div>

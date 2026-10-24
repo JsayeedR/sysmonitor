@@ -12,7 +12,7 @@
     }
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#f1f5f9; min-height:100vh; }
-    .container { max-width:900px; margin:0 auto; padding:2rem 1.5rem; }
+    .container { max-width:1200px; margin:0 auto; padding:2rem 1.5rem; }
     .page-header {
       display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;
     }
@@ -34,6 +34,22 @@
     td { padding:.85rem 1rem; border-bottom:1px solid #334155; font-size:.9rem; }
     tr:last-child td { border-bottom:none; }
     .usage-col { max-width:110px; white-space:normal; line-height:1.3; }
+    .role-badge {display:inline-flex; padding:.22rem .58rem; border-radius:20px; font-size:.69rem; font-weight:750; letter-spacing:.04em}
+    .user-list-panel {border:1px solid #334155;background:#1e293b;border-radius:16px;overflow:hidden;box-shadow:0 8px 28px #02061735}
+    .user-toolbar {display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem;flex-wrap:wrap}
+    .user-toolbar input,.user-toolbar select {background:#101b30;color:#f1f5f9;border:1px solid #475569;padding:.65rem .75rem;border-radius:9px;min-width:185px}
+    .user-toolbar label {font-size:.72rem;color:#94a3b8;display:flex;flex-direction:column;gap:.35rem}
+    .user-summary {font-size:.78rem;color:#93c5fd}
+    .user-name {font-weight:650;overflow-wrap:anywhere}
+    .user-actions-toggle {cursor:pointer; background:#334155;color:#dbeafe;border:1px solid #475569;border-radius:8px;padding:.45rem .7rem;font-size:.78rem}
+    .user-action-menu {position:relative}
+    .user-action-menu[open] .user-actions-toggle {color:white;border-color:#60a5fa}
+    .user-action-menu .actions {margin-top:.5rem;display:flex;flex-wrap:wrap;align-items:center}
+    .user-list-panel table {border-radius:0}
+    .user-list-panel td {vertical-align:middle}
+    .hidden-user-row {display:none}
+    @media(max-width:650px){.user-list-panel th,.user-list-panel td{padding:.65rem .5rem}.user-list-panel .row-number{display:none}.user-toolbar input,.user-toolbar select{min-width:145px;flex:1}}
+
     tr:hover td { background:#162032; }
     .role-badge.admin  { background:#1d4ed8; color:#bfdbfe; }
     .role-badge.user   { background:#065f46; color:#6ee7b7; }
@@ -98,60 +114,57 @@
   </div>
 
   <div id="tab-all" class="tab-panel active">
-  <div style="overflow-x:auto;">
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Username</th>
-          <th>Role</th>
-          <th>Status</th>
-          <th>Joined</th>
-          <th class="usage-col">Total Usage (Start From 02 AUG 26)</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for u in user_data %}
-        <tr>
-          <td style="color:#475569">{{ forloop.counter }}</td>
-          <td>{{ u.obj.username }}
-            {% if u.obj.is_superuser %}
-            <span style="font-size:.7rem;color:#64748b">(superuser)</span>
-            {% endif %}
-          </td>
-          <td><span class="role-badge {{ u.role }}">{{ u.role|upper }}</span></td>
-          <td>
-            {% if u.obj.is_active %}
-              <span style="color:#4ade80;font-size:.8rem;">🟢 Active</span>
-            {% else %}
-              <span style="color:#f87171;font-size:.8rem;">🔴 Disabled</span>
-            {% endif %}
-          </td>
-          <td style="color:#64748b">{{ u.obj.date_joined|date:"Y-m-d" }}</td>
-          <td style="color:#64748b">{{ u.usage_time }}</td>
-          <td>
-            <div class="actions">
-              <a href="{{ base_path }}/users/{{ u.obj.id }}/edit/" class="btn btn-secondary">Edit</a>
-              <a href="{{ base_path }}/page-access/?user={{ u.obj.id }}" class="btn btn-secondary">Access</a>
-              {% if not u.obj.is_superuser %}
-              <form method="post" action="{{ base_path }}/users/{{ u.obj.id }}/toggle-active/" style="display:inline;">
-                {% csrf_token %}
-                <button type="submit" class="btn {% if u.obj.is_active %}btn-danger{% else %}btn-primary{% endif %}">
-                  {% if u.obj.is_active %}Disable{% else %}Enable{% endif %}
-                </button>
-              </form>
-              {% if u.obj.id != user.id %}
-                <span style="font-size:.72rem;color:#94a3b8;" title="Historical records are protected until User Deletion Stage 2 is verified">Deletion pending Stage 2</span>
-              {% endif %}
-              {% endif %}
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+    <div class="user-list-panel">
+      <div class="user-toolbar">
+        <div>
+          <div style="font-size:1rem;font-weight:700">Account directory</div>
+          <div class="user-summary">{{ user_data|length }} accounts · sensitive details remain in User Details</div>
+        </div>
+        <label>Search username
+          <input id="accountSearch" type="search" placeholder="Find an account…" autocomplete="off">
+        </label>
+        <label>Filter role
+          <select id="accountRole"><option value="">All roles</option>
+            <option value="admin">Admin</option><option value="user">User</option>
+            <option value="viewer">Viewer</option><option value="fullviewer">Full Viewer</option>
+            <option value="guest">Guest</option>
+          </select>
+        </label>
+        <div class="user-summary" id="accountShowing" aria-live="polite"></div>
+      </div>
+      <div style="overflow-x:auto">
+      <table aria-label="All SysMonitor users">
+        <thead><tr><th class="row-number">#</th><th>Account</th><th>Role</th><th>Status</th><th>Manage</th></tr></thead>
+        <tbody id="accountRows">
+          {% for u in user_data %}
+          <tr class="account-row" data-name="{{ u.obj.username|lower }}" data-role="{{ u.role }}">
+            <td class="row-number" style="color:#64748b">{{ forloop.counter }}</td>
+            <td><div class="user-name">{{ u.obj.username }}</div>
+              {% if u.obj.is_superuser %}<small style="color:#93c5fd">Protected Superadmin</small>{% endif %}
+            </td>
+            <td><span class="role-badge {{ u.role }}">{{ u.role|upper }}</span></td>
+            <td>{% if u.obj.is_active %}<span style="color:#86efac">● Active</span>
+              {% else %}<span style="color:#fca5a5">● Disabled</span>{% endif %}</td>
+            <td><details class="user-action-menu"><summary class="user-actions-toggle">Actions ▾</summary>
+              <div class="actions">
+                <a href="{{ base_path }}/users/{{ u.obj.id }}/edit/" class="btn btn-secondary">Edit</a>
+                <a href="{{ base_path }}/page-access/?user={{ u.obj.id }}" class="btn btn-secondary">Access</a>
+                {% if not u.obj.is_superuser %}
+                <form method="post" action="{{ base_path }}/users/{{ u.obj.id }}/toggle-active/" style="display:inline;" onsubmit="return confirm('Confirm account status change?');">
+                  {% csrf_token %}
+                  <button type="submit" class="btn {% if u.obj.is_active %}btn-danger{% else %}btn-primary{% endif %}">
+                    {% if u.obj.is_active %}Disable{% else %}Enable{% endif %}
+                  </button>
+                </form>
+                {% endif %}
+                <span style="font-size:.7rem;color:#94a3b8" title="Stage 2 production deletion remains disabled">Deletion protected</span>
+              </div>
+            </details></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+    </div>
   </div>
 
   <div id="tab-pending" class="tab-panel">
@@ -542,7 +555,21 @@ function reviewRequest(id, action) {
 }
 
 </script>
+<script id="sm-account-search-script">
+(function(){
+  const input=document.getElementById('accountSearch');
+  const role=document.getElementById('accountRole');
+  const rows=[...document.querySelectorAll('#accountRows .account-row')];
+  const total=document.getElementById('accountShowing');
+  if(!input||!role||!total)return;
+  function filter(){let count=0;const q=input.value.trim().toLocaleLowerCase();
+    rows.forEach(r=>{const visible=(!q||r.dataset.name.includes(q))&&(!role.value||r.dataset.role===role.value);
+      r.classList.toggle('hidden-user-row',!visible);if(visible)count++;});
+    total.textContent=count+' of '+rows.length+' shown';
+  }
+  input.addEventListener('input',filter);role.addEventListener('change',filter);filter();
+})();
+</script>
+
 </body>
 </html>
-
-

@@ -310,18 +310,20 @@
     {% if "load_shedding" not in page_hidden %}<a href="{{ base_path }}/report/" class="{% if '/report/' in request.path %}active{% endif %}">⚡ Load Shedding</a>{% endif %}
 
     {% if role == "user" or role == "admin" %}
-    {% if "shift_report" not in page_hidden or "mnoc_pfe" not in page_hidden or role == "admin" %}
+    {% if "shift_report" not in page_hidden or "historical_report" not in page_hidden or "mnoc_pfe" not in page_hidden or role == "admin" %}
     <div class="nav-dropdown" id="shift-report-dropdown">
       <a href="#" class="nav-dropdown-toggle {% if '/shift-report/' in request.path %}active{% endif %}" onclick="toggleShiftReportDropdown(event)">📝 Shift Report ▾</a>
       <div class="nav-dropdown-menu">
         {% if "shift_report" not in page_hidden %}
         <a href="{{ base_path }}/shift-report/">📝 Main Shift Report</a>
+        {% endif %}
+        {% if "historical_report" not in page_hidden %}
         <a href="{{ base_path }}/shift-report/historical/">📊 Historical Report</a>
         {% endif %}
         {% if "mnoc_pfe" not in page_hidden %}
         <a href="{{ base_path }}/shift-report/mnoc-pfe/">⚡ MNOC PFE Report</a>
         {% endif %}
-        {% if role == "admin" %}
+        {% if role == "admin" and "shift_report_config" not in page_hidden %}
         <a href="{{ base_path }}/shift-report/config/settings/">⚙️ Shift Report Configuration</a>
         {% endif %}
       </div>
@@ -355,7 +357,7 @@
     {% if page_show_others %}
     {% if role == "viewer" %}
     <div class="nav-dropdown" id="others-dropdown">
-      <a href="#" class="nav-dropdown-toggle {% if '/smw6pac/' in request.path or '/uptime/' in request.path or '/events/' in request.path or '/cctv/' in request.path or '/notification-request/' in request.path or '/profile/' in request.path or '/manual/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
+      <a href="#" class="nav-dropdown-toggle {% if '/smw6pac/' in request.path or '/uptime/' in request.path or '/events/' in request.path or '/cctv/' in request.path or '/notification-request/' in request.path or '/profile/' in request.path or '/manual/' in request.path or '/security-patch-updates/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
       <div class="nav-dropdown-menu">
         {% if "smw6pac" not in page_hidden %}<a href="{{ base_path }}/smw6pac/" class="{% if '/smw6pac/' in request.path %}active{% endif %}">❄️ SMW6PAC</a>{% endif %}
         {% if "uptime" not in page_hidden %}<a href="{{ base_path }}/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>{% endif %}
@@ -364,11 +366,13 @@
         {% if "notification_request" not in page_hidden %}<a href="{{ base_path }}/notification-request/" class="{% if '/notification-request/' in request.path %}active{% endif %}">🔔 Notification Request</a>{% endif %}
         {% if "profile" not in page_hidden %}<a href="{{ base_path }}/profile/" class="{% if '/profile/' in request.path %}active{% endif %}">👤 My Profile</a>{% endif %}
         {% if "manual" not in page_hidden %}<a href="{{ base_path }}/manual/" class="{% if '/manual/' in request.path %}active{% endif %}">📘 Manual v{{ sys_version }}</a>{% endif %}
+        {% if "security_patch_updates" not in page_hidden %}<a href="{{ base_path }}/security-patch-updates/" class="{% if '/security-patch-updates/' in request.path %}active{% endif %}">🛡️ Security Patch Updates</a>{% endif %}
+        <a href="{{ base_path }}/about/" class="{% if '/about/' in request.path %}active{% endif %}">ℹ️ About Us</a>
       </div>
     </div>
     {% elif role == "user" %}
     <div class="nav-dropdown" id="others-dropdown">
-      <a href="#" class="nav-dropdown-toggle {% if '/uptime/' in request.path or '/events/' in request.path or '/cctv/' in request.path or '/notification-request/' in request.path or '/profile/' in request.path or '/manual/' in request.path or '/about/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
+      <a href="#" class="nav-dropdown-toggle {% if '/uptime/' in request.path or '/events/' in request.path or '/cctv/' in request.path or '/notification-request/' in request.path or '/profile/' in request.path or '/manual/' in request.path or '/security-patch-updates/' in request.path or '/about/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
       <div class="nav-dropdown-menu">
         {% if "uptime" not in page_hidden %}<a href="{{ base_path }}/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>{% endif %}
         {% if "events" not in page_hidden %}<a href="{{ base_path }}/events/" class="{% if '/events/' in request.path %}active{% endif %}">📋 All Events</a>{% endif %}
@@ -377,12 +381,13 @@
         {% if "profile" not in page_hidden %}<a href="{{ base_path }}/profile/" class="{% if '/profile/' in request.path %}active{% endif %}">👤 My Profile</a>{% endif %}
         {% if "outage_cycle_remarks" not in page_hidden %}<a href="{{ base_path }}/outage-cycle-remarks/">⚡ Outage Cycle Remarks</a>{% endif %}
         {% if "manual" not in page_hidden %}<a href="{{ base_path }}/manual/" class="{% if '/manual/' in request.path %}active{% endif %}">📘 Manual v{{ sys_version }}</a>{% endif %}
+        {% if "security_patch_updates" not in page_hidden %}<a href="{{ base_path }}/security-patch-updates/" class="{% if '/security-patch-updates/' in request.path %}active{% endif %}">🛡️ Security Patch Updates</a>{% endif %}
         <a href="{{ base_path }}/about/" class="{% if '/about/' in request.path %}active{% endif %}">ℹ️ About Us</a>
       </div>
     </div>
     {% elif role == "admin" %}
     <div class="nav-dropdown" id="others-dropdown">
-      <a href="#" class="nav-dropdown-toggle {% if '/smw6pac/' in request.path or '/uptime/' in request.path or '/events/' in request.path or '/cctv/' in request.path or '/notification-request/' in request.path or '/profile/' in request.path or '/manual/' in request.path or '/about/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
+      <a href="#" class="nav-dropdown-toggle {% if '/smw6pac/' in request.path or '/uptime/' in request.path or '/events/' in request.path or '/cctv/' in request.path or '/notification-request/' in request.path or '/profile/' in request.path or '/manual/' in request.path or '/security-patch-updates/' in request.path or '/about/' in request.path %}active{% endif %}" onclick="toggleOthersDropdown(event)">📂 Others ▾</a>
       <div class="nav-dropdown-menu">
         {% if "smw6pac" not in page_hidden %}<a href="{{ base_path }}/smw6pac/" class="{% if '/smw6pac/' in request.path %}active{% endif %}">❄️ SMW6PAC</a>{% endif %}
         {% if "uptime" not in page_hidden %}<a href="{{ base_path }}/uptime/" class="{% if '/uptime/' in request.path %}active{% endif %}">🌐 Uptime Status</a>{% endif %}
@@ -392,6 +397,7 @@
         {% if "profile" not in page_hidden %}<a href="{{ base_path }}/profile/" class="{% if '/profile/' in request.path %}active{% endif %}">👤 My Profile</a>{% endif %}
         {% if "outage_cycle_remarks" not in page_hidden %}<a href="{{ base_path }}/outage-cycle-remarks/">⚡ Outage Cycle Remarks</a>{% endif %}
         {% if "manual" not in page_hidden %}<a href="{{ base_path }}/manual/" class="{% if '/manual/' in request.path %}active{% endif %}">📘 Manual v{{ sys_version }}</a>{% endif %}
+        {% if "security_patch_updates" not in page_hidden %}<a href="{{ base_path }}/security-patch-updates/" class="{% if '/security-patch-updates/' in request.path %}active{% endif %}">🛡️ Security Patch Updates</a>{% endif %}
         <a href="{{ base_path }}/about/" class="{% if '/about/' in request.path %}active{% endif %}">ℹ️ About Us</a>
       </div>
     </div>
@@ -415,7 +421,7 @@
     </div>
     {% endif %}
 
-    {% if role == "viewer" or role == "guest" %}
+    {% if role == "guest" %}
     <a href="{{ base_path }}/about/" class="{% if '/about/' in request.path %}active{% endif %}">ℹ️ About Us</a>
     {% endif %}
   </div>

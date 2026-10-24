@@ -74,6 +74,7 @@ def page_access(request):
         'notification_request',
         'profile',
         'manual',
+        'security_patch_updates',
         'outage_cycle_remarks',
     }
 

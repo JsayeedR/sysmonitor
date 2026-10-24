@@ -666,42 +666,29 @@ table.history th{
         </thead>
 
         <tbody id="activityRows">
-
+          {% for row in activity_prefill_rows %}
           <tr class="activity-row">
-            <td>
-              <textarea name="activity_type"></textarea>
+            <td><textarea name="activity_type">{{ row.activity_type }}</textarea></td>
+            <td><textarea name="client_vendor">{{ row.client_vendor }}</textarea></td>
+            <td><textarea name="activity_details">{{ row.details }}</textarea></td>
+            <td><input name="activity_status" value="{{ row.status }}" list="issue-status-options"></td>
+            <td><textarea name="activity_remarks">{{ row.remarks }}</textarea>
+              <input type="hidden" name="activity_source_reference" value="{{ row.source_reference }}">
+              <small class="sm-source-note">Source: {{ row.source_reference }}</small>
             </td>
-
-            <td>
-              <textarea name="client_vendor"></textarea>
-            </td>
-
-            <td>
-              <textarea name="activity_details"></textarea>
-            </td>
-
-            <td>
-              <input
-                name="activity_status"
-                list="issue-status-options"
-              >
-            </td>
-
-            <td>
-              <textarea name="activity_remarks"></textarea>
-            </td>
-
-            <td>
-              <button
-                type="button"
-                class="btn secondary"
-                onclick="removeActivityRow(this)"
-              >
-                ×
-              </button>
-            </td>
+            <td><button type="button" class="btn secondary" onclick="removeActivityRow(this)">×</button></td>
           </tr>
-
+          {% empty %}
+          <tr class="activity-row">
+            <td><textarea name="activity_type"></textarea></td>
+            <td><textarea name="client_vendor"></textarea></td>
+            <td><textarea name="activity_details"></textarea></td>
+            <td><input name="activity_status" list="issue-status-options"></td>
+            <td><textarea name="activity_remarks"></textarea>
+              <input type="hidden" name="activity_source_reference" value=""></td>
+            <td><button type="button" class="btn secondary" onclick="removeActivityRow(this)">×</button></td>
+          </tr>
+          {% endfor %}
         </tbody>
       </table>
 
@@ -714,6 +701,10 @@ table.history th{
         <option value="N/A">
       </datalist>
 
+      <p class="sm-source-note" style="margin:8px 0 0">
+        Source labels appear here for carried-forward entries only. They will not be included in the final email/report.
+        The two immediately preceding completed shifts are checked first; otherwise your latest earlier submitted report is used.
+      </p>
       <div style="margin-top:.65rem">
         <button
           type="button"
@@ -834,7 +825,7 @@ function addActivityRow() {
         list="issue-status-options"
       >
     </td>
-    <td><textarea name="activity_remarks"></textarea></td>
+    <td><textarea name="activity_remarks"></textarea><input type="hidden" name="activity_source_reference" value=""></td>
     <td>
       <button
         type="button"
@@ -857,6 +848,7 @@ function removeActivityRow(button) {
     row.querySelectorAll('input, textarea').forEach(
       element => element.value = ''
     );
+    row.querySelectorAll('.sm-source-note').forEach(note => note.remove());
 
     return;
   }
@@ -932,6 +924,49 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 
+<style>.sm-source-note{display:block;margin-top:5px;font-size:11px;color:#0369a1;font-weight:600}@media print{.sm-source-note{display:none!important}}</style>
+<script id="sm-section-c-sources">
+(function(){
+ const form=document.getElementById('reportComposer');
+ const tbody=document.getElementById('activityRows');
+ if(!form||!tbody)return;
+ let changed=false;
+ tbody.addEventListener('input',event=>{
+   if(event.target.matches('textarea,input:not([type=hidden])'))changed=true;
+ });
+ window.addEventListener('sm:activity-prefill', event=>{
+   // Never overwrite hand-entered or already edited Section C information.
+   if(changed)return;
+   const rows=event.detail.rows;
+   tbody.textContent='';
+   const values=['activity_type','client_vendor','activity_details','activity_status','activity_remarks'];
+   (rows.length?rows:[{}]).forEach(data=>{
+     const tr=document.createElement('tr');tr.className='activity-row';
+     values.forEach((key,i)=>{
+       const td=document.createElement('td');
+       const field=i===3?document.createElement('input'):document.createElement('textarea');
+       field.name=key;
+       field.value=String(data[i===2?'details':i===3?'status':i===4?'remarks':key]||'');
+       if(i===3)field.setAttribute('list','issue-status-options');
+       td.appendChild(field);
+       if(i===4){
+         const hidden=document.createElement('input');hidden.type='hidden';
+         hidden.name='activity_source_reference';hidden.value=String(data.source_reference||'');
+         td.appendChild(hidden);
+         if(data.source_reference){const note=document.createElement('small');
+           note.className='sm-source-note';note.textContent='Source: '+data.source_reference;
+           td.appendChild(note);}
+       }
+       tr.appendChild(td);
+     });
+     const td=document.createElement('td');const button=document.createElement('button');
+     button.type='button';button.className='btn secondary';button.textContent='×';
+     button.addEventListener('click',()=>removeActivityRow(button));
+     td.appendChild(button);tr.appendChild(td);tbody.appendChild(tr);
+   });
+ });
+})();
+</script>
 <script id="sm-a4-availability-script">
 (function(){
   const form=document.getElementById('reportComposer');
@@ -977,6 +1012,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if(r)r.style.display=shift.value==="NIGHT"?"":"none";
       }
       if(thisRequest!==requestNo)return;
+      if(!found.exists && Array.isArray(found.activity_prefill)) {
+        window.dispatchEvent(new CustomEvent('sm:activity-prefill',
+          {detail:{rows:found.activity_prefill, date:date.value, shift:shift.value}}));
+      }
       const pfe=form.querySelector('[name="pfe_status"]');
       if(pfe && found.pfe_status!==undefined){
         const current=pfe.value.trim();
