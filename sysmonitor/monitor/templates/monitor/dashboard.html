@@ -695,6 +695,11 @@ function refresh() {
           genModeMeta.textContent = 'No mode log recorded';
         }
       }
+      // Escape all strings placed into innerHTML, including operational notes.
+      // Use textContent for new UI elements where possible.
+      const safe = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+      }[ch]));
       // Device Cards
       const grid = document.getElementById('devices-row');
       if (grid && data.devices && data.devices.length) {
@@ -702,14 +707,14 @@ function refresh() {
           <div class="device-card ${d.status}">
             <div class="device-header">
               <div>
-                <div class="device-name">${d.name}</div>
-                <div class="device-ip">${d.ip}</div>
+                <div class="device-name">${safe(d.name)}</div>
+                <div class="device-ip">${safe(d.ip)}</div>
               </div>
               <div class="status-light ${d.status}"></div>
             </div>
             <div class="status-text ${d.status}">${d.status}</div>
             <div class="device-meta">
-              ${d.ms ? d.ms + 'ms · ' : ''}${d.desc || ''}
+              ${d.ms ? d.ms + 'ms · ' : ''}${safe(d.desc || '')}
             </div>
           </div>
         `).join('');
@@ -738,11 +743,11 @@ function refresh() {
             ${groups[date].map(e => `
               <div class="event-row">
                 <span class="event-time">${e.created_at.slice(11)}</span>
-                <span class="badge ${e.level}">${e.level}</span>
+                <span class="badge ${safe(e.level)}">${safe(e.level)}</span>
                 ${e.device_name
-                  ? `<span class="event-device">[${e.device_name}]</span>`
+                  ? `<span class="event-device">[${safe(e.device_name)}]</span>`
                   : ''}
-                <span class="event-msg">${e.message}</span>
+                <span class="event-msg">${safe(e.message)}</span>
               </div>
             `).join('')}
           </div>

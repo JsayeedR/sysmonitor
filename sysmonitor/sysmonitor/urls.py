@@ -2,6 +2,7 @@ from monitor import outage_remarks as outage_remark_views
 from django.contrib import admin
 from django.urls import include, path, re_path
 from monitor import views, roster_views
+from monitor.mirror_authority import mirror_auth_validate
 
 urlpatterns = [
     path('shift-report/', include('shiftreport.urls')),
@@ -9,6 +10,7 @@ urlpatterns = [
     path('',                                  views.dashboard,         name='dashboard'),
     path('login/',                            views.login_view,        name='login'),
     path('password-reset/',                   views.password_reset_request, name='password_reset'),
+    path('password-reset/confirm/<uidb64>/<token>/', views.password_reset_confirm, name='password_reset_confirm'),
     path('about/',                            views.about_view,        name='about'),
     path('manual/',                           views.manual_view,       name='manual'),
     path('manual/pdf/',                       views.manual_pdf,        name='manual_pdf'),
@@ -104,6 +106,7 @@ urlpatterns += [
     path('system/restart-ping/',             views.system_restart_ping,   name='system_restart_ping'),
     path('system/restart-all/',              views.system_restart_all,    name='system_restart_all'),
     path('system/restart-all/status/',       views.system_restart_all_status, name='system_restart_all_status'),
+    path('mirror/auth/validate/', mirror_auth_validate, name='mirror_auth_validate'),
     path('mirror/activity/',                   views.mirror_activity,       name='mirror_activity'),
     path('mirror/track/',                      views.mirror_track,          name='mirror_track'),
     path('mirror/version/',                    views.mirror_version,        name='mirror_version'),
@@ -118,16 +121,10 @@ urlpatterns += [
     path('system/recent-cycles/',              views.system_recent_cycles,  name='system_recent_cycles'),
 ]
 
-from django.conf import settings
-from django.conf.urls.static import static
-from django.views.static import serve
-# Serve uploaded profile/media files.
-# Required because this SysMonitor instance runs with DEBUG=False.
+# Media access is application-authenticated; the remote reverse proxy must
+# not bypass this URL with an unrestricted Nginx alias.
+from monitor.media_security import authenticated_profile_media
 urlpatterns += [
-    re_path(
-        r'^media/(?P<path>.*)$',
-        serve,
-        {'document_root': settings.MEDIA_ROOT},
-    ),
+    re_path(r'^media/(?P<path>.*)$', authenticated_profile_media, name='profile_media'),
 ]
 

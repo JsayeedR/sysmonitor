@@ -485,7 +485,7 @@ def shift_report_slot_check(request):
     if taken:
         details.update({
             'status': taken.get_status_display(),
-            'owner': taken.prepared_by.get_full_name().strip() or taken.prepared_by.username,
+            'owner': taken.prepared_by_display,
             'report_url': reverse('shiftreport:view', kwargs={'report_id':taken.pk}),
         })
     return JsonResponse(details)
@@ -660,8 +660,7 @@ def shift_report_create(request):
 
     if existing:
         owner_name = (
-            existing.prepared_by.get_full_name().strip()
-            or existing.prepared_by.username
+            existing.prepared_by_display
         )
 
         if existing.prepared_by_id == request.user.id:
@@ -984,7 +983,7 @@ def shift_report_edit(request, report_id):
             'user': request.user,
             'report': report,
             'contacts': contacts,
-            'signature_html': __import__('shiftreport.reporting', fromlist=['build_prepared_by_signature']).build_prepared_by_signature(report.prepared_by, _config()),
+            'signature_html': __import__('shiftreport.reporting', fromlist=['report_signature_html']).report_signature_html(report, _config()),
             'scheduled_bdt': '',
             'config': cfg,
             'mandatory_cc': mandatory_cc,
@@ -1675,8 +1674,28 @@ def shift_issue_update(request, issue_id):
     return redirect('shiftreport:home')
 
 
+def _guard_shift_delivery(view):
+    """Serialize delivery attempts on the single local master, across processes.
+
+    File locking alone cannot resolve SMTP-success / process-crash ambiguity;
+    interrupted sends must still be manually reviewed before any resend.
+    """
+    from functools import wraps
+    from .send_lock import exclusive_shift_delivery, ShiftDeliveryBusy
+
+    @wraps(view)
+    def wrapped(request, report_id, *args, **kwargs):
+        try:
+            with exclusive_shift_delivery(report_id):
+                return view(request, report_id, *args, **kwargs)
+        except ShiftDeliveryBusy:
+            return HttpResponse('Shift Report delivery already in progress.', status=409)
+    return wrapped
+
+
 @login_required
 @require_POST
+@_guard_shift_delivery
 def shift_report_send(request, report_id):
     if not _role_allowed(request.user):
         return HttpResponseForbidden(
@@ -1807,6 +1826,13 @@ def shift_report_send(request, report_id):
     # NORMAL HANDOVER EMAIL
     # ------------------------------------------------------
     if report.main_email_sent_at is None:
+        # Capture the exact HTML we are about to send before opening SMTP.
+        # This field is not a proof of successful delivery; the independent
+        # main_email_sent_at field remains the delivery-success signal.
+        from .reporting import capture_delivery_signature
+        if not report.sent_signature_html:
+            report.sent_signature_html = capture_delivery_signature(report, cfg)
+            report.save(update_fields=['sent_signature_html', 'updated_at'])
         try:
             send_smtp_email(
                 subject=subject,
@@ -1973,8 +1999,7 @@ def mnoc_pfe_create(request):
 
     if existing:
         owner = (
-            existing.prepared_by.get_full_name().strip()
-            or existing.prepared_by.username
+            existing.prepared_by_display
         )
 
         messages.error(
@@ -2071,7 +2096,7 @@ def mnoc_pfe_edit(request, report_id):
             'report': report,
             'can_edit': can_edit,
             'config': ShiftReportConfig.objects.filter(pk=1).first(),
-            'signature_html': __import__('shiftreport.reporting', fromlist=['build_prepared_by_signature']).build_prepared_by_signature(report.prepared_by, _config()),
+            'signature_html': __import__('shiftreport.reporting', fromlist=['report_signature_html']).report_signature_html(report, _config()),
             'scheduled_bdt': '',
         },
     )
@@ -2100,10 +2125,10 @@ def mnoc_pfe_save(request, report_id):
             "You cannot edit another engineer's MNOC PFE Report."
         )
 
-    if report.status == 'SENT':
+    if report.status in ('SENT', 'SENDING', 'SCHEDULED'):
         messages.error(
             request,
-            'A sent MNOC PFE Report cannot be edited.'
+            'Cancel scheduling before editing; sending or sent PFE reports are locked.'
         )
 
         return redirect(

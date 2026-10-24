@@ -76,7 +76,7 @@ def remark_list(request):
             return HttpResponseForbidden('Invalid format')
         rows = []
         for cycle in cycles:
-            remarks = ' | '.join(f'{item.author.username}: {item.text}' for item in cycle.engineer_remarks.all())
+            remarks = ' | '.join(f'{item.author_name}: {item.text}' for item in cycle.engineer_remarks.all())
             rows.append([str(cycle.pk), timezone.localtime(cycle.outage_start, BDT).strftime('%d %b %Y %I:%M %p'),
                          str(cycle.pdb_duration_fmt()), str(cycle.cycle_type), remarks])
         headers = ['Cycle', 'Start (BDT)', 'Duration', 'Type', 'Remarks / Notes']

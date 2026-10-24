@@ -21,7 +21,7 @@ body{margin:0;background:#0f172a;color:#f1f5f9;font-family:"Segoe UI",Arial,sans
 <div class="sm-report-view-header">
 <h1>{{ report.get_shift_display }} — {{ report.report_date|date:"d M Y" }}</h1>
 <p><strong>Operational period:</strong> {{ report.shift_start|date:"d M Y h:i A" }} – {{ report.shift_end|date:"d M Y h:i A" }} (BDT)</p>
-<p><strong>Prepared By:</strong> {{ report.prepared_by.get_full_name|default:report.prepared_by.username }} · <strong>Status:</strong> {{ report.get_status_display }} · Read-only</p>
+<p><strong>Prepared By:</strong> {{ report.prepared_by_display }} · <strong>Status:</strong> {{ report.get_status_display }} · Read-only</p>
 </div>
 <div class="sm-view-actions">
 <a href="{% url 'shiftreport:home' %}">← All Shift Reports</a>

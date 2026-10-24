@@ -119,6 +119,11 @@ class ProfileChangeRequest(models.Model):
     before taking effect. A request sits here as PENDING until an admin
     approves or rejects it.
     """
+    requester_snapshot = models.ForeignKey(
+        'monitor.HistoricalActor', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='profile_change_requests',
+        editable=False,
+    )
     FIELD_CHOICES = [
         ('email',  'Email'),
         ('mobile', 'Mobile Number'),
@@ -128,7 +133,7 @@ class ProfileChangeRequest(models.Model):
         ('APPROVED', 'Approved'),
         ('REJECTED', 'Rejected'),
     ]
-    user        = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='change_requests')
+    user        = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='change_requests')
     field       = models.CharField(max_length=10, choices=FIELD_CHOICES)
     old_value   = models.CharField(max_length=200, blank=True)
     new_value   = models.CharField(max_length=200)
@@ -140,8 +145,13 @@ class ProfileChangeRequest(models.Model):
     class Meta:
         ordering = ['-requested_at']
 
+    @property
+    def requester_name(self):
+        return (self.user.username if self.user_id else
+                self.requester_snapshot.username if self.requester_snapshot_id else 'Unknown')
+
     def __str__(self):
-        return f"{self.user.username} — {self.field} → {self.new_value} ({self.status})"
+        return f"{self.requester_name} — {self.field} → {self.new_value} ({self.status})"
 
 class SystemRevision(models.Model):
     """
@@ -173,6 +183,11 @@ class SystemRevision(models.Model):
 
 
 class ActivityLog(models.Model):
+    actor_snapshot = models.ForeignKey(
+        'monitor.HistoricalActor', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='activity_logs',
+        editable=False,
+    )
     ACTION_CHOICES = [
         ('LOGIN',                  'Login'),
         ('LOGOUT',                 'Logout'),
@@ -246,8 +261,13 @@ class ActivityLog(models.Model):
     class Meta:
         ordering = ['-timestamp']
 
+    @property
+    def actor_username(self):
+        return (self.user.username if self.user_id else
+                self.actor_snapshot.username if self.actor_snapshot_id else 'Unknown')
+
     def __str__(self):
-        return f"{self.user} — {self.action} at {self.timestamp}"
+        return f"{self.actor_username} — {self.action} at {self.timestamp}"
 
 class OutageCycle(models.Model):
     CYCLE_CHOICES = [
@@ -358,6 +378,11 @@ class NotificationGateway(models.Model):
 
 
 class NotificationRecipient(models.Model):
+    account_snapshot = models.ForeignKey(
+        'monitor.HistoricalActor', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='notification_recipients',
+        editable=False,
+    )
     CHANNEL_CHOICES_R = [
         ('whatsapp', 'WhatsApp'),
         ('telegram', 'Telegram'),
@@ -402,6 +427,11 @@ class NotificationRequest(models.Model):
     Viewer/user/admin may request Email and/or Telegram notifications.
     Nothing becomes an active NotificationRecipient until an admin approves.
     """
+    requester_snapshot = models.ForeignKey(
+        'monitor.HistoricalActor', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='notification_requests',
+        editable=False,
+    )
 
     STATUS_CHOICES = [
         ('DRAFT', 'Draft'),
@@ -412,7 +442,7 @@ class NotificationRequest(models.Model):
 
     user = models.ForeignKey(
         'auth.User',
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL, null=True, blank=True,
         related_name='notification_requests'
     )
 
@@ -450,9 +480,14 @@ class NotificationRequest(models.Model):
         verbose_name = 'Notification Request'
         verbose_name_plural = 'Notification Requests'
 
+    @property
+    def requester_name(self):
+        return (self.user.username if self.user_id else
+                self.requester_snapshot.username if self.requester_snapshot_id else 'Unknown')
+
     def __str__(self):
         return (
-            f"{self.user.username} — "
+            f"{self.requester_name} — "
             f"{self.status} — "
             f"{self.updated_at:%Y-%m-%d %H:%M}"
         )
@@ -873,6 +908,11 @@ class CCTVCamera(models.Model):
 # ============================================================================
 
 class DutyRoster(models.Model):
+    importer_snapshot = models.ForeignKey(
+        'monitor.HistoricalActor', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='duty_rosters',
+        editable=False,
+    )
     month = models.DateField(unique=True)
     source_filename = models.CharField(max_length=200, blank=True)
     imported_at = models.DateTimeField(auto_now=True)
@@ -938,12 +978,76 @@ class DutyRosterAssignment(models.Model):
 
 class OutageCycleRemark(models.Model):
     """An engineer may submit exactly one remark per cycle; admins moderate."""
+    author_snapshot = models.ForeignKey(
+        'monitor.HistoricalActor', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='outage_remarks',
+        editable=False,
+    )
     cycle = models.ForeignKey('OutageCycle', on_delete=models.CASCADE, related_name='engineer_remarks')
-    author = models.ForeignKey('auth.User', on_delete=models.PROTECT, related_name='outage_remarks')
+    author = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='outage_remarks')
     text = models.TextField(max_length=2000)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def author_name(self):
+        return (self.author.username if self.author_id else
+                self.author_snapshot.username if self.author_snapshot_id else 'Unknown')
+
     class Meta:
-        constraints = [models.UniqueConstraint(fields=['cycle', 'author'], name='unique_cycle_engineer_remark')]
+        constraints = [
+            models.UniqueConstraint(fields=['cycle', 'author'], name='unique_cycle_engineer_remark'),
+            models.UniqueConstraint(
+                fields=['cycle', 'author_snapshot'],
+                condition=models.Q(author__isnull=True, author_snapshot__isnull=False),
+                name='uniq_cycle_archive_remark',
+            ),
+        ]
         ordering = ['created_at', 'pk']
+
+
+# Stage 2 expand-only identity archive. No account can be deleted by RC7.
+# These snapshots do NOT contain credentials, password hashes or session tokens.
+class HistoricalActor(models.Model):
+    original_user_id = models.PositiveIntegerField(unique=True)
+    username = models.CharField(max_length=150)
+    display_name = models.CharField(max_length=301)
+    designation = models.CharField(max_length=100, blank=True)
+    signature_phone = models.CharField(max_length=30, blank=True)
+    profile_picture_path = models.CharField(max_length=500, blank=True)
+    captured_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['original_user_id']
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk).exists():
+            raise ValueError('Historical identity snapshots cannot be edited.')
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.display_name or self.username
+
+
+class ArchivedAdminLog(models.Model):
+    actor = models.ForeignKey('monitor.HistoricalActor', on_delete=models.PROTECT,
+                              related_name='archived_admin_actions')
+    source_log_id = models.PositiveIntegerField(unique=True)
+    action_time = models.DateTimeField()
+    action_flag = models.PositiveSmallIntegerField()
+    original_content_type_id = models.PositiveIntegerField(null=True, blank=True)
+    object_id = models.TextField(null=True, blank=True)
+    object_repr = models.CharField(max_length=200)
+    change_message = models.TextField(blank=True)
+    captured_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-action_time', '-source_log_id']
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk).exists():
+            raise ValueError('Archived admin-log entries cannot be edited.')
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'Archived admin action #{self.source_log_id}'

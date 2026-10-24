@@ -15,7 +15,7 @@ os.chdir(BASE)
 sys.path.insert(0, str(BASE))
 problems = []
 
-py_files = [BASE / 'manage.py'] + sorted(BASE.glob('monitor/**/*.py')) + sorted(BASE.glob('sysmonitor/**/*.py'))
+py_files = [BASE / 'manage.py'] + sorted(BASE.glob('monitor/**/*.py')) + sorted(BASE.glob('shiftreport/**/*.py')) + sorted(BASE.glob('sysmonitor/**/*.py'))
 for p in py_files:
     try:
         compile(p.read_text(encoding='utf-8'), str(p), 'exec')
@@ -31,11 +31,12 @@ if not problems:
         from django.template import engines
         call_command('check', verbosity=0)
         engine = engines['django']
-        for p in sorted(BASE.glob('monitor/templates/**/*.html')):
-            try:
-                engine.get_template(str(p.relative_to(BASE / 'monitor' / 'templates')))
-            except Exception as e:          # TemplateSyntaxError etc.
-                problems.append(f'template error: {p.relative_to(BASE)}: {e}')
+        for app in ('monitor', 'shiftreport'):
+            for p in sorted(BASE.glob(f'{app}/templates/**/*.html')):
+                try:
+                    engine.get_template(str(p.relative_to(BASE / app / 'templates')))
+                except Exception as e:          # TemplateSyntaxError etc.
+                    problems.append(f'template error: {p.relative_to(BASE)}: {e}')
     except Exception as e:
         problems.append(f'django check failed: {e}')
 

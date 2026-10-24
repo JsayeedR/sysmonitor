@@ -1,6 +1,7 @@
 from io import BytesIO
 import html
 import smtplib
+import ssl
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -22,6 +23,8 @@ XLSX_MIME = (
 
 
 def _display_name(user):
+    if user is None:
+        return 'Unknown engineer'
     if user.get_full_name().strip():
         return user.get_full_name().strip()
     return user.username
@@ -378,10 +381,7 @@ def build_html_body(report, config):
         automatic_temperature_text,
     )
 
-    signature = build_prepared_by_signature(
-        report.prepared_by,
-        config,
-    )
+    signature = report_signature_html(report, config)
 
     temp_text = automatic_temperature_text(
         report.sensor_summary or {}
@@ -398,9 +398,7 @@ def build_html_body(report, config):
         report.handover_to.name
     )
 
-    prepared_by = html.escape(
-        _display_name(report.prepared_by)
-    )
+    prepared_by = html.escape(report.prepared_by_display)
 
     return f"""
     <html>
@@ -814,9 +812,10 @@ def send_smtp_email(
     try:
         smtp.ehlo()
 
-        if use_tls:
-            smtp.starttls()
-            smtp.ehlo()
+        if not use_tls:
+            raise RuntimeError('SMTP STARTTLS is mandatory for Shift Reports.')
+        smtp.starttls(context=ssl.create_default_context())
+        smtp.ehlo()
 
         smtp.login(
             username,
@@ -836,14 +835,18 @@ def send_smtp_email(
             pass
 
 
-def build_prepared_by_signature(user, config):
-    """Signature rendered consistently in both email bodies and website previews."""
+def build_prepared_by_signature(user, config, historical_actor=None):
+    """HTML-escaped signature. HistoricalActor is used only if the login is gone."""
     import html as _html
-    from django.utils.html import format_html
-    profile = getattr(user, 'userprofile', None)
-    name = _display_name(user)
-    designation = getattr(profile, 'designation', '') or ''
-    phone = (getattr(profile, 'mobile_number', '') or getattr(profile, 'whatsapp_number', '') or '')
+    # A live account is authoritative before delivery; afterward, the exact
+    # stored signature takes precedence through report_signature_html().
+    profile = getattr(user, 'userprofile', None) if user is not None else None
+    name = (_display_name(user) if user is not None else
+            getattr(historical_actor, 'display_name', '') or 'Unknown engineer')
+    designation = (getattr(profile, 'designation', '') if profile is not None else
+                   getattr(historical_actor, 'designation', '')) or ''
+    phone = ((getattr(profile, 'mobile_number', '') or getattr(profile, 'whatsapp_number', ''))
+             if profile is not None else getattr(historical_actor, 'signature_phone', '')) or ''
     company = getattr(config, 'company_name', '') or 'Bangladesh Submarine Cables PLC. (BSCPLC)'
     noc = getattr(config, 'noc_mobile', '') or ''
     website = getattr(config, 'website', '') or ''
@@ -864,6 +867,30 @@ def build_prepared_by_signature(user, config):
     return ''.join(line)
 
 
+
+def report_signature_html(report, config):
+    """Render the exact attempted email signature, or an explicitly non-exact fallback.
+
+    Reports predating this migration have no original sent-time signature HTML;
+    they are reconstructed for display, not represented as forensic evidence.
+    Such legacy report authors remain ineligible for account deletion.
+    """
+    preserved = getattr(report, 'sent_signature_html', '')
+    if preserved:
+        return preserved
+    author = report.prepared_by if report.prepared_by_id else None
+    archived = (report.preparer_snapshot if report.preparer_snapshot_id else None)
+    return build_prepared_by_signature(author, config, historical_actor=archived)
+
+
+def capture_delivery_signature(report, config):
+    """Select the HTML to send. Caller must persist it BEFORE calling SMTP.
+
+    A stored attempt remains stable for a retry and across subsequent edits to
+    live user profiles or organization configuration. Does not send email.
+    """
+    return report_signature_html(report, config)
+
 def build_pfe_subject():
     return 'COX/SATUN/TUS CLS # Daily Basis PFE Readings'
 
@@ -872,10 +899,7 @@ def build_pfe_html_body(report, config):
     """
     Match the existing MNOC daily PFE email structure.
     """
-    signature = build_prepared_by_signature(
-        report.prepared_by,
-        config,
-    )
+    signature = report_signature_html(report, config)
 
     return f"""
     <html>

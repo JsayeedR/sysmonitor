@@ -54,3 +54,23 @@ class OutageCycleAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
 
 admin.site.register(SensorAlarmConfig)
+
+
+# Stage 2 protection: Django Admin cannot bypass custom deletion safeguards.
+try:
+    admin.site.unregister(User)
+except admin.sites.NotRegistered:
+    pass
+
+@admin.register(User)
+class HistoricalSafeUserAdmin(UserAdmin):
+    actions = None
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def delete_model(self, request, obj):
+        raise PermissionError('User deletion disabled until Stage 2 migration.')
+
+    def delete_queryset(self, request, queryset):
+        raise PermissionError('Bulk user deletion disabled until Stage 2 migration.')

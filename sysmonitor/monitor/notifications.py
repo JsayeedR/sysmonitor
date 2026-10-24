@@ -14,11 +14,13 @@ No message is ever sent twice for the same cycle + event_type combo.
 """
 
 import smtplib
+import ssl
 import urllib.request
 import urllib.parse
 import urllib.error
 import json
 import logging
+from html import escape as html_escape
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
@@ -678,10 +680,11 @@ def send_email(gateway, recipient_email, message, event_type='NOTIFICATION'):
     # an already-dark template), so unlike the app's own dark UI, email
     # uses a light background with dark text for predictable readability
     # across Gmail/Outlook/Apple Mail/etc.
+    safe_plain = html_escape(plain)
     if event_type == 'DAILY_SUMMARY':
-        body_html = f'<pre style="font-family:monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;color:#1e293b;">{plain}</pre>'
+        body_html = f'<pre style="font-family:monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;color:#1e293b;">{safe_plain}</pre>'
     else:
-        body_html = f'<p style="line-height:1.7;font-size:15px;color:#1e293b;">{plain.replace(chr(10), "<br>")}</p>'
+        body_html = f'<p style="line-height:1.7;font-size:15px;color:#1e293b;">{safe_plain.replace(chr(10), "<br>")}</p>'
 
     page_view_count = current_page_view_count()
 
@@ -700,7 +703,7 @@ def send_email(gateway, recipient_email, message, event_type='NOTIFICATION'):
 
     try:
         server = smtplib.SMTP(gateway.email_host, gateway.email_port, timeout=10)
-        server.starttls()
+        server.starttls(context=ssl.create_default_context())
         server.login(gateway.email_username, gateway.email_password)
         server.sendmail(gateway.email_from or gateway.email_username,
                         recipient_email, msg.as_string())
@@ -740,7 +743,7 @@ def send_raw_email(gateway, recipient_email, subject, html_body, plain_body=None
 
     try:
         server = smtplib.SMTP(gateway.email_host, gateway.email_port, timeout=15)
-        server.starttls()
+        server.starttls(context=ssl.create_default_context())
         server.login(gateway.email_username, gateway.email_password)
         server.sendmail(gateway.email_from or gateway.email_username,
                         recipient_email, msg.as_string())
@@ -750,30 +753,27 @@ def send_raw_email(gateway, recipient_email, subject, html_body, plain_body=None
         return False, str(e)
 
 
-def send_password_reset_email(gateway, recipient_email, username, temp_password, login_url):
-    """Sends the temporary password + login link. Valid 30 minutes."""
-    subject = '🔑 SysMonitor Password Reset'
-    page_view_count = current_page_view_count()
-    html = f"""
-    <html><body style="font-family:Arial,sans-serif;background:#f1f5f9;color:#1e293b;padding:20px;">
-    <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:24px;border:1px solid #e2e8f0;">
-    <h3 style="color:#1d4ed8;margin-bottom:16px;">Password Reset — SysMonitor</h3>
-    <p style="line-height:1.7;font-size:15px;">Hi {username},</p>
-    <p style="line-height:1.7;font-size:15px;">A password reset was requested for your account. Use this temporary password to log in:</p>
-    <p style="font-family:monospace;font-size:20px;background:#f1f5f9;border-radius:8px;padding:12px 16px;letter-spacing:1px;">{temp_password}</p>
-    <p style="line-height:1.7;font-size:14px;color:#b91c1c;">⏱️ This temporary password is valid for <b>30 minutes</b> only. After logging in you'll be required to set a new password immediately.</p>
-    <p style="margin:20px 0;"><a href="{login_url}" style="background:#1d4ed8;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:14px;">Go to Login</a></p>
-    <p style="line-height:1.6;font-size:12px;color:#64748b;">If you didn't request this, contact your administrator — someone else may have entered your username.</p>
-    <hr style="border-color:#e2e8f0;margin:20px 0;">
-    <p style="color:#64748b;font-size:12px;"><a href="http://163.47.80.62:9696/about/" style="color:#1d4ed8;text-decoration:none;">ℹ️ About / Docs</a> · Developed by Jikrul Sayeed · © 2026 COXCLS NOC, BSCPLC. All rights reserved. #{page_view_count:05d}</p>
-    </div></body></html>
-    """
-    plain = (f"Hi {username},\n\nA password reset was requested for your SysMonitor account.\n\n"
-             f"Temporary password: {temp_password}\n\n"
-             f"This is valid for 30 minutes only. Log in at {login_url} and you'll be "
-             f"asked to set a new password immediately.\n\n"
-             f"If you didn't request this, contact your administrator.")
-    return send_raw_email(gateway, recipient_email, subject, html, plain)
+def send_password_reset_link_email(gateway, recipient_email, username, reset_url):
+    """Email only a one-time expiring link, never a reusable password."""
+    from html import escape
+    safe_name = escape(username)
+    safe_url = escape(reset_url, quote=True)
+    html = (
+        '<html><body style="font-family:Arial,sans-serif;padding:20px">'
+        '<h3>SysMonitor password reset</h3>'
+        f'<p>Hello {safe_name},</p>'
+        '<p>A password reset was requested for your account. Your existing '
+        'password remains valid unless you complete this reset.</p>'
+        f'<p><a href="{safe_url}">Set a new password</a></p>'
+        '<p>This link expires after 30 minutes and can be used once. '
+        'If you did not request it, ignore this message.</p>'
+        '</body></html>'
+    )
+    plain = (f'Hello {username},\n\nUse this one-time SysMonitor password reset '
+             f'link within 30 minutes: {reset_url}\n\n'
+             'Your existing password is unchanged until the link is used. '
+             'If you did not request it, ignore this message.')
+    return send_raw_email(gateway, recipient_email, 'SysMonitor password reset', html, plain)
 
 
 # ── Main dispatcher ────────────────────────────────────────────────────────────

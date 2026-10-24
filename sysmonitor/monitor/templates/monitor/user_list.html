@@ -141,7 +141,9 @@
                   {% if u.obj.is_active %}Disable{% else %}Enable{% endif %}
                 </button>
               </form>
-              <a href="{{ base_path }}/users/{{ u.obj.id }}/delete/" class="btn btn-danger">Delete</a>
+              {% if u.obj.id != user.id %}
+                <span style="font-size:.72rem;color:#94a3b8;" title="Historical records are protected until User Deletion Stage 2 is verified">Deletion pending Stage 2</span>
+              {% endif %}
               {% endif %}
             </div>
           </td>

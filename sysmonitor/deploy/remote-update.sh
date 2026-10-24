@@ -5,6 +5,25 @@
 # If new code fails `manage.py check` it is rolled back and not retried until
 # GitHub has a newer commit.
 set -u
+# Approval is a root-owned file outside the writable Git checkout. Until that
+# file is provisioned by an operator, unattended GitHub code activation stops.
+# The mirror database and media synchronization are separate services.
+APPROVAL_FILE="/etc/sysmonitor/remote-approved-commit"
+if [ ! -f "$APPROVAL_FILE" ] || [ -L "$APPROVAL_FILE" ]; then
+  echo "Remote code update held: no trusted release approval file"
+  exit 0
+fi
+for CONTROL in "$(dirname "$APPROVAL_FILE")" "$APPROVAL_FILE"; do
+  if [ "$(stat -c '%u' "$CONTROL" 2>/dev/null)" != '0' ] ||      [ -n "$(find "$CONTROL" -maxdepth 0 -perm /022 -print 2>/dev/null)" ]; then
+    echo "Remote code update held: approval file and directory must be root-owned and not group/other writable" >&2
+    exit 1
+  fi
+done
+APPROVED="$(tr -d '[:space:]' < "$APPROVAL_FILE")"
+if [[ ! "$APPROVED" =~ ^[[:xdigit:]]{40}$ ]]; then
+  echo "Remote code update held: invalid approved commit" >&2
+  exit 1
+fi
 REPO_DIR="${REPO_DIR:-/home/app-admin/sysmonitor/repo}"
 VENV="${VENV:-/home/app-admin/sysmonitor/venv}"
 BRANCH="${GIT_BRANCH:-main}"
@@ -12,6 +31,10 @@ cd "$REPO_DIR" || exit 1
 
 git fetch -q origin "$BRANCH" || exit 0        # GitHub unreachable → try next time
 OLD="$(git rev-parse HEAD)"; NEW="$(git rev-parse "origin/$BRANCH")"
+if [ "$NEW" != "$APPROVED" ]; then
+  echo "Remote code update held: fetched commit is not the approved release"
+  exit 0
+fi
 [ "$OLD" = "$NEW" ] && exit 0
 [ -f .sysmonitor-bad-commit ] && [ "$(cat .sysmonitor-bad-commit)" = "$NEW" ] && exit 0
 

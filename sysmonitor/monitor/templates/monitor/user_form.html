@@ -123,7 +123,10 @@
 
       <label>Role</label>
       <select name="role" id="role-select" onchange="updateDesc()">
+        {% if user.is_superuser %}
         <option value="admin"  {% if current_role == "admin"  %}selected{% endif %}>Admin</option>
+        <option value="fullviewer" {% if current_role == "fullviewer" %}selected{% endif %}>Full Viewer (Read Only)</option>
+        {% endif %}
         <option value="user"   {% if current_role == "user"   %}selected{% endif %}>User</option>
         <option value="viewer" {% if current_role == "viewer" or not current_role %}selected{% endif %}>Viewer</option>
         <option value="guest"  {% if current_role == "guest"  %}selected{% endif %}>Guest</option>

@@ -371,7 +371,7 @@ table.history th{
       <strong>🔒 {{ due_existing.report_date|date:"d M Y" }} · {{ due_existing.get_shift_display }} · {{ due_existing.get_status_display }}</strong>
       <div class="muted" style="margin-top:.35rem">
         {{ due_existing.shift_start|date:"d M Y, h:i A" }} – {{ due_existing.shift_end|date:"d M Y, h:i A" }} (BDT)
-        · Prepared by {{ due_existing.prepared_by.get_full_name|default:due_existing.prepared_by.username }}.
+        · Prepared by {{ due_existing.prepared_by_display }}.
         This specific date and shift is already occupied.
       </div>
 
@@ -793,7 +793,7 @@ table.history th{
       {% for r in my_reports %}<tr>
       <td>{{ r.report_date|date:"d M Y" }} · {{ r.get_shift_display }}</td>
       <td>{{ r.shift_start|date:"d M Y, h:i A" }} – {{ r.shift_end|date:"d M Y, h:i A" }}</td>
-      <td>{{ r.prepared_by.get_full_name|default:r.prepared_by.username }}</td><td>{{ r.handover_to.name }}</td>
+      <td>{{ r.prepared_by_display }}</td><td>{{ r.handover_to.name }}</td>
       <td>{{ r.get_status_display }}</td>
       <td><a class="btn secondary" href="{% url 'shiftreport:edit' r.id %}">Open</a></td></tr>
       {% empty %}<tr><td colspan="6">No personal Shift Reports yet.</td></tr>{% endfor %}
@@ -806,7 +806,7 @@ table.history th{
       {% for r in other_reports %}<tr>
       <td>{{ r.report_date|date:"d M Y" }} · {{ r.get_shift_display }}</td>
       <td>{{ r.shift_start|date:"d M Y, h:i A" }} – {{ r.shift_end|date:"d M Y, h:i A" }}</td>
-      <td>{{ r.prepared_by.get_full_name|default:r.prepared_by.username }}</td><td>{{ r.handover_to.name }}</td>
+      <td>{{ r.prepared_by_display }}</td><td>{{ r.handover_to.name }}</td>
       <td>{{ r.get_status_display }}</td>
       <td><a class="btn secondary" href="{% url 'shiftreport:view' r.id %}">View (read-only)</a></td></tr>
       {% empty %}<tr><td colspan="6">No reports prepared by other engineers.</td></tr>{% endfor %}

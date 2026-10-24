@@ -211,3 +211,6 @@ if IS_MIRROR:
     MIDDLEWARE.insert(MIDDLEWARE.index('django.contrib.auth.middleware.AuthenticationMiddleware') + 1,
                       'monitor.mirror.MirrorForwardMiddleware')
     DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024     # profile pictures etc.
+
+# Email token links are single-use (Django token invalidated by password change).
+PASSWORD_RESET_TIMEOUT = 30 * 60

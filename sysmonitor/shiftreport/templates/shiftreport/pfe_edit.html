@@ -61,7 +61,7 @@
 
     <div class="muted" style="margin-bottom:1rem">
       Prepared By:
-      {{ report.prepared_by.get_full_name|default:report.prepared_by.username }}
+      {{ report.prepared_by_display }}
       · Status: <strong>{{ report.get_status_display }}</strong>
       {% if report.status == "SCHEDULED" and report.scheduled_send_at %}
         <div style="margin-top:10px;padding:12px;border:1px solid #0d9488;border-radius:8px">

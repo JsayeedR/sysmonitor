@@ -357,7 +357,7 @@ textarea{
         <tr>
           <td class="label-cell">Prepared By:</td>
           <td>
-            {{ report.prepared_by.get_full_name|default:report.prepared_by.username }}
+            {{ report.prepared_by_display }}
           </td>
         </tr>
 

@@ -15,11 +15,11 @@ SAFE_ROUTES = frozenset({
     'api_report', 'user_list', 'duty_roster_manage', 'duty_roster_current',
     'device_list', 'event_log', 'activity_log', 'report', 'uptime_status',
     'uptime_status_log', 'pac_status', 'sensor_status', 'api_sensor_status',
-    'api_sensor_history', 'genruntime', 'generator_fuel_report',
+    'api_sensor_history', 'generator_runtime_report', 'generator_fuel_report',
     'outage_cycle_remarks', 'generator_cycle_audit', 'generator_cycle_audit_data',
     'generator_log_page', 'maintenance_status', 'profile_view',
     'system_recent_cycles', 'cctv_view', 'cctv_live_status',
-    'shiftreport:home', 'shiftreport:view', 'shiftreport:historical_home',
+    'shiftreport:home', 'shiftreport:view',
     'shiftreport:pfe_home', 'shiftreport:slot_check',
 })
 
@@ -34,8 +34,8 @@ SAFE_CONTENT_TYPES = ('text/html', 'application/json', 'text/plain')
 
 
 def is_fullviewer(user):
-    return bool(user and getattr(user, 'is_authenticated', False)
-                and getattr(user, 'username', '').casefold() == IDENTITY)
+    from .access_policy import is_full_viewer
+    return is_full_viewer(user)
 
 
 def forbidden_request(request):

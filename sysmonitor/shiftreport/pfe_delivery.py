@@ -52,6 +52,14 @@ def deliver_pfe(report_id, actor=None, ip='', scheduled_only=False):
     MnocPfeReport.objects.filter(pk=report_id, status='SENDING').update(
         email_subject=subject, email_to=to_list, email_cc=cc_list,
     )
+    # Persist the signature before SMTP; a profile change cannot rewrite it
+    # after delivery. A failed attempt is NOT evidence of successful sending.
+    from .reporting import capture_delivery_signature
+    if not report.sent_signature_html:
+        report.sent_signature_html = capture_delivery_signature(report, cfg)
+        MnocPfeReport.objects.filter(pk=report_id, status='SENDING').update(
+            sent_signature_html=report.sent_signature_html,
+        )
     try:
         send_smtp_email(
             subject=subject, html_body=build_pfe_html_body(report, cfg),

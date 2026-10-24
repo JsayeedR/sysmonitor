@@ -18,8 +18,9 @@ logger = logging.getLogger(__name__)
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 def get_role(user):
-    if getattr(user, 'is_authenticated', False) and user.username.lower() == 'fullviewer@sysmonitor':
-        return 'admin'  # Reading routes only; middleware blocks all mutations and downloads.
+    from .access_policy import is_full_viewer
+    if is_full_viewer(user):
+        return 'admin'  # Read-only identity is restricted by the Full Viewer middleware.
     if user.is_superuser:
         return 'admin'
     try:
@@ -29,10 +30,14 @@ def get_role(user):
 
 
 def get_ip(request):
+    # External clients must not forge log attribution with X-Forwarded-For.
+    # Trust this header only when the immediate peer is a loopback reverse
+    # proxy / validated SSH tunnel, never on directly exposed port 8000.
+    peer = request.META.get('REMOTE_ADDR', '')
     x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded:
-        return x_forwarded.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR', '')
+    if x_forwarded and peer in ('127.0.0.1', '::1'):
+        return x_forwarded.split(',')[-1].strip()[:45]
+    return peer[:45]
 
 
 def log_activity(user, action, detail='', ip=None):
@@ -330,112 +335,164 @@ def about_view(request):
 # ─── Auth ─────────────────────────────────────────────────────────────────────
 
 def login_view(request):
+    """Authenticate with generic errors and per-source/account throttling.
+
+    A distributed reverse-proxy rate limit is still required for multiworker
+    remote production. Cache throttling is a defense in depth, not the sole gate.
+    """
+    from django.core.cache import cache
+    import hashlib
     error = None
     if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
+        username = (request.POST.get('username') or '').strip()[:150]
+        password = request.POST.get('password') or ''
+        ip = get_ip(request)
+        key = 'login-attempt:' + hashlib.sha256(
+            f'{ip}:{username.casefold()}'.encode()
+        ).hexdigest()
+        failures = cache.get(key, 0)
+        if failures >= 5:
+            error = 'Too many login attempts. Try again later.'
+            return render(request, 'monitor/login.html', {'error': error}, status=429)
         user = authenticate(request, username=username, password=password)
         if user:
-            # Temporary password issued by the "Forgot password" flow is only
-            # valid for 30 minutes — if that window has passed, refuse the
-            # login even though the password itself still matches, and make
-            # them request a fresh reset.
             if settings.IS_MIRROR:
-                # remote: read-only — never create a profile or change a password here
                 profile = UserProfile.objects.filter(user=user).first()
             else:
                 profile, _ = UserProfile.objects.get_or_create(user=user)
             if profile and profile.must_change_password and profile.temp_password_expires_at:
                 from django.utils import timezone
                 if timezone.now() > profile.temp_password_expires_at:
-                    if not settings.IS_MIRROR:      # the master invalidates it when it is used there
+                    # Legacy temporary credentials remain invalid, but the new
+                    # token-based flow never overwrites the password on request.
+                    if not settings.IS_MIRROR:
                         user.set_unusable_password()
-                        user.save()
-                    log_activity(user, 'LOGIN_FAILED',
-                                 f'Temporary password for "{username}" had expired.',
-                                 ip=get_ip(request))
-                    error = ('That temporary password has expired (30-minute limit). '
-                              'Request a new password reset.')
+                        user.save(update_fields=['password'])
+                    error = 'Invalid username or password'
                     return render(request, 'monitor/login.html', {'error': error})
-
+            cache.delete(key)
             login(request, user)
             log_activity(user, 'LOGIN',
-                         f'User "{username}" logged in.',
-                         ip=get_ip(request))
+                         f'User "{username}" logged in.', ip=get_ip(request))
             return redirect('dashboard')
         else:
+            cache.set(key, failures + 1, timeout=15 * 60)
             fake_user = User.objects.filter(username=username).first()
             log_activity(fake_user, 'LOGIN_FAILED',
-                         f'Failed login attempt for "{username}".',
-                         ip=get_ip(request))
-            if fake_user and not fake_user.is_active:
-                error = 'This account has been disabled. Contact your administrator.'
-            else:
-                error = 'Invalid username or password'
+                         f'Failed login attempt for "{username}".', ip=get_ip(request))
+            error = 'Invalid username or password'
     return render(request, 'monitor/login.html', {'error': error})
 
 
 # ─── Password Reset (forgot password) ──────────────────────────────────────────
 
 def password_reset_request(request):
-    """
-    Public "Forgot password" page. Looks up the account by username OR
-    email, issues a random temporary password valid for 30 minutes, forces
-    a password change on next login, and emails the temp password + a
-    login link via the configured email gateway.
+    """No account changes until the recipient uses a one-time reset link.
 
-    Always shows the same generic confirmation message whether or not a
-    matching account was found, so this can't be used to enumerate usernames.
+    Generic replies avoid account enumeration. The request is forwarded to the
+    master on the remote site; no SMTP secrets are required on the mirror.
     """
+    from django.core.cache import cache
+    from django.db.models import Q
+    from django.contrib.auth.tokens import default_token_generator
+    from django.utils.http import urlsafe_base64_encode
+    from django.utils.encoding import force_bytes
+    from django.urls import reverse
+    from monitor.models import NotificationGateway
+    from monitor.notifications import send_password_reset_link_email
+    import hashlib
+
     sent = False
     error = None
     if request.method == 'POST':
-        identifier = request.POST.get('identifier', '').strip()
+        identifier = request.POST.get('identifier', '').strip()[:254]
         if not identifier:
             error = 'Enter your username or email.'
         else:
-            from django.db.models import Q
-            target = User.objects.filter(
-                Q(username__iexact=identifier) | Q(email__iexact=identifier)
-            ).first()
-
-            if target and target.is_active and target.email:
-                import secrets, string
-                from django.utils import timezone
-                from datetime import timedelta
-                from monitor.models import NotificationGateway
-                from monitor.notifications import send_password_reset_email
-
-                alphabet = string.ascii_letters + string.digits
-                temp_password = ''.join(secrets.choice(alphabet) for _ in range(12))
-                target.set_password(temp_password)
-                target.save()
-
-                profile, _ = UserProfile.objects.get_or_create(user=target)
-                profile.must_change_password = True
-                profile.temp_password_expires_at = timezone.now() + timedelta(minutes=30)
-                profile.save()
-
-                gw = NotificationGateway.objects.filter(channel='email', is_enabled=True).first()
-                if getattr(request, '_mirror_forwarded', False):
-                    # asked from the remote site → link to the remote login page
-                    login_url = settings.MIRROR_PUBLIC_URL + '/login/'
-                else:
-                    login_url = request.build_absolute_uri('/login/')
-                if gw:
-                    send_password_reset_email(gw, target.email, target.username,
-                                               temp_password, login_url)
-
-                log_activity(target, 'PASSWORD_RESET_REQUESTED',
-                             f'Temporary password issued for "{target.username}" '
-                             f'(valid 30 min).', ip=get_ip(request))
-            # Same message regardless of whether target was found/emailed —
-            # avoids revealing which usernames/emails exist in the system.
+            # A cache throttle mitigates abuse on the current single master web
+            # process; a shared production rate limit is additionally required.
+            ip = get_ip(request)
+            digest = hashlib.sha256(f'{ip}:{identifier.casefold()}'.encode()).hexdigest()
+            permitted = cache.add('pwreset:' + digest, '1', timeout=120)
+            if permitted:
+                target = User.objects.filter(
+                    Q(username__iexact=identifier) | Q(email__iexact=identifier)
+                ).first()
+                if target and target.is_active and target.email:
+                    uidb64 = urlsafe_base64_encode(force_bytes(target.pk))
+                    token = default_token_generator.make_token(target)
+                    suffix = reverse('password_reset_confirm', kwargs={
+                        'uidb64': uidb64, 'token': token,
+                    })
+                    if getattr(request, '_mirror_forwarded', False):
+                        url = settings.MIRROR_PUBLIC_URL + suffix
+                    else:
+                        url = request.build_absolute_uri(suffix)
+                    gw = NotificationGateway.objects.filter(
+                        channel='email', is_enabled=True
+                    ).first()
+                    if gw:
+                        ok, detail = send_password_reset_link_email(
+                            gw, target.email, target.username, url,
+                        )
+                        if not ok:
+                            logger.warning('Password reset email delivery failed.')
+                    log_activity(target, 'PASSWORD_RESET_REQUESTED',
+                                 f'Password reset link requested for "{target.username}".',
+                                 ip=get_ip(request))
             sent = True
+    response = render(request, 'monitor/password_reset.html', {'sent': sent, 'error': error})
+    response['Cache-Control'] = 'no-store'
+    return response
 
-    return render(request, 'monitor/password_reset.html', {
-        'sent': sent, 'error': error,
+
+def password_reset_confirm(request, uidb64, token):
+    """Token invalidates on password change; never email passwords."""
+    from django.contrib.auth.tokens import default_token_generator
+    from django.utils.http import urlsafe_base64_decode
+    from django.utils.encoding import force_str
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+    from django.core.cache import cache
+    import hashlib
+    try:
+        user_pk = force_str(urlsafe_base64_decode(uidb64))
+        target = User.objects.filter(pk=user_pk, is_active=True).first()
+    except (ValueError, TypeError, OverflowError, UnicodeDecodeError):
+        target = None
+    valid = bool(target and default_token_generator.check_token(target, token))
+    error = None
+    completed = False
+    if request.method == 'POST':
+        digest = hashlib.sha256(f'{get_ip(request)}:{uidb64}'.encode()).hexdigest()
+        if not cache.add('pwconfirm:' + digest, 1, timeout=10):
+            valid = False
+        if valid:
+            p1 = request.POST.get('password1', '')
+            p2 = request.POST.get('password2', '')
+            if p1 != p2:
+                error = 'The passwords do not match.'
+            else:
+                try:
+                    validate_password(p1, target)
+                except ValidationError as exc:
+                    error = ' '.join(exc.messages)
+                else:
+                    target.set_password(p1)
+                    target.save(update_fields=['password'])
+                    UserProfile.objects.filter(user=target).update(
+                        must_change_password=False, temp_password_expires_at=None
+                    )
+                    log_activity(target, 'PASSWORD_RESET_REQUESTED',
+                                 'Password reset completed with a one-time link.',
+                                 ip=get_ip(request))
+                    valid = False
+                    completed = True
+    response = render(request, 'monitor/password_reset_confirm.html', {
+        'valid': valid, 'error': error, 'completed': completed,
     })
+    response['Cache-Control'] = 'no-store'
+    return response
 
 
 def logout_view(request):
@@ -655,7 +712,7 @@ def user_list(request):
             'last_login_ip': last_login_log.ip_address if last_login_log else None,
             'last_logout': last_logout_log.timestamp if last_logout_log else None,
             'last_failed_login': last_failed_login_log.timestamp if last_failed_login_log else None,
-            'profile_picture': profile.profile_picture,
+            'profile_picture': profile.profile_picture if profile is not None else None,
             'recent_logs': recent_logs,
         })
 
@@ -755,11 +812,15 @@ def colocation_setpoints(request):
 def user_create(request):
     error = None
     if request.method == 'POST':
+        from .access_policy import role_assignment_error
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '').strip()
         role     = request.POST.get('role', 'viewer')
+        policy_error = role_assignment_error(request.user, role, username=username)
 
-        if not username or not password:
+        if policy_error:
+            error = policy_error
+        elif not username or not password:
             error = 'Username and password are required.'
         elif User.objects.filter(username=username).exists():
             error = f'Username "{username}" already exists.'
@@ -783,11 +844,19 @@ def user_create(request):
 @role_required('admin')
 def user_edit(request, user_id):
     target = get_object_or_404(User, id=user_id)
+    if (target.is_superuser or get_role(target) == 'admin') and not request.user.is_superuser:
+        messages.error(request, 'Only a Superadmin may edit an Admin or Superadmin account.')
+        return redirect('user_list')
     error  = None
     profile, _ = UserProfile.objects.get_or_create(user=target)
 
     if request.method == 'POST':
+        from .access_policy import role_assignment_error
         new_role = request.POST.get('role', 'viewer')
+        policy_error = role_assignment_error(request.user, new_role)
+        if policy_error:
+            messages.error(request, policy_error)
+            return redirect('user_list')
         new_pass = request.POST.get('password', '').strip()
 
         first_name = request.POST.get('first_name', '').strip()
@@ -798,7 +867,16 @@ def user_edit(request, user_id):
         whatsapp_number = request.POST.get('whatsapp_number', '').strip()
         telegram_handle = request.POST.get('telegram_handle', '').strip()
 
-        if email and User.objects.exclude(id=target.id).filter(email=email).exists():
+        profile_picture = None
+        if request.FILES.get('profile_picture'):
+            from .media_security import sanitize_profile_image
+            try:
+                profile_picture = sanitize_profile_image(request.FILES['profile_picture'])
+            except ValueError as exc:
+                error = str(exc)
+        if error:
+            pass
+        elif email and User.objects.exclude(id=target.id).filter(email=email).exists():
             error = f'Email "{email}" is already used by another user.'
         else:
             target.first_name = first_name
@@ -812,7 +890,6 @@ def user_edit(request, user_id):
             profile.whatsapp_number = whatsapp_number
             profile.telegram_handle = telegram_handle
 
-            profile_picture = request.FILES.get('profile_picture')
             if profile_picture:
                 profile.profile_picture = profile_picture
 
@@ -859,6 +936,13 @@ def user_toggle_active(request, user_id):
     account fails authenticate() immediately (Django's ModelBackend checks
     is_active) and login_view() shows a clear 'account disabled' message."""
     target = get_object_or_404(User, id=user_id)
+    if (target.is_superuser or get_role(target) == 'admin') and not request.user.is_superuser:
+        messages.error(request, 'Only a Superadmin may enable or disable an Admin or Superadmin account.')
+        return redirect('user_list')
+    from .access_policy import is_full_viewer
+    if target.is_superuser or is_full_viewer(target):
+        messages.error(request, 'Superadmin and Full Viewer accounts are protected.')
+        return redirect('user_list')
     if target == request.user:
         messages.error(request, "You can't disable your own account.")
         return redirect('user_list')
@@ -875,47 +959,18 @@ def user_toggle_active(request, user_id):
 
 @role_required('admin')
 def user_delete(request, user_id):
-    from django.db import transaction
-    from django.db.models.deletion import ProtectedError, RestrictedError
+    """Stage 2 is not deployed. Never cascade-delete operational history.
 
+    Retain the confirmation route so old links fail safely. Permanent deletion
+    will only be enabled after the historical actor migration and DB rehearsal.
+    """
     target = get_object_or_404(User, id=user_id)
-
-    if target == request.user:
-        messages.error(request, "You can't delete yourself.")
-        return redirect('user_list')
-
-    if request.method == 'POST':
-        username = target.username
-
-        try:
-            with transaction.atomic():
-                target.delete()
-
-                log_activity(
-                    request.user,
-                    'USER_DELETED',
-                    f'Deleted user "{username}".',
-                    ip=get_ip(request)
-                )
-
-        except (ProtectedError, RestrictedError):
-            messages.error(
-                request,
-                f'User "{username}" cannot be permanently deleted '
-                'because historical records are associated with this account. '
-                'You may deactivate the account instead to prevent login '
-                'while preserving operational records.'
-            )
-            return redirect('user_list')
-
-        messages.success(request, f'User "{username}" deleted.')
-        return redirect('user_list')
-
-    return render(request, 'monitor/user_confirm_delete.html', {
-        'target_user': target,
-        'role': get_role(request.user),
-        'user': request.user,
-    })
+    messages.error(
+        request,
+        f'Permanent deletion of "{target.username}" is disabled until User Deletion Stage 2 '
+        'is verified. Use account deactivation for ordinary users instead.'
+    )
+    return redirect('user_list')
 
 
 # ─── Device Management ───────────────────────────────────────────────────────
@@ -1387,7 +1442,7 @@ def activity_log(request):
                 item.timestamp.astimezone(bdt).strftime(
                     '%d/%m/%Y %I:%M:%S %p'
                 ),
-                item.user.username if item.user else '',
+                item.actor_username,
                 item.action,
                 item.detail,
                 item.ip_address or '',
@@ -1683,7 +1738,7 @@ def api_report(request):
             'pdb_duration': c.pdb_duration_fmt(),
             'gen_runtime':  c.gen_runtime_fmt(),
             'cycle_type':   c.cycle_type,
-            'remarks': ' | '.join(([c.alarm_reason] if c.alarm_reason else []) + [f'{item.author.username}: {item.text}' for item in c.engineer_remarks.all()]),
+            'remarks': ' | '.join(([c.alarm_reason] if c.alarm_reason else []) + [f'{item.author_name}: {item.text}' for item in c.engineer_remarks.all()]),
         })
 
     # Daily totals for bar chart — clipped at midnight so a cycle that
@@ -3425,6 +3480,14 @@ def profile_edit_save(request):
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'POST required'})
 
+    from .media_security import sanitize_profile_image
+    picture = None
+    if request.FILES.get('profile_picture'):
+        try:
+            picture = sanitize_profile_image(request.FILES['profile_picture'])
+        except ValueError as exc:
+            return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+
     user = request.user
     profile = _get_or_create_profile(user)
 
@@ -3444,8 +3507,8 @@ def profile_edit_save(request):
     profile.whatsapp_number = whatsapp
     profile.telegram_handle = telegram
 
-    if 'profile_picture' in request.FILES:
-        profile.profile_picture = request.FILES['profile_picture']
+    if picture is not None:
+        profile.profile_picture = picture
 
     profile.save()
 
@@ -4133,7 +4196,7 @@ def generator_cycle_audit_data(request):
             'generator': c.manual_generator,
             'added_by': c.added_by or '—',
             'note': c.alarm_reason or '',
-            'remarks': ' | '.join(f'{x.author.username}: {x.text}' for x in c.engineer_remarks.all()),
+            'remarks': ' | '.join(f'{x.author_name}: {x.text}' for x in c.engineer_remarks.all()),
             'created_at': (
                 c.created_at.astimezone(bdt).strftime(
                     '%d/%m/%Y %I:%M %p'
@@ -4653,6 +4716,7 @@ def system_restart_ping(request):
 
 
 #------- Uptime KUMA
+@role_required('viewer', 'user', 'admin')
 def uptime_status(request):
     # The remote mirror cannot reach the local Uptime Kuma server.
     monitors = [] if settings.IS_MIRROR else get_kuma_monitors()
@@ -4661,6 +4725,7 @@ def uptime_status(request):
         "role": get_role(request.user),
     })
 
+@role_required('viewer', 'user', 'admin')
 def uptime_status_log(request, monitor_id):
     logs = [] if settings.IS_MIRROR else get_monitor_log(monitor_id)
     return JsonResponse({"logs": logs})
@@ -4705,6 +4770,7 @@ def sensor_status_view(request):
     })
 
 
+@role_required('viewer', 'user', 'admin')
 def api_sensor_status(request):
     """Latest colocation-room temp/humidity reading, for the dashboard
     widget and the sensor page's auto-refresh. No role check — same
@@ -4944,6 +5010,7 @@ def _sensor_report_stats(qs, bdt):
     }
 
 
+@role_required('viewer', 'user', 'admin')
 def api_sensor_history(request):
     """
     Time-series points + report statistics.
@@ -7106,6 +7173,14 @@ def page_access_manage(request):
     current_hidden = set()
 
     if target is not None:
+        from .access_policy import is_full_viewer
+        if request.method == 'POST' and (
+            target.is_superuser or is_full_viewer(target)
+            or (not request.user.is_superuser and
+                (get_role(target) == 'admin' or target == request.user))
+        ):
+            messages.error(request, 'You cannot change page access for this protected account.')
+            return redirect('page_access_manage')
         profile, _ = UserProfile.objects.get_or_create(user=target)
 
         selected_role = get_role(target)

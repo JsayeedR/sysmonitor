@@ -79,6 +79,8 @@ FULL_EXCLUDES = [
 SCRUB_SQL = [
     "DELETE FROM django_session",
     "UPDATE monitor_notificationgateway SET wa_access_token='', tg_bot_token='', email_password=''",
+    "UPDATE shiftreport_shiftreportconfig SET smtp_password=''",
+    "UPDATE monitor_notificationrequest SET pairing_code=''",
 ]
 
 
@@ -122,12 +124,12 @@ def make_snapshot(dest):
     src = sqlite3.connect(f'file:{DB_PATH}?mode=ro', uri=True, timeout=30)
     dst = sqlite3.connect(dest)
     try:
+        # Data is sensitive even after scrubbing (user hashes and reports remain).
+        # rsync -a preserves source file permissions on the remote.
+        os.chmod(dest, 0o600)
         src.backup(dst)
         for sql in SCRUB_SQL:
-            try:
-                dst.execute(sql)
-            except sqlite3.OperationalError:
-                pass  # table not present — ignore
+            dst.execute(sql)  # Fail closed rather than upload a partially scrubbed snapshot.
         dst.commit()
         dst.execute('PRAGMA journal_mode=DELETE')   # single self-contained file
     finally:
@@ -223,7 +225,7 @@ def _live_push():
             # Point the remote web page at the new snapshot (atomic rename),
             # then tidy up old snapshots (kept 10 min so running requests finish).
             remote_cmd = (
-                f"cd '{RPATH}' && printf '%s' '{snap_name}' > .mirror_current.tmp "
+                f"cd '{RPATH}' && umask 077 && printf '%s' '{snap_name}' > .mirror_current.tmp "
                 f"&& mv -f .mirror_current.tmp mirror_current "
                 f"&& find . -maxdepth 1 \\( -name 'mirror-*.sqlite3*' -o -name '.mirror-*' \\) "
                 f"! -name 'mirror-{digest[:16]}.sqlite3*' -mmin +10 -delete"

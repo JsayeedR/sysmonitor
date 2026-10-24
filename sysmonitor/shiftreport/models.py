@@ -140,6 +140,11 @@ class ShiftHandoverContact(models.Model):
     This can optionally link to a SysMonitor user, but email/name remain
     explicit so operational contacts are not dependent on login accounts.
     """
+    contact_snapshot = models.ForeignKey(
+        'monitor.HistoricalActor', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='handover_contacts',
+        editable=False,
+    )
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -165,6 +170,11 @@ class ShiftHandoverContact(models.Model):
 
 
 class ShiftReport(models.Model):
+    preparer_snapshot = models.ForeignKey(
+        'monitor.HistoricalActor', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='prepared_shift_reports',
+        editable=False,
+    )
     SHIFT_CHOICES = [
         ('MORNING', 'Morning Shift'),
         ('EVENING', 'Evening Shift'),
@@ -192,7 +202,8 @@ class ShiftReport(models.Model):
 
     prepared_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
         related_name='prepared_shift_reports',
     )
 
@@ -316,6 +327,17 @@ class ShiftReport(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Immutable evidence of HTML used for the delivery attempt. Empty on
+    # legacy reports: NEVER infer that a reconstructed signature is original.
+    sent_signature_html = models.TextField(blank=True, default='')
+
+    @property
+    def prepared_by_display(self):
+        if self.prepared_by_id:
+            return self.prepared_by.get_full_name().strip() or self.prepared_by.username
+        return (self.preparer_snapshot.display_name
+                if self.preparer_snapshot_id else 'Unknown engineer')
+
     class Meta:
         ordering = ['-shift_start', '-id']
         constraints = [
@@ -329,13 +351,23 @@ class ShiftReport(models.Model):
         return (
             f'{self.report_date} — '
             f'{self.get_shift_display()} — '
-            f'{self.prepared_by.username}'
+            f'{self.prepared_by_display}'
         )
 
 
 
 class HistoricalReportRevision(models.Model):
     """Versioned historical issues workbook."""
+    creator_snapshot = models.ForeignKey(
+        'monitor.HistoricalActor', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='created_historical_revisions',
+        editable=False,
+    )
+    owner_snapshot = models.ForeignKey(
+        'monitor.HistoricalActor', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='owned_historical_revisions',
+        editable=False,
+    )
 
     STATUS_CHOICES = [
         ('DRAFT', 'Draft'),
@@ -353,7 +385,7 @@ class HistoricalReportRevision(models.Model):
     # Per-engineer history; NULL denotes the legacy shared seed.
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True,
-        on_delete=models.PROTECT, related_name='personal_historical_revisions',
+        on_delete=models.SET_NULL, related_name='personal_historical_revisions',
     )
 
     # Snapshot of the five workbook columns.
@@ -382,10 +414,17 @@ class HistoricalReportRevision(models.Model):
 
     class Meta:
         ordering = ['-revision_number']
-        constraints = [models.UniqueConstraint(
-            fields=['owner', 'revision_number'],
-            name='unique_personal_historical_version',
-        )]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['owner', 'revision_number'],
+                name='unique_personal_historical_version',
+            ),
+            models.UniqueConstraint(
+                fields=['owner_snapshot', 'revision_number'],
+                condition=models.Q(owner__isnull=True, owner_snapshot__isnull=False),
+                name='uniq_archived_personal_hist_version',
+            ),
+        ]
 
     def save(self, *args, **kwargs):
         if self.pk:
@@ -409,6 +448,11 @@ class ShiftImportantIssue(models.Model):
     These records can later be exported into the XLSX attachment and selected
     into a shift report without rewriting old issue history.
     """
+    creator_snapshot = models.ForeignKey(
+        'monitor.HistoricalActor', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='important_issues',
+        editable=False,
+    )
 
     STATUS_CHOICES = [
         ('OPEN', 'Open'),
@@ -479,6 +523,11 @@ class MnocPfeReport(models.Model):
     Only the creator (or Admin) may edit an unsent draft.
     Only one report is allowed per calendar date.
     """
+    preparer_snapshot = models.ForeignKey(
+        'monitor.HistoricalActor', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='prepared_pfe_reports',
+        editable=False,
+    )
 
     STATUS_CHOICES = [
         ('DRAFT', 'Draft'),
@@ -500,7 +549,7 @@ class MnocPfeReport(models.Model):
 
     prepared_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL, null=True, blank=True,
         related_name='prepared_mnoc_pfe_reports',
     )
 
@@ -569,6 +618,17 @@ class MnocPfeReport(models.Model):
     updated_at = models.DateTimeField(
         auto_now=True,
     )
+
+    # Immutable evidence of HTML used for the delivery attempt. Empty on
+    # legacy reports: NEVER infer that a reconstructed signature is original.
+    sent_signature_html = models.TextField(blank=True, default='')
+
+    @property
+    def prepared_by_display(self):
+        if self.prepared_by_id:
+            return self.prepared_by.get_full_name().strip() or self.prepared_by.username
+        return (self.preparer_snapshot.display_name
+                if self.preparer_snapshot_id else 'Unknown engineer')
 
     class Meta:
         ordering = ['-report_date', '-id']

@@ -56,7 +56,7 @@ LOCAL_ONLY_PATHS = (
 
 # GET pages that need the master machine (live services / local hardware).
 PASS_THROUGH_GET_PREFIXES = (
-    '/system/', '/uptime/', '/smw6pac/', '/cctv-setup/',
+    '/system/', '/uptime/', '/smw6pac/', '/cctv-setup/', '/password-reset/confirm/',
     '/generator-cycle-audit/data/',
     '/notifications/whatsapp-health/', '/notifications/gateway/telegram-chats/',
 )
@@ -66,6 +66,7 @@ BLOCKED_PREFIXES = ('/admin/',)
 ACTIVITY_PATH = '/mirror/activity/'
 TRACK_PATH = '/mirror/track/'
 PASSWORD_SAVE_PATH = '/profile/password/save/'
+AUTH_VALIDATION_PATH = '/mirror/auth/validate/'
 
 
 # ─── signing ──────────────────────────────────────────────────────────────────
@@ -158,6 +159,8 @@ class MirrorInboundMiddleware:
         prefix = request.META.get('HTTP_X_MIRROR_PREFIX', '')
         nonce = request.META.get('HTTP_X_MIRROR_NONCE', '')
         try:
+            if request.META.get('CONTENT_LENGTH') and int(request.META['CONTENT_LENGTH']) > 25 * 1024 * 1024:
+                return JsonResponse({'ok': False, 'error': 'request too large'}, status=413)
             body = request.body
         except Exception:
             return JsonResponse({'ok': False, 'error': 'request too large'}, status=413)
@@ -174,6 +177,12 @@ class MirrorInboundMiddleware:
 
         # Trusted: act as the user who clicked on the remote site.
         user = User.objects.filter(username=username, is_active=True).first() if username else None
+        from .access_policy import deny_remote_forward
+        # Narrow internal identity validation route; no privileged operation is
+        # performed and the endpoint independently checks a secret-bound proof.
+        if not (request.path_info == AUTH_VALIDATION_PATH and request.method == 'POST') and deny_remote_forward(user, request.path_info, request.method):
+            log.warning('rejected remote privileged operation: %s', request.path_info)
+            return JsonResponse({'ok': False, 'error': 'local-only operation'}, status=403)
         request.user = user or AnonymousUser()
         request._dont_enforce_csrf_checks = True      # the remote already checked CSRF
         request._mirror_forwarded = True
@@ -191,7 +200,11 @@ class MirrorInboundMiddleware:
         response.cookies.clear()
 
         # Make the change visible on the remote immediately, not in 30 s.
-        if (request.method not in SAFE_METHODS and request.path_info not in (ACTIVITY_PATH, TRACK_PATH)
+        # The authoritative session check is a read-only internal POST on
+        # every authenticated mirror request. It must never launch a database
+        # snapshot push, even when its response is a denial.
+        if (request.method not in SAFE_METHODS
+                and request.path_info not in (ACTIVITY_PATH, TRACK_PATH, AUTH_VALIDATION_PATH)
                 and response.status_code < 500):
             # In the background, so the user's Save returns at once.
             threading.Thread(target=_push_now, daemon=True).start()
@@ -222,8 +235,55 @@ class MirrorForwardMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
+    def _authoritative_access_check(self, request):
+        """Fail closed when master revocation state cannot be verified.
+
+        The REMOTE SQLite mirror and signed session cookie are never treated
+        as authoritative for an authenticated browser request.
+        """
+        from monitor.mirror_authority import identity_proof
+        user = request.user
+        if not user.is_authenticated:
+            return None
+        proof = identity_proof(user)
+        if not proof:
+            return _error(request, 503, 'Authentication unavailable',
+                          'Account verification is temporarily unavailable.')
+        body = json.dumps({'uid': str(user.pk), 'proof': proof},
+                          separators=(',', ':')).encode()
+        try:
+            result = _master_request('POST', AUTH_VALIDATION_PATH, '', user.username,
+                                     body, request.META.get('SCRIPT_NAME', '').rstrip('/'),
+                                     {'Content-Type': 'application/json'}, timeout=(2, 4))
+        except Exception:
+            log.warning('master identity validation unavailable (fail closed)')
+            return _error(request, 503, 'Authentication unavailable',
+                          'Account verification is temporarily unavailable.')
+        if result.status_code == 200:
+            try:
+                if result.json().get('valid') is True:
+                    return None
+            except (ValueError, AttributeError, TypeError):
+                pass
+        elif result.status_code == 403:
+            # Identity or privileges have been revoked on the authoritative
+            # master. Clear the signed cookie but never delete any account.
+            request.session.flush()
+            return _error(request, 403, 'Session expired',
+                          'Your account or permissions have changed. Please log in again.')
+        # HTTP 5xx, unexpected payload/status: deny authenticated content.
+        return _error(request, 503, 'Authentication unavailable',
+                      'Account verification is temporarily unavailable.')
+
     # Cache the body early so CSRF checking and forwarding can both use it.
     def __call__(self, request):
+        # Logout must remain possible even if the master is offline. A new
+        # login must be validated AFTER the login view has authenticated it.
+        path = request.path_info
+        if path not in ('/login/', '/logout/'):
+            denial = self._authoritative_access_check(request)
+            if denial is not None:
+                return denial
         if request.method not in SAFE_METHODS:
             try:
                 request.body
@@ -234,6 +294,10 @@ class MirrorForwardMiddleware:
             self._notify(request, 'LOGOUT', request.user.username,
                          f'User "{request.user.username}" logged out.')
         response = self.get_response(request)
+        if path == '/login/' and request.method == 'POST' and request.user.is_authenticated:
+            denial = self._authoritative_access_check(request)
+            if denial is not None:
+                return denial
         # Count this page view (and the user's activity time) on the MASTER —
         # the remote's database copy can't keep anything. Pages that were
         # passed through to the master are already counted there.

@@ -32,6 +32,16 @@ ROLE_GUIDE = [
         ),
     },
     {
+        "role": "Full Viewer (dedicated account)",
+        "summary": "Broad operational visibility with server-enforced read-only restrictions.",
+        "details": (
+            "The dedicated Full Viewer login can read approved operational and administrative overview pages. "
+            "It cannot submit changes, send reports, use application exports/downloads or open sensitive "
+            "configuration screens. Some create/edit and configuration pages remain unavailable, "
+            "even if they would normally be visible to Admin. The account is not a superuser."
+        ),
+    },
+    {
         "role": "User",
         "summary": "Operational work plus shift/report entry.",
         "details": (
@@ -119,6 +129,7 @@ PAGE_GUIDES = [
         "audience": "Viewer · User · Admin",
         "purpose": "Provides historical outage-cycle reporting and exportable power-event records.",
         "how": [
+            "A Remarks column immediately after Type shows saved Outage Cycle Remarks recorded by engineers on the associated cycle.",
             "Builds reports from completed outage-cycle records and their measured durations.",
             "Filters allow operators to narrow the reporting period before reviewing or exporting results.",
             "CSV/PDF exports are generated from the same report data so downloaded records correspond to the selected report period.",
@@ -137,6 +148,8 @@ PAGE_GUIDES = [
         "audience": "User · Admin",
         "purpose": "Creates auditable morning, evening, and night handover reports with live operational summaries and controlled email delivery.",
         "how": [
+            "You may attach optional supporting files while preparing a report; saved attachments accompany the outgoing report email. The required Historical Important Issues workbook is not replaced by these optional files.",
+            "MNOC Daily PFE has its own optional attachments for manual and scheduled sending. Do not attach credentials or unnecessarily sensitive documents.",
             "Choose the report date and Morning, Evening, or Night shift. Drafts let the engineer prepare activities, AC shifting selections, remarks, historical issues, and handover details before the shift finishes.",
             "Load Shedding is read from SysMonitor outage cycles for the selected shift window. Outage start/end times are shown in Bangladesh time (BDT) with 12-hour AM/PM formatting; duration is based on the outage interval, not assumed generator running time.",
             "When no outage is recorded for a shift, the report shows 'No load shedding occurred during the shift.' once. Select another date or shift to refresh the on-screen operational preview.",
@@ -155,6 +168,26 @@ PAGE_GUIDES = [
         "manage": "Authorized admins configure handover contacts, email recipients, sending schedule, signatures, and reporting settings in Administrative → Shift Report Configuration.",
     },
     {
+        "id": "outage-cycle-remarks",
+        "group": "Others",
+        "icon": "🗒️",
+        "title": "Outage Cycle Remarks",
+        "audience": "User · Admin (Full Viewer: read-only)",
+        "purpose": "Records attributed engineer remarks on individual outage cycles without changing the underlying cycle measurements.",
+        "how": [
+            "Open Others → Outage Cycle Remarks. The default filter is This Week in Bangladesh local time.",
+            "Use Last 10, This Week, Last Week, This Month, Last Month, This Year or All Time; use From and To plus Filter for a custom date interval. Refresh re-queries the selected view.",
+            "Find the relevant cycle, review its times and classification, and add one remark for your own account on that cycle. Do not submit duplicate or speculative entries.",
+            "Administrators may correct or delete saved remarks. Standard users cannot edit or delete their already submitted remark.",
+            "The same remarks appear on Load Shedding after Type and on Generator Cycle Audit; CSV/PDF exports are available only where the user's access permissions permit them.",
+        ],
+        "means": [
+            "Remarks provide attributed contextual notes, not evidence that monitored outage duration or generator runtime has changed.",
+            "An automatically detected cycle and an audited/manual cycle are different record types; select the actual event before writing.",
+        ],
+        "manage": "Use Others → Outage Cycle Remarks. Admins manage corrections; other engineers add one note per cycle.",
+    },
+    {
         "id": "duty-roster",
         "group": "Main",
         "icon": "📅",
@@ -162,6 +195,7 @@ PAGE_GUIDES = [
         "audience": "Viewer · User · Admin (as permitted)",
         "purpose": "Helps authorized operators view monthly duty assignments and shift coverage alongside operational reporting.",
         "how": [
+            "The expanded Live Duty Preview displays more upcoming duty slots. An engineer keeps a consistent display colour, helping distinguish people across adjacent shifts.",
             "Open the Duty Roster or Shift Dashboard entry available to your role to review the appropriate month's assignment information.",
             "Read the roster date and assignment before preparing a handover; duty assignments and actual completed Shift Reports are separate records.",
             "Only authorized users should make roster corrections. Confirm changes through the roster's own approved workflow, not by editing an already-sent Shift Report.",
@@ -214,6 +248,7 @@ PAGE_GUIDES = [
         "audience": "User · Admin",
         "purpose": "Provides an audited way to add or correct power/generator cycles when automatic monitoring cannot represent the real event.",
         "how": [
+            "Generator Cycle Audit displays remarks entered on the separate Outage Cycle Remarks page alongside cycle audit information.",
             "Operators enter the known start/end and relevant classification for an exceptional or historical cycle.",
             "Manual cycles are kept distinguishable from automatically detected cycles.",
         ],
@@ -407,6 +442,7 @@ PAGE_GUIDES = [
         "audience": "Admin",
         "purpose": "Creates and maintains SysMonitor accounts and assigned roles.",
         "how": [
+            "The dedicated fullviewer@sysmonitor account appears in the Users list with the stored Viewer profile role, but its username-specific read-only guard governs its access. Do not assign it staff or superuser privileges.",
             "Admins create accounts, assign the intended role, and manage account state.",
             "Role is the maximum permission boundary; Page Access can only reduce the pages available to that role.",
         ],
@@ -581,12 +617,41 @@ OPERATING_WORKFLOWS = [
     },
 ]
 
+# Newly deployed operator workflows.
+OPERATING_WORKFLOWS.extend([
+    {
+        "title": "Outage remark and report review",
+        "steps": [
+            "Open Outage Cycle Remarks; use This Week or a custom From/To filter to locate the cycle.",
+            "Add a factual, attributed remark once; request admin correction instead of adding another account's remark.",
+            "Confirm the remark appears in the Load Shedding Remarks column and Generator Cycle Audit.",
+        ],
+    },
+    {
+        "title": "Independent NVR critical alert",
+        "steps": [
+            "If the CCTV NVR is confirmed down for five minutes, an independent critical notification is sent to enabled critical subscribers.",
+            "While the NVR remains down, the additional alert repeats at two-minute intervals; it sends a recovery notification after the NVR comes back online following an alerted outage.",
+            "This operates independently of the existing both-device-down ten-minute critical threshold. An NVR loss indicates a monitoring and battery-backup risk; do not assume an actual generator failure without checking evidence.",
+        ],
+    },
+    {
+        "title": "Supporting files in Shift and MNOC PFE reports",
+        "steps": [
+            "Prepare the draft and attach relevant optional supporting files only when needed.",
+            "Review the saved draft and attachments before sending; Shift Report retains its Historical Important Issues workbook alongside any extra files.",
+            "Respect the existing shift-end, reading-date, sent-report protection and scheduled-send rules. Verify final sent status instead of assuming that saving means an email was delivered.",
+        ],
+    },
+])
+
 SECURITY_RULES = [
     "Never include passwords, API tokens, device local keys, SMTP secrets, private recipient details, or other credentials in notes/screenshots/manuals.",
     "Use the least-privileged role required for the task. Page Access can reduce visibility but cannot increase a role's authority.",
     "Treat Administrative actions as change operations. Review the current state before changing configuration or restarting services.",
     "The remote mirror is for continuity/visibility; MASTER-owned monitoring and sensitive service controls remain protected.",
     "Exported reports may contain operational information. Share them only with their intended audience.",
+    "Full Viewer is limited to explicitly approved read-only routes; it cannot use application exports, downloads, state-changing actions or sensitive configuration pages.",
 ]
 
 TROUBLESHOOTING = [

@@ -1,6 +1,7 @@
 import os
 import sys
 import shutil
+import sqlite3
 import tarfile
 import subprocess
 import django
@@ -88,11 +89,29 @@ def should_exclude(path):
 
 def backup_database(now_bdt, date_str, timestamp):
     """Backs up db.sqlite3 into backups/database/."""
-    os.makedirs(DB_BACKUP_DIR, exist_ok=True)
+    os.makedirs(DB_BACKUP_DIR, mode=0o700, exist_ok=True)
     backup_filename = f'db_backup_{timestamp}.sqlite3'
     backup_path     = os.path.join(DB_BACKUP_DIR, backup_filename)
 
-    shutil.copy2(DB_PATH, backup_path)
+    # A live SQLite file may use WAL; copying db.sqlite3 alone is not consistent.
+    # The online backup API captures a complete transactionally consistent image.
+    src = sqlite3.connect(f'file:{DB_PATH}?mode=ro', uri=True, timeout=30)
+    try:
+        dst = sqlite3.connect(backup_path)
+        try:
+            os.chmod(backup_path, 0o600)
+            src.backup(dst)
+            check = dst.execute('PRAGMA quick_check').fetchone()[0]
+            if check != 'ok':
+                raise RuntimeError('SQLite backup integrity check failed')
+        finally:
+            dst.close()
+    except Exception:
+        if os.path.exists(backup_path):
+            os.remove(backup_path)
+        raise
+    finally:
+        src.close()
     size_kb = os.path.getsize(backup_path) // 1024
     print(f'[{date_str}] Database backup saved: {backup_filename} ({size_kb} KB)')
     return backup_filename, size_kb
@@ -102,7 +121,7 @@ def backup_project(now_bdt, date_str, timestamp):
     """Backs up the full project folder (code + templates + systemd configs)
     as a compressed tar.gz into backups/project/, excluding venv and other
     non-essential folders."""
-    os.makedirs(PROJ_BACKUP_DIR, exist_ok=True)
+    os.makedirs(PROJ_BACKUP_DIR, mode=0o700, exist_ok=True)
     archive_filename = f'project_backup_{timestamp}.tar.gz'
     archive_path     = os.path.join(PROJ_BACKUP_DIR, archive_filename)
 
@@ -115,6 +134,7 @@ def backup_project(now_bdt, date_str, timestamp):
         return tarinfo
 
     with tarfile.open(archive_path, 'w:gz') as tar:
+        os.chmod(archive_path, 0o600)  # complete recovery archive may include .env and media
         tar.add(BASE_DIR, arcname='sysmonitor', filter=tar_filter)
 
     size_mb = os.path.getsize(archive_path) / (1024 * 1024)
@@ -167,17 +187,16 @@ def run():
             if not remote_ok:
                 remote_note = f' | Remote sync issue: {msg1 or msg2}'
 
-        # ── 3. Auto-cleanup 0s cycles before logging ─────────────────────────
+        # ── 3. Historical safety: NEVER delete outage cycles in backup ────
+        # Even zero-duration cycles can have reports, remarks or audit value.
+        # Cleanup must be a separately reviewed, fully auditable operation.
         from monitor.models import OutageCycle
-        deleted = OutageCycle.objects.filter(is_complete=True, pdb_duration_sec=0).delete()
-        cleaned = deleted[0] if deleted else 0
-        if cleaned:
-            print(f'[{date_str}] Auto-cleaned {cleaned} zero-duration cycle(s)')
-            Event.objects.create(
-                device=None,
-                level='INFO',
-                message=f'Auto-cleanup: removed {cleaned} zero-duration cycle(s).'
-            )
+        cleaned = 0
+        suspicious_cycles = OutageCycle.objects.filter(
+            is_complete=True, pdb_duration_sec=0
+        ).count()
+        if suspicious_cycles:
+            print(f'[{date_str}] Preserved {suspicious_cycles} zero-duration historical cycle(s)')
 
         # ── 4. Log success event to dashboard ────────────────────────────────
         remote_status = ''

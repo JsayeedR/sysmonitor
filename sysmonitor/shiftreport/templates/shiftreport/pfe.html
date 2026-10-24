@@ -92,7 +92,7 @@
         Today's PFE report already exists.
         Prepared by
         <strong>
-          {{ today_report.prepared_by.get_full_name|default:today_report.prepared_by.username }}
+          {{ today_report.prepared_by_display }}
         </strong>.
       </div>
 
@@ -162,7 +162,7 @@
             <td>{{ r.alarm_status }}</td>
 
             <td>
-              {{ r.prepared_by.get_full_name|default:r.prepared_by.username }}
+              {{ r.prepared_by_display }}
             </td>
 
             <td>
