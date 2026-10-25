@@ -45,7 +45,8 @@ def deny_remote_forward(user, path, method):
     # local-only for every account and method.
     if is_full_viewer(user) and method in ('GET', 'HEAD') and path in (
         '/system/', '/system/state/', '/system/recent-cycles/',
-        '/users/', '/page-access/',
+        '/users/', '/page-access/', '/cctv-setup/',
+        '/shift-report/config/settings/', '/shift-report/config/wet-circuits/',
     ):
         return False
     if any(path.startswith(prefix) for prefix in REMOTE_LOCAL_ONLY_PREFIXES):

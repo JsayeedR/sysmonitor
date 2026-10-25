@@ -41,11 +41,14 @@ class FullViewerReadOnlyRoutesTests(TestCase):
         return not forbidden_request(req)
     def test_safe_overviews_accessible(self):
         for path in ('/devices/','/users/','/page-access/','/colocation-setpoints/',
-            '/system/','/system/state/','/generator-cycle-audit/','/generator-fuel/'):
+            '/system/','/system/state/','/generator-cycle-audit/','/generator-fuel/',
+            '/notifications/','/cctv-setup/','/colocation-setpoints/',
+            '/notification-request/','/shift-report/historical/',
+            '/shift-report/config/settings/','/shift-report/config/wet-circuits/'):
             self.assertTrue(self.allowed(path),path)
     def test_unknown_sensitive_and_exports_blocked(self):
-        for path in ('/notifications/','/notifications/gateway/save/',
-            '/manual/pdf/','/report/export/pdf/','/cctv-setup/','/users/1/delete/'):
+        for path in ('/notifications/gateway/save/',
+            '/manual/pdf/','/report/export/pdf/','/users/1/delete/'):
             self.assertFalse(self.allowed(path),path)
         self.assertFalse(self.allowed('/events/?export=csv'))
     def test_mutations_blocked(self):

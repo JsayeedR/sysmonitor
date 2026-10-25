@@ -62,6 +62,7 @@ def page_access(request):
         'generator_shifting',
         'generator_fuel_entry',
         'generator_manual_cycle',
+        'outage_cycle_remarks',
         'generator_fuel_report',
         'generator_runtime',
     }

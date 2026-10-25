@@ -27,6 +27,10 @@ SAFE_ROUTES = frozenset({
     'system_live_state', 'generator_fuel', 'generator_cycle_audit',
     'generator_log_page', 'shiftreport:pfe_edit',
     'shiftreport:activity_source',
+    # RC24.9 individually reviewed informational GET routes.
+    'notification_request', 'shiftreport:historical_home',
+    'shiftreport:config', 'shiftreport:wet_circuits',
+    'notifications', 'cctv_setup',
 })
 
 # Some report screens currently show an edit form on GET. These may be added

@@ -422,12 +422,23 @@ def historical_report_home(request):
 
     from .models import HistoricalReportRevision
     from .historical_revisions import get_personal_draft
-    get_personal_draft(request.user)
-
-    revisions = HistoricalReportRevision.objects.filter(owner=request.user).order_by('-revision_number')
+    from monitor.access_policy import is_full_viewer
+    readonly = is_full_viewer(request.user)
+    if readonly:
+        # Full Viewer may inspect existing revisions for all authors; never
+        # create a personal draft or modify historical data during GET.
+        revisions = HistoricalReportRevision.objects.select_related('owner').order_by('-id')
+    else:
+        get_personal_draft(request.user)
+        revisions = HistoricalReportRevision.objects.filter(owner=request.user).order_by('-revision_number')
 
     selected_id = request.GET.get('revision')
-    current_revision = get_object_or_404(revisions, pk=selected_id) if selected_id else (revisions.filter(status='DRAFT', shift_report__isnull=True).first() or revisions.first())
+    if selected_id:
+        current_revision = get_object_or_404(revisions, pk=selected_id)
+    elif readonly:
+        current_revision = revisions.first()
+    else:
+        current_revision = revisions.filter(status='DRAFT', shift_report__isnull=True).first() or revisions.first()
 
     return render(
         request,
@@ -435,6 +446,7 @@ def historical_report_home(request):
         {
             'revision': current_revision,
             'role': get_role(request.user),
+            'readonly_historical': readonly,
             'revisions': revisions,
         },
     )

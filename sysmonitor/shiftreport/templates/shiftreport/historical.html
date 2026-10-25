@@ -161,7 +161,7 @@ body.sm-historical .panel > p {
   <div class="panel sm-a5-revision-panel">
     {% if revision %}
       <h2>
-        My Historical Data — Revision V{{ revision.revision_number }}
+        {% if readonly_historical %}Historical Data — {{ revision.owner.username }} · {% else %}My Historical Data — {% endif %}Revision V{{ revision.revision_number }}
       </h2>
 
       <p>
@@ -170,7 +170,7 @@ body.sm-historical .panel > p {
         | Total entries: {{ revision.rows|length }}
       </p>
 
-      {% if revision.status == "DRAFT" and not revision.shift_report_id %}
+      {% if revision.status == "DRAFT" and not revision.shift_report_id and not readonly_historical %}
       <form
         id="historicalForm"
         method="post"
@@ -191,7 +191,7 @@ body.sm-historical .panel > p {
               <th>Details</th>
               <th>Remarks</th>
               <th>Event Type</th>
-              {% if revision.status == "DRAFT" and not revision.shift_report_id %}
+              {% if revision.status == "DRAFT" and not revision.shift_report_id and not readonly_historical %}
                 <th>Action</th>
               {% endif %}
             </tr>
@@ -199,7 +199,7 @@ body.sm-historical .panel > p {
           <tbody>
             {% for item in revision.rows %}
             <tr>
-              {% if revision.status == "DRAFT" and not revision.shift_report_id %}
+              {% if revision.status == "DRAFT" and not revision.shift_report_id and not readonly_historical %}
                 <td><textarea name="category_1">{{ item.category_1 }}</textarea></td>
                 <td><textarea name="category_2">{{ item.category_2 }}</textarea></td>
                 <td><textarea name="details">{{ item.details }}</textarea></td>
@@ -221,7 +221,7 @@ body.sm-historical .panel > p {
         </table>
       </div></div>
 
-      {% if revision.status == "DRAFT" and not revision.shift_report_id %}
+      {% if revision.status == "DRAFT" and not revision.shift_report_id and not readonly_historical %}
         <div style="margin-top:16px;display:flex;gap:10px">
           <button type="button" onclick="addHistoricalRow()">
             + Add Row
@@ -241,6 +241,7 @@ body.sm-historical .panel > p {
     <table>
       <thead>
         <tr>
+          {% if readonly_historical %}<th>Engineer</th>{% endif %}
           <th>Revision</th>
           <th>Status</th>
           <th>Entries</th>
@@ -250,6 +251,7 @@ body.sm-historical .panel > p {
       <tbody>
         {% for item in revisions %}
         <tr>
+          {% if readonly_historical %}<td>{{ item.owner.username }}</td>{% endif %}
           <td><a href="?revision={{ item.id }}">V{{ item.revision_number }}</a></td>
           <td>{{ item.get_status_display }}</td>
           <td>{{ item.rows|length }}</td>

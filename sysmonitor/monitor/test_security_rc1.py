@@ -61,12 +61,15 @@ class ViewSecurityTests(TestCase):
         self.member.refresh_from_db()
         self.assertEqual(self.member.password, before)
 
-    def test_fullviewer_rejects_historical_get_that_creates_draft(self):
+    def test_fullviewer_historical_get_is_read_only_without_draft_creation(self):
+        from shiftreport.models import HistoricalReportRevision
         self.member.userprofile.role = 'fullviewer'
         self.member.userprofile.save(update_fields=['role'])
         self.client.force_login(self.member)
+        old_count = HistoricalReportRevision.objects.count()
         r = self.client.get(reverse('shiftreport:historical_home'))
-        self.assertEqual(r.status_code, 403)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(HistoricalReportRevision.objects.count(), old_count)
 
     def test_user_list_renders_accounts_without_userprofile(self):
         # Superadmins may not have a UserProfile, and the user list must still render.

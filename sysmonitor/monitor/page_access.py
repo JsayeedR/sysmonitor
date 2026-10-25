@@ -301,7 +301,11 @@ def page_key_for_path(path):
 
 
 def user_role(user):
-    if getattr(user, 'is_authenticated', False) and user.username.lower() == 'fullviewer@sysmonitor':
+    # Both the reserved account and accounts explicitly assigned the
+    # Full Viewer role receive the Admin READ ceiling. The independent
+    # FullViewerReadOnlyMiddleware still denies every mutation/export.
+    from .access_policy import is_full_viewer
+    if is_full_viewer(user):
         return 'admin'
     if getattr(user, 'is_superuser', False):
         return 'admin'

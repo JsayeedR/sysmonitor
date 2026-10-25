@@ -18,7 +18,8 @@ class FullViewerRouteSecurityTests(SimpleTestCase):
     def test_safe_read_routes(self):
         for path in ('/', '/report/', '/outage-cycle-remarks/',
                      '/generator-cycle-audit/', '/users/', '/duty-roster/',
-                     '/shift-report/', '/shift-report/mnoc-pfe/'):
+                     '/shift-report/', '/shift-report/mnoc-pfe/',
+                     '/notifications/', '/system/', '/shift-report/config/settings/'):
             with self.subTest(path=path):
                 self.assertEqual(self.perform(path).status_code, 200)
 
@@ -27,8 +28,8 @@ class FullViewerRouteSecurityTests(SimpleTestCase):
                      '/users/1/edit/', '/devices/1/edit/', '/maintenance/start/',
                      '/shift-report/1/send/', '/shift-report/mnoc-pfe/1/send/',
                      '/generator-cycle-audit/1/edit/', '/outage-cycle-remarks/1/edit/',
-                     '/report/export/pdf/', '/media/private.pdf', '/notifications/',
-                     '/system/', '/shift-report/config/settings/', '/admin/',
+                     '/report/export/pdf/', '/media/private.pdf',
+                     '/admin/',
                      '/no-such-page/'):
             with self.subTest(path=path):
                 self.assertEqual(self.perform(path).status_code, 403)

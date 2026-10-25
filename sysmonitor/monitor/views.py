@@ -2103,10 +2103,21 @@ from monitor.notifications import send_test, get_telegram_chat_id, dispatch as n
 @role_required('admin')
 def notifications_page(request):
     """Main notification settings page."""
+    from .access_policy import is_full_viewer
+    import copy
+    readonly = is_full_viewer(request.user)
     channels = ['whatsapp', 'telegram', 'email']
     gateways = {}
     for ch in channels:
-        gw, _ = NotificationGateway.objects.get_or_create(channel=ch)
+        if readonly:
+            # No get_or_create side effects and no secrets in response HTML.
+            saved = NotificationGateway.objects.filter(channel=ch).first()
+            gw = copy.copy(saved) if saved is not None else NotificationGateway(channel=ch)
+            gw.wa_access_token = ''
+            gw.tg_bot_token = ''
+            gw.email_password = ''
+        else:
+            gw, _ = NotificationGateway.objects.get_or_create(channel=ch)
         gateways[ch] = gw
 
     recipients  = NotificationRecipient.objects.all()
@@ -6015,11 +6026,13 @@ def cctv_setup(request):
         .order_by('name')
     )
 
+    from .access_policy import is_full_viewer
+    full_viewer_readonly = is_full_viewer(request.user)
     for nvr in nvrs:
         info = credential_info(nvr.id)
 
         nvr.gateway_username = (
-            info['username']
+            '' if full_viewer_readonly else info['username']
         )
 
         nvr.gateway_credentials_ready = (
@@ -6036,21 +6049,29 @@ def cctv_setup(request):
         edit_secret = credential_info(
             edit_nvr.id
         )
+        if full_viewer_readonly:
+            edit_secret['username'] = ''
+
+    cameras = list(CCTVCamera.objects.select_related('nvr').all().order_by('display_order', 'name'))
+    if full_viewer_readonly:
+        import copy
+        # Saved URLs could contain embedded authentication; omit them from
+        # the read-only CCTV inventory while retaining camera names/status.
+        cameras = [copy.copy(c) for c in cameras]
+        for camera in cameras:
+            camera.browser_url_local = ''
+            camera.browser_url_remote = ''
+        if edit_camera is not None:
+            edit_camera = copy.copy(edit_camera)
+            edit_camera.browser_url_local = ''
+            edit_camera.browser_url_remote = ''
 
     return render(
         request,
         'monitor/cctv_setup.html',
         {
             'nvrs': nvrs,
-            'cameras': (
-                CCTVCamera.objects
-                .select_related('nvr')
-                .all()
-                .order_by(
-                    'display_order',
-                    'name',
-                )
-            ),
+            'cameras': cameras,
             'edit_nvr': edit_nvr,
             'edit_camera': edit_camera,
             'edit_nvr_username': (

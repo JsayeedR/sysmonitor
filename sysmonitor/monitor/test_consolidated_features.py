@@ -29,12 +29,14 @@ class FullViewerRestrictionTests(SimpleTestCase):
             self.check('POST', path, 403)
 
     def test_sensitive_and_download_blocked(self):
-        for path in ('/notifications/', '/system/', '/shift-report/config/',
+        for path in ('/shift-report/config/',
                      '/duty-roster/template.xlsx/', '/manual/pdf/', '/report/?export=csv'):
             self.check('GET', path, 403)
 
     def test_normal_report_view_allowed(self):
         self.check('GET','/report/',200)
+        self.check('GET','/notifications/',200)
+        self.check('GET','/system/',200)
 
     def test_remark_route_exists(self):
         self.assertEqual(reverse('outage_cycle_remarks'),'/outage-cycle-remarks/')
