@@ -44,8 +44,8 @@
     <header class="hero">
       <div class="eyebrow">SysMonitor · Security release bulletin</div>
       <h1>Security Patch <span style="color:#b7d9ff">Updates</span></h1>
-      <p>Security improvements from RC24 through the latest tested operational UI release, including authenticated mirror checks, Full Viewer read-only protections and controlled dashboard updates.</p>
-      <div class="hero-pills"><span class="pill ok">● Release deployed</span><span class="pill">RC24.8 candidate · pending acceptance</span><span class="pill">For authorized personnel</span></div>
+      <p>Security improvements from RC24 through RC24.9 FIX2, including authenticated mirror checks, approved Full Viewer read-only pages and controlled dashboard releases.</p>
+      <div class="hero-pills"><span class="pill ok">● Release deployed</span><span class="pill">RC24.9 FIX2 · deployed on both sites</span><span class="pill">For authorized personnel</span></div>
       <div class="quick"><a href="#controls">Explore improvements ↓</a><a href="#limitations">Known limitations</a><a href="{{ base_path }}/manual/">Operations manual ↗</a></div>
     </header>
 
@@ -80,21 +80,22 @@
         <li><strong>Master cutover</strong><span>48 verified source files installed; six database migrations succeeded; monitoring and HTTP health checks passed.</span></li>
         <li><strong>Remote mirror activation</strong><span>Public login returned HTTP 200, remote-to-master identity verification passed, and the mirrored schema was confirmed.</span></li>
         <li><strong>Update approval guard</strong><span>Automatic-update timer restored with unapproved code activation blocked.</span></li>
+        <li><strong>RC24.9 FIX2 follow-up</strong><span>59 isolated regression tests passed on 25 October 2026. Master and remote deployments succeeded. Full Viewer browser checks passed for eight reviewed pages; generator navigation remains subject to separate operator confirmation.</span></li>
       </ol></div>
     </section>
 
     <section id="limitations" aria-labelledby="limitations-heading">
       <div class="section-heading"><div><h2 id="limitations-heading">Remaining safeguards and follow-ups</h2><p>Transparent release notes are more useful than an unsupported “100% secure” claim.</p></div></div>
       <div class="notice"><h3>Security is maintained, not permanently completed.</h3>
-        <p>RC24 security tests and subsequent release regressions do not constitute a penetration-test certification. All new Full Viewer pages require individual read-only review; production acceptance is separate from package preparation.</p>
+        <p>RC24 security tests and subsequent release regressions do not constitute a penetration-test certification. Full Viewer display access is limited to reviewed read-only pages; ongoing browser acceptance and route-by-route security review remain necessary.</p>
         <ul>
           <li>Permanent account deletion remains disabled pending separate operational authorization. Legacy SENT-report authors retain additional protections where original signature snapshots were unavailable.</li>
           <li>Interactive end-user acceptance, ongoing dependency review and infrastructure exposure checks remain part of operational security.</li>
           <li>A post-release colocation notification reported missing live sensor data; device/connectivity health requires separate investigation.</li>
-          <li>GitHub publication is separate from the deployed RC24 release and should follow release-control approval.</li>
+          <li>GitHub publication is a separate, history-verified release step; application deployment alone does not confirm repository synchronization.</li>
         </ul>
       </div>
-      <p class="reference">Release record: <strong>Security RC24</strong> · Verified 24 October 2026 · Commit <code>3b69731c256da942dfb6fb87161d7bbdfb3f7382</code>. This page is a static release bulletin. For suspected security problems, contact your designated SysMonitor administrator through approved internal channels; never post passwords, tokens or personal data in reports.</p>
+      <p class="reference">Security baseline: <strong>RC24</strong> · Verified 24 October 2026 · Commit <code>3b69731c256da942dfb6fb87161d7bbdfb3f7382</code>. Operational follow-up: <strong>RC24.9 FIX2</strong> · Deployed 25 October 2026 · Commit <code>51b473c539b287f7cfafc864b7de05b3aed1be81</code>. This page is a static release bulletin. For suspected security problems, contact your designated SysMonitor administrator through approved internal channels; never post passwords, tokens or personal data in reports.</p>
     </section>
   </main>
   {% include "monitor/footer.html" %}

@@ -170,13 +170,13 @@ PAGE_GUIDES = [
     },
     {
         "id": "outage-cycle-remarks",
-        "group": "Others",
+        "group": "Generator",
         "icon": "🗒️",
         "title": "Outage Cycle Remarks",
         "audience": "User · Admin (Full Viewer: read-only)",
         "purpose": "Records attributed engineer remarks on individual outage cycles without changing the underlying cycle measurements.",
         "how": [
-            "Open Others → Outage Cycle Remarks. The default filter is This Week in Bangladesh local time.",
+            "Open Generator → Outage Cycle Remarks (after Manual Cycle Entry). The default filter is This Week in Bangladesh local time.",
             "Use Last 10, This Week, Last Week, This Month, Last Month, This Year or All Time; use From and To plus Filter for a custom date interval. Refresh re-queries the selected view.",
             "Find the relevant cycle, review its times and classification, and add one remark for your own account on that cycle. Do not submit duplicate or speculative entries.",
             "Administrators may correct or delete saved remarks. Standard users cannot edit or delete their already submitted remark.",
@@ -186,7 +186,7 @@ PAGE_GUIDES = [
             "Remarks provide attributed contextual notes, not evidence that monitored outage duration or generator runtime has changed.",
             "An automatically detected cycle and an audited/manual cycle are different record types; select the actual event before writing.",
         ],
-        "manage": "Use Others → Outage Cycle Remarks. Admins manage corrections; other engineers add one note per cycle.",
+        "manage": "Use Generator → Outage Cycle Remarks. Admins manage corrections; other engineers add one note per cycle.",
     },
     {
         "id": "duty-roster",
@@ -443,7 +443,7 @@ PAGE_GUIDES = [
         "audience": "Admin",
         "purpose": "Creates and maintains SysMonitor accounts and assigned roles.",
         "how": [
-            "The dedicated fullviewer@sysmonitor account appears in the Users list with the stored Viewer profile role, but its username-specific read-only guard governs its access. Do not assign it staff or superuser privileges.",
+            "The dedicated fullviewer@sysmonitor account and accounts explicitly assigned the Full Viewer role use server-enforced read-only checks. Never grant them staff or superuser rights to broaden visibility.",
             "Admins create accounts, assign the intended role, and manage account state.",
             "Role is the maximum permission boundary; Page Access can only reduce the pages available to that role.",
         ],
@@ -461,7 +461,7 @@ PAGE_GUIDES = [
         "purpose": "Lets administrators hide selected pages for individual users without increasing their role permissions.",
         "how": [
             "The user's role is checked first. Page Access can remove a page from that role but cannot grant a page the role does not own.",
-            "The Page Access administration screen remains available as a recovery route for administrators.",
+            "Superadmin recovery access to Page Access remains protected; Superadmin may hide this page from ordinary Admin accounts.",
         ],
         "means": [
             "A hidden page disappears from navigation and direct access is blocked by middleware.",
@@ -623,7 +623,7 @@ OPERATING_WORKFLOWS.extend([
     {
         "title": "Outage remark and report review",
         "steps": [
-            "Open Outage Cycle Remarks; use This Week or a custom From/To filter to locate the cycle.",
+            "Open Generator → Outage Cycle Remarks; use This Week or a custom From/To filter to locate the cycle.",
             "Add a factual, attributed remark once; request admin correction instead of adding another account's remark.",
             "Confirm the remark appears in the Load Shedding Remarks column and Generator Cycle Audit.",
         ],
@@ -652,7 +652,7 @@ SECURITY_RULES = [
     "Treat Administrative actions as change operations. Review the current state before changing configuration or restarting services.",
     "The remote mirror is for continuity/visibility; MASTER-owned monitoring and sensitive service controls remain protected.",
     "Exported reports may contain operational information. Share them only with their intended audience.",
-    "Full Viewer is limited to explicitly approved read-only routes; it cannot use application exports, downloads, state-changing actions or sensitive configuration pages.",
+    "Full Viewer may inspect reviewed configuration and operational pages with credentials masked; exporting, downloading, submitting, deleting and changing settings remain prohibited.",
 ]
 
 TROUBLESHOOTING = [
