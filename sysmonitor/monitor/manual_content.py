@@ -646,6 +646,23 @@ OPERATING_WORKFLOWS.extend([
     },
 ])
 
+# Administrator terminal / CLI reference (shown on the Manual page as a separate workflow).
+# Keep hostnames, credentials and private tokens out of the public manual.
+OPERATING_WORKFLOWS.append({
+    "title": "Administrator Terminal CLI — safe release & recovery reference",
+    "steps": [
+        "READ-ONLY: From an approved release worktree, run: git rev-parse HEAD; git status --short; git log -5 --oneline. Confirm a clean worktree and the approved commit before any deployment.",
+        "SERVICES: On the master run: systemctl is-active sysmonitor-web.service. On the mirror run: systemctl is-active sysmonitor-remote-web.service. Check the mirror-update timer without changing its approval guard.",
+        "GITHUB SSH: Verify the existing managed key with: ssh -i ~/.ssh/github_ed25519 -o IdentitiesOnly=yes -T git@github.com. Authenticate as the approved repository owner. Do not enter a GitHub password or paste a token into terminal history.",
+        "GITHUB PREFLIGHT: Run: git ls-remote git@github.com:JsayeedR/sysmonitor.git refs/heads/main. Fetch the branch and require its commit to be an ancestor of the approved release before a normal non-force push.",
+        "DEPLOY: Use only the backup-first tested release package. Confirm the expected base commit, new commit, database integrity, successful tests and a VERIFIED rollback snapshot before restarting SysMonitor services.",
+        "REMOTE UPDATES: The remote automatic updater remains approval-gated. Do not remove the guard, write the approval file casually, or enable force-push/force-reset to work around a stopped deployment.",
+        "SOURCE ARCHIVE: Export an audited Git source snapshot that excludes .env, secrets, credentials, databases, backups, media and caches. Compare SHA-256 on Windows before removing the temporary server archive.",
+        "CLEANUP: Inventory both hosts first. Delete only validated temporary files and obsolete transfers, never production databases, runtime media, service configuration, authentication keys, historical reports or verified recovery backups.",
+        "ACCOUNT DELETION: Remains disabled until a separately reviewed Superadmin-only flow preserves ownership, Shift Reports, historical report revisions, MNOC PFE records and activity audit attribution.",
+    ],
+})
+
 SECURITY_RULES = [
     "Never include passwords, API tokens, device local keys, SMTP secrets, private recipient details, or other credentials in notes/screenshots/manuals.",
     "Use the least-privileged role required for the task. Page Access can reduce visibility but cannot increase a role's authority.",
