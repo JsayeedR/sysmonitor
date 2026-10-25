@@ -155,9 +155,12 @@ PAGE_GUIDES = [
             "Load Shedding is read from SysMonitor outage cycles for the selected shift window. Outage start/end times are shown in Bangladesh time (BDT) with 12-hour AM/PM formatting; duration is based on the outage interval, not assumed generator running time.",
             "When no outage is recorded for a shift, the report shows 'No load shedding occurred during the shift.' once. Select another date or shift to refresh the on-screen operational preview.",
             "For Night Shift only, Section B (Regular Shift Activities) includes the PREVIOUS calendar day's Generator Log, directly after SMW4 CIRCUIT & BANDWIDTH STATUS. It shows generator starts/ends and Gen-01, Gen-02, and grand totals where genuine generator runtime is recorded.",
-            "A PDB outage does not by itself establish a generator run. Missing generator-start/runtime records are not silently converted into generator running time; verify or correct the underlying audited cycle if necessary.",
+            "The Night Shift calendar-day Generator Log uses the same source and day-splitting algorithm as the daily Generator Log email/Telegram message, including audited manual cycles and generator-mode changes. Rows and Gen-01 / Gen-02 totals must match for the same BDT date.",
+            "A PDB outage does not by itself establish a generator run. Check recorded cycles and generator-mode history if the source daily Generator Log is wrong; do not invent runtime in the Shift Report.",
+            "WET Segment maximum circuit configuration sets Assigned Capacity (sum of maximum circuits multiplied by 100, 10, 2.488, and 0.15552 Gbps). The report's selected active-circuit counts determine Used Capacity, Free Capacity = 4,650 minus Used, and Total Active Circuits. A +1 maximum 10G circuit adds 10 Gbps Assigned Capacity; it does not change Used Capacity unless carrying circuits change.",
             "An unsent draft refreshes operational snapshots when reopened or saved. A shared manual/scheduled sending handler refreshes them again before the first main email is prepared. These refreshes must not overwrite the engineer's typed remarks, activities, or AC shifting selections.",
-            "A successfully sent report is retained as a read-only historical record. An already-emailed snapshot is protected during retry/finalization, so fresh system changes do not rewrite what was emailed.",
+            "A successfully SENT report opens the identical read-only report view for both its author and other engineers, including direct old edit links. DRAFT reports remain editable by their owner or authorized Admin.",
+            "An already-emailed SENT snapshot remains frozen during retries and when underlying generator cycles/WET configuration are subsequently edited. DRAFT operational facts are refreshed before sending; old SENT reports are not silently rewritten.",
             "Use Historical Reports and MNOC/PFE options only for their intended operational reporting and revision workflows. Check recipient/configuration and actual sending status before claiming delivery succeeded.",
         ],
         "means": [
@@ -646,22 +649,49 @@ OPERATING_WORKFLOWS.extend([
     },
 ])
 
-# Administrator terminal / CLI reference (shown on the Manual page as a separate workflow).
-# Keep hostnames, credentials and private tokens out of the public manual.
-OPERATING_WORKFLOWS.append({
-    "title": "Administrator Terminal CLI — safe release & recovery reference",
-    "steps": [
-        "READ-ONLY: From an approved release worktree, run: git rev-parse HEAD; git status --short; git log -5 --oneline. Confirm a clean worktree and the approved commit before any deployment.",
-        "SERVICES: On the master run: systemctl is-active sysmonitor-web.service. On the mirror run: systemctl is-active sysmonitor-remote-web.service. Check the mirror-update timer without changing its approval guard.",
-        "GITHUB SSH: Verify the existing managed key with: ssh -i ~/.ssh/github_ed25519 -o IdentitiesOnly=yes -T git@github.com. Authenticate as the approved repository owner. Do not enter a GitHub password or paste a token into terminal history.",
-        "GITHUB PREFLIGHT: Run: git ls-remote git@github.com:JsayeedR/sysmonitor.git refs/heads/main. Fetch the branch and require its commit to be an ancestor of the approved release before a normal non-force push.",
-        "DEPLOY: Use only the backup-first tested release package. Confirm the expected base commit, new commit, database integrity, successful tests and a VERIFIED rollback snapshot before restarting SysMonitor services.",
-        "REMOTE UPDATES: The remote automatic updater remains approval-gated. Do not remove the guard, write the approval file casually, or enable force-push/force-reset to work around a stopped deployment.",
-        "SOURCE ARCHIVE: Export an audited Git source snapshot that excludes .env, secrets, credentials, databases, backups, media and caches. Compare SHA-256 on Windows before removing the temporary server archive.",
-        "CLEANUP: Inventory both hosts first. Delete only validated temporary files and obsolete transfers, never production databases, runtime media, service configuration, authentication keys, historical reports or verified recovery backups.",
-        "ACCOUNT DELETION: Remains disabled until a separately reviewed Superadmin-only flow preserves ownership, Shift Reports, historical report revisions, MNOC PFE records and activity audit attribution.",
-    ],
-})
+# Separate admin-only section in HTML and admin PDF.  These are safe command
+# templates, not executable website controls. Do not include any credentials.
+ADMIN_TERMINAL_CLI = [
+    {
+        "title": "Read-only GitHub and release checks",
+        "commands": [
+            "git -C ~/security_staging/rc24_9_2_release_worktree status --short",
+            "git -C ~/security_staging/rc24_9_2_release_worktree rev-parse HEAD",
+            "git -C ~/security_staging/rc24_9_2_release_worktree ls-remote origin refs/heads/main",
+            "git -C ~/security_staging/rc24_9_2_release_worktree log -5 --oneline",
+        ],
+        "note": "Use the release worktree, not the separate modified Desktop checkout. Verify the approved commit and clean worktree before any push.",
+    },
+    {
+        "title": "Publish an approved, tested Git commit",
+        "commands": [
+            "git -C ~/security_staging/rc24_9_2_release_worktree diff --check",
+            "git -C ~/security_staging/rc24_9_2_release_worktree push origin HEAD:main",
+        ],
+        "note": "Only push a reviewed, tested commit using a normal non-force push. Never reset production or bypass a branch protection gate.",
+    },
+    {
+        "title": "Service status, logs and controlled restart",
+        "commands": [
+            "systemctl is-active sysmonitor-web.service",
+            "journalctl -u sysmonitor-web.service -n 60 --no-pager",
+            "ssh -p 3048 app-admin@103.16.152.238 'systemctl is-active sysmonitor-remote-web.service'",
+            "ssh -p 3048 app-admin@103.16.152.238 'journalctl -u sysmonitor-remote-web.service -n 60 --no-pager'",
+            "sudo systemctl restart sysmonitor-web.service",
+            "ssh -p 3048 app-admin@103.16.152.238 'sudo systemctl restart sysmonitor-remote-web.service'",
+        ],
+        "note": "Restart only the named SysMonitor service, only after backup, checks and approval. Master project is ~/Desktop/sysmonitor; production Django app is /home/app-admin/sysmonitor/repo/sysmonitor. Other services must not be restarted.",
+    },
+    {
+        "title": "Safe Django checks and validated release archive",
+        "commands": [
+            "cd ~/Desktop/sysmonitor && ./venv/bin/python manage.py check",
+            "cd ~/Desktop/sysmonitor && ./venv/bin/python manage.py test shiftreport",
+            "sha256sum SysMonitor_Source_4c3e312a2fea.tar.gz",
+        ],
+        "note": "Tests may require a suitable isolated test database. Never run destructive migrations, a forced Git reset or cleanup against production without a verified rollback plan. Source exports exclude credentials, .env, databases, media, backup archives and caches; verify the Windows SHA-256 independently.",
+    },
+]
 
 SECURITY_RULES = [
     "Never include passwords, API tokens, device local keys, SMTP secrets, private recipient details, or other credentials in notes/screenshots/manuals.",

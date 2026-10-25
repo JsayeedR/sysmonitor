@@ -1147,7 +1147,7 @@ document.addEventListener('DOMContentLoaded', function () {
     'Total Capacity: 4,650 Gbps',
     'Used Capacity: '+f(used)+' Gbps ('+f(used/4650*100)+'%) (Currently Carrying Traffic)',
     'Free Capacity: '+f(4650-used)+' Gbps ('+f((4650-used)/4650*100)+'%)',
-    'Assigned Capacity: Approx. 2,725 Gbps (Ready for service)',
+    'Assigned Capacity: Approx. '+f(Math.round(limits.reduce((sum,n,i)=>sum+n*rates[i],0)))+' Gbps (Ready for service)',
     'Total Active Circuits: '+values.reduce((a,b)=>a+b,0),
     '100G: '+values[0],'10G: '+values[1],'STM-16: '+values[2],'STM-1: '+values[3]
    ].join('\n');

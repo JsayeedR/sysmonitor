@@ -64,8 +64,13 @@ class UiScopeTests(SimpleTestCase):
         for key in ('sm-pdb-light','sm-gen-light','sm-nvr-light'):
             self.assertIn('id="'+key+'"',html)
 
-    def test_remarks_link_stays_on_generator_manual_page_not_others(self):
+    def test_remarks_link_stays_in_generator_sections_not_others(self):
         nav=self.source('monitor/templates/monitor/navbar.html')
         gen=self.source('monitor/templates/monitor/generator_cycle_audit.html')
-        self.assertNotIn('href="{{ base_path }}/outage-cycle-remarks/"',nav)
+        link = 'href="{{ base_path }}/outage-cycle-remarks/"'
+        generator_nav = nav.split('{% if page_show_generator %}', 1)[1].split('{% if page_show_others %}', 1)[0]
+        others_and_later = nav.split('{% if page_show_others %}', 1)[1]
+        self.assertIn(link, generator_nav)
+        self.assertNotIn(link, others_and_later)
+        self.assertEqual(nav.count(link), 1)
         self.assertIn('href="{{ base_path }}/outage-cycle-remarks/"',gen)

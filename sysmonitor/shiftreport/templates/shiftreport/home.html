@@ -843,7 +843,7 @@ table.history th{
       <td>{{ r.shift_start|date:"d M Y, h:i A" }} – {{ r.shift_end|date:"d M Y, h:i A" }}</td>
       <td>{{ r.prepared_by_display }}</td><td>{{ r.handover_to.name }}</td>
       <td>{{ r.get_status_display }}</td>
-      <td><a class="btn secondary" href="{% url 'shiftreport:edit' r.id %}">Open</a></td></tr>
+      <td>{% if r.status == 'SENT' %}<a class="btn secondary" href="{% url 'shiftreport:view' r.id %}">View (read-only)</a>{% else %}<a class="btn secondary" href="{% url 'shiftreport:edit' r.id %}">Edit draft</a>{% endif %}</td></tr>
       {% empty %}<tr><td colspan="6">No personal Shift Reports yet.</td></tr>{% endfor %}
       </tbody></table></div>
     </div>
@@ -1242,7 +1242,7 @@ document.addEventListener('DOMContentLoaded', function () {
     'Total Capacity: 4,650 Gbps',
     'Used Capacity: '+f(used)+' Gbps ('+f(used/4650*100)+'%) (Currently Carrying Traffic)',
     'Free Capacity: '+f(4650-used)+' Gbps ('+f((4650-used)/4650*100)+'%)',
-    'Assigned Capacity: Approx. 2,725 Gbps (Ready for service)',
+    'Assigned Capacity: Approx. '+f(Math.round(limits.reduce((sum,n,i)=>sum+n*rates[i],0)))+' Gbps (Ready for service)',
     'Total Active Circuits: '+values.reduce((a,b)=>a+b,0),
     '100G: '+values[0],'10G: '+values[1],'STM-16: '+values[2],'STM-1: '+values[3]
    ].join('\n');

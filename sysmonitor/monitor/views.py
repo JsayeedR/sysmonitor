@@ -149,6 +149,7 @@ def manual_view(request):
         ARCHITECTURE_STEPS,
         MANUAL_INTRO,
         OPERATING_WORKFLOWS,
+        ADMIN_TERMINAL_CLI,
         PAGE_GUIDES,
         ROLE_GUIDE,
         SECURITY_RULES,
@@ -164,6 +165,7 @@ def manual_view(request):
         'status_glossary': STATUS_GLOSSARY,
         'page_guides': PAGE_GUIDES,
         'operating_workflows': OPERATING_WORKFLOWS,
+        'admin_terminal_cli': ADMIN_TERMINAL_CLI if get_role(request.user) == 'admin' else [],
         'security_rules': SECURITY_RULES,
         'troubleshooting': TROUBLESHOOTING,
     })
@@ -179,7 +181,7 @@ def manual_pdf(request):
 
     revision = sync_git_revision()
     version = revision.version if revision is not None else '1.1.1234'
-    pdf_bytes = build_manual_pdf(version)
+    pdf_bytes = build_manual_pdf(version, include_admin_cli=get_role(request.user) == 'admin')
 
     response = HttpResponse(
         pdf_bytes,

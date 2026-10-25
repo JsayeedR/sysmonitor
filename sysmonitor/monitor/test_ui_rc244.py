@@ -106,16 +106,16 @@ class UiSourceOnlyTests(SimpleTestCase):
                 self.assertIn('smActivitySourceLoad', doc)
                 self.assertNotIn('color:inherit;background:#1e293b', doc)
 
-    def test_outage_remarks_moved_to_manual_cycle_page(self):
+    def test_outage_remarks_available_in_generator_menu_and_manual_cycle_page(self):
         nav = self.source('monitor/templates/monitor/navbar.html')
         audit = self.source('monitor/templates/monitor/generator_cycle_audit.html')
-        self.assertNotIn('href="{{ base_path }}/outage-cycle-remarks/"', nav)
+        self.assertIn('href="{{ base_path }}/outage-cycle-remarks/"', nav)
         self.assertIn('href="{{ base_path }}/outage-cycle-remarks/"', audit)
         self.assertIn('{% if "outage_cycle_remarks" not in page_hidden %}', audit)
         self.assertEqual(PAGE_DEFINITIONS['outage_cycle_remarks']['group'], 'Generator Data')
         self.assertEqual(PAGE_DEFINITIONS['outage_cycle_remarks']['roles'], ('user','admin'))
         context = self.source('monitor/context_processors.py')
-        self.assertNotIn("        'outage_cycle_remarks',", context)
+        self.assertIn("        'outage_cycle_remarks',", context)
 
     def test_indicators_keep_existing_api_mapping_and_accessibility(self):
         dash = self.source('monitor/templates/monitor/dashboard.html')

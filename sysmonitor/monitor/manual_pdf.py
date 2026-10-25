@@ -23,6 +23,7 @@ from .manual_content import (
     ARCHITECTURE_STEPS,
     MANUAL_INTRO,
     OPERATING_WORKFLOWS,
+    ADMIN_TERMINAL_CLI,
     PAGE_GUIDES,
     ROLE_GUIDE,
     SECURITY_RULES,
@@ -35,7 +36,7 @@ def _txt(value):
     return escape(str(value or ""))
 
 
-def build_manual_pdf(version):
+def build_manual_pdf(version, include_admin_cli=False):
     """Return PDF bytes for the current SysMonitor user manual."""
     stream = BytesIO()
     doc = SimpleDocTemplate(
@@ -225,6 +226,15 @@ def build_manual_pdf(version):
         story.append(Paragraph(_txt(workflow["title"]), h2))
         for n, step in enumerate(workflow["steps"], start=1):
             story.append(Paragraph(f"{n}. {_txt(step)}", bullet))
+
+    if include_admin_cli:
+        story += [PageBreak(), Paragraph("Administrator Terminal CLI", h1)]
+        story.append(Paragraph("Admin-only templates. Check host and approvals before running; never paste credentials into command history.", body))
+        for group in ADMIN_TERMINAL_CLI:
+            story.append(Paragraph(_txt(group['title']), h2))
+            story.append(Paragraph(_txt(group['note']), body))
+            for command in group['commands']:
+                story.append(Paragraph(_txt(command), small))
 
     story += [Paragraph("6. Security and safe use", h1)]
     for item in SECURITY_RULES:

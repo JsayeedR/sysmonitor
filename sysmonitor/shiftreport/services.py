@@ -1,5 +1,5 @@
 from datetime import datetime, time, timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 import re
 
 import pytz
@@ -372,48 +372,42 @@ def build_shift_snapshot(report_date, shift):
 
 
 def build_generator_runtime_log(start, end):
-    """Actual generator-running intervals, independent of PDB outage duration."""
-    rows = []
-    totals = {'Gen-01': 0, 'Gen-02': 0, 'Unknown': 0}
-    cycles = (OutageCycle.objects.filter(
-        Q(gen_start__lt=end) | Q(gen_start__isnull=True, gen_runtime_sec__gt=0),
-    ).order_by('outage_start', 'id'))
-    for cycle in cycles:
-        # Never equate PDB outage with generator runtime. Only recorded
-        # positive runtime or a known generator start interval is used.
-        if cycle.gen_start is not None:
-            running_start = cycle.gen_start
-            running_end = (running_start + timedelta(seconds=cycle.gen_runtime_sec)
-                           if cycle.gen_runtime_sec and cycle.gen_runtime_sec > 0
-                           else cycle.cycle_end or cycle.pdb_restored or end)
-        elif cycle.gen_runtime_sec and cycle.gen_runtime_sec > 0:
-            running_end = cycle.cycle_end or cycle.pdb_restored
-            if running_end is None:
-                continue
-            running_start = running_end - timedelta(seconds=cycle.gen_runtime_sec)
-        else:
-            continue
-        if running_start >= end or running_end <= start:
-            continue
-        begin = max(running_start, start)
-        finish = min(running_end, end)
-        if finish <= begin:
-            continue
-        seconds = int((finish - begin).total_seconds())
-        generator = cycle_generator(cycle) or 'Unknown'
-        totals[generator] = totals.get(generator, 0) + seconds
-        rows.append({
-            'start': begin.astimezone(BDT).strftime('%I:%M:%S %p'),
-            'end': finish.astimezone(BDT).strftime('%I:%M:%S %p'),
-            'duration': fmt_duration(seconds),
-            'generator': generator,
-        })
-    return {'rows': rows,
-            'Gen-01': fmt_duration(totals['Gen-01']),
-            'Gen-02': fmt_duration(totals['Gen-02']),
-            'Unknown': fmt_duration(totals['Unknown']),
-            'grand_total': fmt_duration(sum(totals.values())),
-            'total_seconds': sum(totals.values())}
+    """Calendar-day Generator Log from the SAME engine as email/Telegram.
+
+    monitor.daily_summary.build_daily_summary is authoritative for manual
+    cycles, generator-mode switches, cross-midnight clipping and seconds.
+    Never infer this table separately from gen_start/gen_runtime_sec.
+    Existing SENT report JSON snapshots are not mutated here.
+    """
+    from monitor.daily_summary import build_daily_summary, fmt_duration as daily_fmt
+
+    local_start = start.astimezone(BDT)
+    local_end = end.astimezone(BDT)
+    day = local_start.date()
+    expected_start = localize(datetime.combine(day, time.min))
+    expected_end = localize(datetime.combine(day + timedelta(days=1), time.min))
+    if local_start != expected_start or local_end != expected_end:
+        raise ValueError('Generator Log requires one complete Bangladesh calendar day.')
+
+    daily = build_daily_summary(day)
+    totals = daily['totals']
+    rows = [
+        {
+            'start': row['start'],
+            'end': row['end'],
+            'duration': daily_fmt(row['duration_sec']),
+            'generator': row['generator'],
+        }
+        for row in daily['rows']
+    ]
+    return {
+        'rows': rows,
+        'Gen-01': daily_fmt(totals.get('Gen-01', 0)),
+        'Gen-02': daily_fmt(totals.get('Gen-02', 0)),
+        'Unknown': daily_fmt(totals.get('UNASSIGNED', 0)),
+        'grand_total': daily_fmt(daily['grand_total']),
+        'total_seconds': daily['grand_total'],
+    }
 
 
 def build_previous_day_summary(report_date):
@@ -591,8 +585,9 @@ def parse_circuit_counts(text):
 
 def format_circuit_bandwidth(counts):
     """Nominal carrying bandwidth from exactly four traffic-carrying counts."""
+    limits = wet_circuit_limits()
     if len(counts) != 4 or any(type(n) is not int or n < 0 or n > cap
-                                for n, cap in zip(counts, wet_circuit_limits())):
+                                for n, cap in zip(counts, limits)):
         raise ValueError('Traffic-carrying circuit counts must be within installed limits.')
     used = sum((n * rate for n, rate in zip(counts, CIRCUIT_BANDWIDTH)), Decimal(0))
     free = TOTAL_CAPACITY_GBPS - used
@@ -601,7 +596,7 @@ def format_circuit_bandwidth(counts):
         'Total Capacity: 4,650 Gbps',
         f'Used Capacity: {fmt(used)} Gbps ({fmt(used * 100 / TOTAL_CAPACITY_GBPS)}%) (Currently Carrying Traffic)',
         f'Free Capacity: {fmt(free)} Gbps ({fmt(free * 100 / TOTAL_CAPACITY_GBPS)}%)',
-        'Assigned Capacity: Approx. 2,725 Gbps (Ready for service)',
+        f'Assigned Capacity: Approx. {sum((n * rate for n, rate in zip(limits, CIRCUIT_BANDWIDTH)), Decimal(0)).quantize(Decimal("1"), rounding=ROUND_HALF_UP):,} Gbps (Ready for service)',
         f'Total Active Circuits: {sum(counts)}',
         *(f'{label}: {n}' for label, n in zip(('100G', '10G', 'STM-16', 'STM-1'), counts)),
     ))

@@ -998,6 +998,11 @@ def shift_report_edit(request, report_id):
         id=report_id,
     )
 
+    # SENT reports use the exact same read-only renderer for author and
+    # colleagues.  This is a GET-only redirect; it never writes report data.
+    if report.status == 'SENT':
+        return redirect('shiftreport:view', report_id=report.id)
+
     if not _can_manage_report(request.user, report):
         return HttpResponseForbidden(
             "You cannot access another engineer's Shift Report."
@@ -1127,14 +1132,8 @@ def shift_report_save(request, report_id):
         )
 
     if report.status == 'SENT':
-        messages.error(
-            request,
-            'A sent Shift Report cannot be edited.'
-        )
-        return redirect(
-            'shiftreport:edit',
-            report_id=report.id,
-        )
+        messages.error(request, 'A sent Shift Report cannot be edited.')
+        return redirect('shiftreport:view', report_id=report.id)
 
     # Allow date/shift changes only on editable reports.
     date_input = request.POST.get(
@@ -1366,14 +1365,8 @@ def shift_report_refresh_summary(request, report_id):
         )
 
     if report.status == 'SENT':
-        messages.error(
-            request,
-            'A sent Shift Report cannot be refreshed.'
-        )
-        return redirect(
-            'shiftreport:edit',
-            report_id=report.id,
-        )
+        messages.error(request, 'A sent Shift Report cannot be refreshed.')
+        return redirect('shiftreport:view', report_id=report.id)
 
     snapshot = build_shift_snapshot(
         report.report_date,
@@ -1820,14 +1813,8 @@ def shift_report_send(request, report_id):
 
     # Fully successful reports are immutable and cannot be re-sent.
     if report.status == 'SENT':
-        messages.info(
-            request,
-            'This Shift Report has already been sent.'
-        )
-        return redirect(
-            'shiftreport:edit',
-            report_id=report.id,
-        )
+        messages.info(request, 'This Shift Report has already been sent.')
+        return redirect('shiftreport:view', report_id=report.id)
 
     now = timezone.now()
 
