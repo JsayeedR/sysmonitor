@@ -74,7 +74,15 @@
       display:grid;
       grid-template-columns:minmax(0,1.3fr) minmax(165px,.56fr) minmax(0,1.3fr);
       grid-template-areas:"status lamps cycle" "ats clock colo";
+      grid-auto-rows:120px; /* both rows share the clock-card height */
       gap:.6rem; margin-bottom:.85rem;
+    }
+    /* Keep all six status panels visually identical in height. */
+    .banner-grid > .banner { box-sizing:border-box; min-width:0; min-height:0; height:100%; }
+    @media (max-width:768px) {
+      /* Allow wrapping without clipping labels on narrow screens. */
+      .banner-grid {grid-auto-rows:minmax(120px, auto);}
+      .banner-grid > .banner {min-height:120px;}
     }
     #banner { grid-area:status; }
     #power-indicator-banner { grid-area:lamps; }
@@ -371,6 +379,16 @@
     }
     .date-btn:hover  { background: var(--border); color: var(--text); }
     .date-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+    /* Hidden older outage dates still exist in the page for instant expansion. */
+    .date-btn[data-pdb-day][hidden] { display:none !important; }
+    .pdb-dates-toggle {
+      border:1px solid #3b82f6; border-radius:5px; padding:3px 10px;
+      color:#bfdbfe; background:#193252; font-size:.69rem;
+      cursor:pointer; font-weight:700; margin-top:3px;
+    }
+    .pdb-dates-toggle:hover, .pdb-dates-toggle:focus-visible {
+      color:#fff; background:#254d80; outline-offset:2px;
+    }
     .no-data {
       color: var(--faint); font-size: .8rem; text-align: center; padding: 2rem 0;
     }
@@ -1016,6 +1034,22 @@ function refreshColocation() {
 
 // ── Daily Summary Panel ───────────────────────────────────────────────────────
 let currentSummaryDate = '';
+const PDB_INITIAL_DATES = 35;
+let pdbDatesExpanded = false;
+
+// Show/hide existing date buttons; no additional network request or row-count assumptions.
+function togglePdbOutageDates() {
+  pdbDatesExpanded = !pdbDatesExpanded;
+  const buttons = document.querySelectorAll('#gen-log .date-btn[data-pdb-day]');
+  buttons.forEach((button, index) => {
+    button.hidden = !pdbDatesExpanded && index >= PDB_INITIAL_DATES;
+  });
+  const toggle = document.getElementById('pdb-dates-toggle');
+  if (toggle) {
+    toggle.textContent = pdbDatesExpanded ? 'Show latest 35' : 'Show all dates';
+    toggle.setAttribute('aria-expanded', String(pdbDatesExpanded));
+  }
+}
 
 function loadSummary(dateVal) {
   const genLog = document.getElementById('gen-log');
@@ -1027,16 +1061,28 @@ function loadSummary(dateVal) {
     .then(r => r.json())
     .then(data => {
 
-      // Date selector buttons
-      const btnHtml = data.available_dates && data.available_dates.length
-        ? `<div class="date-btn-row">
-            ${data.available_dates.map(d => `
-              <button class="date-btn ${d === data.date_val ? 'active' : ''}"
+      // Only the newest 35 dates are visible by default. CSS flex-wrap
+      // chooses the number of dates per row at each viewport width.
+      const dates = (Array.isArray(data.available_dates) ? data.available_dates : [])
+        .filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
+        .sort((a, b) => b.localeCompare(a));
+      const btnHtml = dates.length
+        ? `<div class="date-btn-row" role="group" aria-label="PDB Outage dates">
+            ${dates.map((d, index) => `
+              <button type="button" data-pdb-day="1"
+                class="date-btn ${d === data.date_val ? 'active' : ''}"
+                ${!pdbDatesExpanded && index >= PDB_INITIAL_DATES ? 'hidden' : ''}
                 onclick="loadSummary('${d}')">
                 ${d.split('-').reverse().join('/')}
               </button>
             `).join('')}
-          </div>`
+          </div>
+          ${dates.length > PDB_INITIAL_DATES
+            ? `<button type="button" id="pdb-dates-toggle"
+                class="pdb-dates-toggle" onclick="togglePdbOutageDates()"
+                aria-expanded="${pdbDatesExpanded}">
+                ${pdbDatesExpanded ? 'Show latest 35' : 'Show all dates'}
+              </button>` : ''}`
         : '';
 
       if (!data.rows || !data.rows.length) {
