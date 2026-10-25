@@ -21,6 +21,12 @@ SAFE_ROUTES = frozenset({
     'system_recent_cycles', 'cctv_view', 'cctv_live_status',
     'shiftreport:home', 'shiftreport:view',
     'shiftreport:pfe_home', 'shiftreport:slot_check',
+    # RC24.8: specifically reviewed display-only GET routes. No mutation,
+    # download, export or credential configuration handlers are admitted.
+    'page_access_manage', 'colocation_setpoints', 'system_tools',
+    'system_live_state', 'generator_fuel', 'generator_cycle_audit',
+    'generator_log_page', 'shiftreport:pfe_edit',
+    'shiftreport:activity_source',
 })
 
 # Some report screens currently show an edit form on GET. These may be added

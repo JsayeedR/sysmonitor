@@ -39,6 +39,15 @@ def deny_remote_forward(user, path, method):
     master account administration/service control. This intentionally restricts
     previously-remote-managed sensitive tasks to the local console.
     """
+    # Signed remote GETs for the reserved read-only account may retrieve
+    # these previously master-only *display* pages. The master still runs
+    # FullViewerReadOnlyMiddleware and role checks; service controls remain
+    # local-only for every account and method.
+    if is_full_viewer(user) and method in ('GET', 'HEAD') and path in (
+        '/system/', '/system/state/', '/system/recent-cycles/',
+        '/users/', '/page-access/',
+    ):
+        return False
     if any(path.startswith(prefix) for prefix in REMOTE_LOCAL_ONLY_PREFIXES):
         return True
     if getattr(user, 'is_superuser', False) and method not in ('GET', 'HEAD', 'OPTIONS'):

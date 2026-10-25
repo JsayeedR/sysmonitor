@@ -264,9 +264,33 @@
     }
 
     /* DEVICES */
+    /* Compact responsive row: existing devices plus a persistent refresh dial. */
     .devices-row {
-      display: flex; gap: .85rem; flex-wrap: wrap; margin-bottom: 1.25rem;
+      display:grid; grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:.7rem; margin-bottom:1rem; align-items:stretch;
     }
+    #live-device-cards {display:contents;}
+    @media(min-width:981px){.refresh-card{grid-column:4;grid-row:1;}}
+    @media(max-width:980px){.devices-row{grid-template-columns:repeat(2,minmax(0,1fr));}}
+    @media(max-width:540px){.devices-row{grid-template-columns:1fr;}}
+    .device-card {min-width:0 !important; max-width:none !important;}
+    .refresh-card {
+      background:linear-gradient(125deg,#162c49,#142134);
+      border:1px solid #355784; border-radius:11px; padding:.72rem 1rem;
+      display:flex;justify-content:space-between;align-items:center;gap:.65rem;min-height:93px;
+    }
+    .refresh-kicker {font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:#93b6e9;font-weight:750;}
+    .refresh-digits {font-variant-numeric:tabular-nums;font-size:1.42rem;font-weight:800;letter-spacing:-.035em;color:#bfdbfe;}
+    .refresh-unit {font-size:.63rem;color:#94a3b8;}
+    .refresh-dial {
+      --refresh-progress:100%;width:62px;height:62px;flex:none;border-radius:50%;
+      display:grid;place-items:center;position:relative;
+      background:conic-gradient(#60a5fa var(--refresh-progress),#243650 0);
+      box-shadow:0 0 0 2px #29405b,0 0 18px #3b82f62b;
+    }
+    .refresh-dial::before {content:"";position:absolute;inset:6px;border-radius:50%;background:#101c2e;}
+    .refresh-dial::after {content:"";width:8px;height:8px;border-radius:50%;background:#93c5fd;z-index:1;box-shadow:0 0 13px #60a5fa;}
+    @media(prefers-reduced-motion:reduce){.refresh-dial{transition:none;}}
     .device-card {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: 10px; padding: 1rem 1.1rem;
@@ -406,30 +430,44 @@
 
     /* DUTY ROSTER CARD */
     .duty-board {
-      margin: 0 0 1rem;
-      background: linear-gradient(135deg, #111827 0%, #0f1b30 100%);
-      border: 1px solid #334155;
-      border-radius: 12px;
-      padding: .9rem 1rem;
-      box-shadow: 0 10px 30px #02061725;
+      margin:0 0 .85rem;
+      background:linear-gradient(135deg,#111827 0%,#0f1b30 100%);
+      border:1px solid #334155;border-radius:12px;
+      padding:.58rem .78rem;box-shadow:0 10px 30px #02061725;
     }
-    .duty-board-head { display:flex; justify-content:space-between; gap:1rem; align-items:center; margin-bottom:.7rem; }
+    .duty-board-head { display:flex; justify-content:space-between; gap:1rem; align-items:center; margin-bottom:.35rem; }
     .duty-board-title { font-size:.76rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#cbd5e1; }
     .duty-roster-month { font-size:.68rem; color:var(--faint); }
-    .duty-grid { display:grid; grid-template-columns:1fr auto 1fr; gap:.8rem; align-items:stretch; }
-    .duty-card { min-width:0; background:#0b1220aa; border:1px solid #263449; border-radius:10px; padding:.75rem .9rem; }
+    .duty-grid {display:grid;grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr) minmax(165px,.62fr);gap:.54rem;align-items:stretch;}
+    .duty-card {min-width:0;background:#0b1220aa;border:1px solid #263449;border-radius:10px;padding:.48rem .7rem;}
+    .duty-stats {
+      border:1px solid #355784;border-radius:10px;padding:.45rem .55rem;
+      background:linear-gradient(140deg,#122b48,#111c30);
+      display:flex;flex-direction:column;justify-content:center;gap:.43rem;
+    }
+    .duty-stats-title{font-size:.6rem;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:#a7c7ef;}
+    .duty-stats-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.28rem;text-align:center;}
+    .duty-stats-grid strong{display:block;font-size:1.08rem;line-height:1.15;font-variant-numeric:tabular-nums;}
+    .duty-stats-grid span{display:block;font-size:.55rem;color:#94a3b8;text-transform:uppercase;}
+    .duty-stats-grid >div+div{border-left:1px solid #344861;}
+    .duty-stats-grid .up{color:#4ade80}.duty-stats-grid .down{color:#fb7185}
     .duty-card.current { border-color:#10b98166; }
     .duty-card.next { border-color:#3b82f666; }
     .duty-kicker { font-size:.64rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
-    .duty-name { margin:.25rem 0 .18rem; font-size:1rem; line-height:1.25; font-weight:800; color:#f8fafc; }
+    .duty-name {margin:.16rem 0 .12rem;font-size:.87rem;line-height:1.25;font-weight:800;color:#f8fafc;}
     .duty-meta { font-size:.7rem; color:var(--muted); }
-    .duty-handover { margin-top:.38rem; font-size:.7rem; color:#6ee7b7; font-weight:700; }
+    .duty-handover {margin-top:.18rem;font-size:.68rem;color:#6ee7b7;font-weight:700;}
     .duty-arrow { display:flex; align-items:center; justify-content:center; color:#64748b; font-size:1.25rem; padding:0 .15rem; }
     .duty-missing .duty-name { color:#fbbf24; }
+    @media (max-width:1050px) {
+      .duty-grid{grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr);}
+      .duty-stats{grid-column:1/-1;}
+    }
     @media (max-width: 768px) {
-      .duty-grid { grid-template-columns:1fr; }
-      .duty-arrow { transform:rotate(90deg); min-height:12px; }
-      .duty-board-head { align-items:flex-start; flex-direction:column; gap:.2rem; }
+      .duty-grid {grid-template-columns:1fr;}
+      .duty-arrow {transform:rotate(90deg); min-height:12px;}
+      .duty-board-head {align-items:flex-start;flex-direction:column;gap:.2rem;}
+      .duty-stats{grid-column:auto;}
     }
 
     /* FOOTER */
@@ -608,6 +646,14 @@
         <div class="duty-name" id="duty-next-name">Loading…</div>
         <div class="duty-meta" id="duty-next-meta">—</div>
       </div>
+      <aside class="duty-stats" aria-label="Monitored device statistics">
+        <div class="duty-stats-title">Live device statistics</div>
+        <div class="duty-stats-grid">
+          <div><strong id="stat-total">{{ devices|length }}</strong><span>Total</span></div>
+          <div><strong class="up" id="stat-up">—</strong><span>UP</span></div>
+          <div><strong class="down" id="stat-down">—</strong><span>DOWN</span></div>
+        </div>
+      </aside>
     </div>
   </section>
   <script>
@@ -675,6 +721,7 @@
 
   <!-- DEVICE STATUS LIGHTS -->
   <div class="devices-row" id="devices-row">
+    <div id="live-device-cards">
     {% for d in devices %}
     <div class="device-card {{ d.status }}">
       <div class="device-header">
@@ -695,30 +742,17 @@
       <div class="device-meta">Go to Devices to add</div>
     </div>
     {% endfor %}
-  </div>
-
-  <!-- STATS ROW -->
-  <div class="stats-row">
-    <div class="stat-card">
-      <div class="stat-label">Total Devices</div>
-      <div class="stat-value">{{ devices|length }}</div>
-      <div class="stat-sub">Monitored</div>
     </div>
-    <div class="stat-card">
-      <div class="stat-label">Devices UP</div>
-      <div class="stat-value" style="color:var(--green)" id="stat-up">—</div>
-      <div class="stat-sub">Reachable</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Devices DOWN</div>
-      <div class="stat-value" style="color:var(--red)" id="stat-down">—</div>
-      <div class="stat-sub">Unreachable</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Next Refresh</div>
-      <div class="stat-value" style="color:var(--blue)" id="countdown">30</div>
-      <div class="stat-sub">seconds</div>
-    </div>
+    <aside class="refresh-card" aria-label="Next monitoring refresh">
+      <div>
+        <div class="refresh-kicker">Next refresh</div>
+        <div class="refresh-digits" id="countdown" aria-live="off">30</div>
+        <div class="refresh-unit">seconds remaining</div>
+      </div>
+      <div class="refresh-dial" id="refresh-dial" role="progressbar"
+           aria-label="Time remaining until next refresh" aria-valuemin="0"
+           aria-valuemax="30" aria-valuenow="30"></div>
+    </aside>
   </div>
 
   <!-- BOTTOM: EVENTS + GENERATOR LOG -->
@@ -908,8 +942,8 @@ function refresh() {
         '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
       }[ch]));
       // Device Cards
-      const grid = document.getElementById('devices-row');
-      if (grid && data.devices && data.devices.length) {
+      const grid = document.getElementById('live-device-cards');
+      if (grid && Array.isArray(data.devices)) {
         grid.innerHTML = data.devices.map(d => `
           <div class="device-card ${d.status}">
             <div class="device-header">
@@ -925,12 +959,14 @@ function refresh() {
             </div>
           </div>
         `).join('');
-        let up = 0, down = 0;
-        data.devices.forEach(d => d.status === 'UP' ? up++ : down++);
-        const elUp   = document.getElementById('stat-up');
+        const up = data.devices.filter(d => d.status === 'UP').length;
+        const down = data.devices.filter(d => d.status === 'DOWN').length;
+        const elUp = document.getElementById('stat-up');
         const elDown = document.getElementById('stat-down');
-        if (elUp)   elUp.textContent   = up;
+        const elTotal = document.getElementById('stat-total');
+        if (elUp) elUp.textContent = up;
         if (elDown) elDown.textContent = down;
+        if (elTotal) elTotal.textContent = data.devices.length;
       }
 
       // Recent Events
@@ -1270,12 +1306,17 @@ const countEl = document.getElementById('countdown');
 
 function tick() {
   counter--;
-  if (countEl) countEl.textContent = counter;
   if (counter <= 0) {
     counter = 30;
     refresh();
     loadSummary(currentSummaryDate);
     refreshColocation();
+  }
+  if (countEl) countEl.textContent = counter;
+  const dial = document.getElementById('refresh-dial');
+  if (dial) {
+    dial.style.setProperty('--refresh-progress', (counter / 30 * 100) + '%');
+    dial.setAttribute('aria-valuenow', String(counter));
   }
 }
 

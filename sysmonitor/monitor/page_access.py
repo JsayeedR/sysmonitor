@@ -242,6 +242,11 @@ def pages_for_role(role):
 def hidden_pages_for_user(user):
     if user is None or not getattr(user, 'is_authenticated', False):
         return set()
+    # The reserved Full Viewer receives the complete read-only menu; the
+    # independent FullViewerReadOnlyMiddleware still governs each endpoint.
+    from .access_policy import is_full_viewer
+    if is_full_viewer(user):
+        return set()
 
     try:
         profile = user.userprofile

@@ -44,13 +44,13 @@
     <header class="hero">
       <div class="eyebrow">SysMonitor · Security release bulletin</div>
       <h1>Security Patch <span style="color:#b7d9ff">Updates</span></h1>
-      <p>A transparent summary of security improvements delivered with RC24, the controls verified during release testing, and areas that still require attention.</p>
-      <div class="hero-pills"><span class="pill ok">● Release deployed</span><span class="pill">RC24 · 24 October 2026</span><span class="pill">For authorized personnel</span></div>
+      <p>Security improvements from RC24 through the latest tested operational UI release, including authenticated mirror checks, Full Viewer read-only protections and controlled dashboard updates.</p>
+      <div class="hero-pills"><span class="pill ok">● Release deployed</span><span class="pill">RC24.8 candidate · pending acceptance</span><span class="pill">For authorized personnel</span></div>
       <div class="quick"><a href="#controls">Explore improvements ↓</a><a href="#limitations">Known limitations</a><a href="{{ base_path }}/manual/">Operations manual ↗</a></div>
     </header>
 
     <section aria-labelledby="release-heading">
-      <div class="section-heading"><div><h2 id="release-heading">Release verification</h2><p>Recorded during RC24 acceptance, not a real-time security rating.</p></div></div>
+      <div class="section-heading"><div><h2 id="release-heading">Release verification</h2><p>Historical RC24 security-release evidence; later UI releases use separate regression checks. Not a real-time security rating.</p></div></div>
       <div class="release-kpis">
         <article class="metric"><span>Offline automated tests</span><strong>94 / 94</strong><span>Passed in the isolated release rehearsal</span></article>
         <article class="metric"><span>Master database migrations</span><strong>6 / 6</strong><span>Applied with integrity verification</span></article>
@@ -62,7 +62,7 @@
       <div class="section-heading"><div><h2 id="controls-heading">What was improved</h2><p>Security concerns addressed by this release, explained without exposing sensitive implementation details.</p></div></div>
       <div class="control-grid">
         <article class="control"><div class="control-top"><span class="symbol" aria-hidden="true">🔐</span><span class="tag">Hardened</span></div><h3>Authentication &amp; sessions</h3><p>Improved password-reset safeguards and session invalidation behavior. Changes to account status or credentials are covered by security tests.</p></article>
-        <article class="control"><div class="control-top"><span class="symbol" aria-hidden="true">👥</span><span class="tag">Hardened</span></div><h3>Role-based permissions</h3><p>Strengthened admin privilege checks, Full Viewer read-only rules, and protection of sensitive actions from unauthorized access.</p></article>
+        <article class="control"><div class="control-top"><span class="symbol" aria-hidden="true">👥</span><span class="tag">Hardened</span></div><h3>Role-based permissions</h3><p>Role and page-access restrictions remain enforced server-side. Full Viewer has broader audited display access but cannot mutate records or download/export files. Credential-bearing and unreviewed operations stay restricted.</p></article>
         <article class="control"><div class="control-top"><span class="symbol" aria-hidden="true">🌐</span><span class="tag">Live verified</span></div><h3>Master &amp; mirror trust</h3><p>Mirror sessions now use master-authoritative identity verification. Requests fail closed when identity validation cannot be completed.</p></article>
         <article class="control"><div class="control-top"><span class="symbol" aria-hidden="true">📚</span><span class="tag">Preserved</span></div><h3>Historical records</h3><p>Added non-login identity snapshots and account-removal safety checks to protect audit attribution, operational records, and report history.</p></article>
         <article class="control"><div class="control-top"><span class="symbol" aria-hidden="true">📝</span><span class="tag">Protected</span></div><h3>Shift &amp; PFE reports</h3><p>Improved sent-report signature capture and report-delivery locking. Existing history was checked against the migrated database.</p></article>
@@ -86,7 +86,7 @@
     <section id="limitations" aria-labelledby="limitations-heading">
       <div class="section-heading"><div><h2 id="limitations-heading">Remaining safeguards and follow-ups</h2><p>Transparent release notes are more useful than an unsupported “100% secure” claim.</p></div></div>
       <div class="notice"><h3>Security is maintained, not permanently completed.</h3>
-        <p>RC24 was validated against the tests and deployment checks described above. It is not a comprehensive penetration-test certification or proof that no weaknesses remain.</p>
+        <p>RC24 security tests and subsequent release regressions do not constitute a penetration-test certification. All new Full Viewer pages require individual read-only review; production acceptance is separate from package preparation.</p>
         <ul>
           <li>Permanent account deletion remains disabled pending separate operational authorization. Legacy SENT-report authors retain additional protections where original signature snapshots were unavailable.</li>
           <li>Interactive end-user acceptance, ongoing dependency review and infrastructure exposure checks remain part of operational security.</li>

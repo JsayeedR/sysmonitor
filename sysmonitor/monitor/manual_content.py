@@ -35,10 +35,11 @@ ROLE_GUIDE = [
         "role": "Full Viewer (dedicated account)",
         "summary": "Broad operational visibility with server-enforced read-only restrictions.",
         "details": (
-            "The dedicated Full Viewer login can read approved operational and administrative overview pages. "
-            "It cannot submit changes, send reports, use application exports/downloads or open sensitive "
-            "configuration screens. Some create/edit and configuration pages remain unavailable, "
-            "even if they would normally be visible to Admin. The account is not a superuser."
+            "Full Viewer has broad read-only visibility across approved operational, roster, "
+            "report and administrative overview pages, including device statistics and the live refresh dial. "
+            "It cannot change records, send reports, start maintenance, download/export files, "
+            "or view stored gateway secrets. Pages with unreviewed GET side effects or sensitive "
+            "credential exposure remain restricted until individually audited. The account is not a superuser."
         ),
     },
     {

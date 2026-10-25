@@ -2161,7 +2161,8 @@ def mnoc_pfe_edit(request, report_id):
         id=report_id,
     )
 
-    can_edit = (
+    from monitor.fullviewer import is_fullviewer
+    can_edit = not is_fullviewer(request.user) and (
         get_role(request.user) == 'admin'
         or report.prepared_by_id == request.user.id
     )

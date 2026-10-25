@@ -7187,7 +7187,7 @@ def page_access_manage(request):
         ):
             messages.error(request, 'You cannot change page access for this protected account.')
             return redirect('page_access_manage')
-        profile, _ = UserProfile.objects.get_or_create(user=target)
+        profile = UserProfile.objects.filter(user=target).first()
 
         selected_role = get_role(target)
         allowed = pages_for_role(selected_role)
@@ -7202,9 +7202,11 @@ def page_access_manage(request):
             k for k, cfg in allowed.items() if not locked_for_target(k, cfg)
         }
 
-        current_hidden = set(profile.hidden_pages or [])
+        current_hidden = set(profile.hidden_pages or []) if profile else set()
 
         if request.method == 'POST':
+            if profile is None:
+                profile, _ = UserProfile.objects.get_or_create(user=target)
             # Browser submits ONLY pages currently allowed by the role.
             visible = set(request.POST.getlist('visible_pages'))
             allowed_keys = editable_keys
