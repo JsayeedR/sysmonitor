@@ -74,15 +74,18 @@
       display:grid;
       grid-template-columns:minmax(0,1.3fr) minmax(165px,.56fr) minmax(0,1.3fr);
       grid-template-areas:"status lamps cycle" "ats clock colo";
-      grid-auto-rows:120px; /* both rows share the clock-card height */
+      /* Compact, clock-sized rows: the 120px RC24.7 rule made cards oversized. */
+      grid-auto-rows:84px;
       gap:.6rem; margin-bottom:.85rem;
     }
-    /* Keep all six status panels visually identical in height. */
+    /* Equal desktop card heights; only responsive layouts may grow for wrapping. */
     .banner-grid > .banner { box-sizing:border-box; min-width:0; min-height:0; height:100%; }
+    @media (max-width:1050px) {
+      .banner-grid {grid-auto-rows:minmax(84px,auto);}
+    }
     @media (max-width:768px) {
-      /* Allow wrapping without clipping labels on narrow screens. */
-      .banner-grid {grid-auto-rows:minmax(120px, auto);}
-      .banner-grid > .banner {min-height:120px;}
+      .banner-grid {grid-auto-rows:auto;}
+      .banner-grid > .banner {min-height:84px; height:auto;}
     }
     #banner { grid-area:status; }
     #power-indicator-banner { grid-area:lamps; }

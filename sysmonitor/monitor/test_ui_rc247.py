@@ -12,9 +12,11 @@ class DashboardRC247Tests(SimpleTestCase):
 
     def test_six_cards_remain_in_their_expected_grid_cells(self):
         self.assertIn('grid-template-areas:"status lamps cycle" "ats clock colo"', self.html)
-        self.assertIn('grid-auto-rows:120px;', self.html)
+        self.assertIn('grid-auto-rows:84px;', self.html)
         self.assertIn('.banner-grid > .banner { box-sizing:border-box;', self.html)
-        self.assertIn('grid-auto-rows:minmax(120px, auto)', self.html)
+        self.assertIn('grid-auto-rows:minmax(84px,auto)', self.html)
+        self.assertIn('grid-auto-rows:auto;', self.html)
+        self.assertNotIn('grid-auto-rows:120px;', self.html)
 
     def test_limit_to_latest_35_without_server_filtering(self):
         self.assertIn('const PDB_INITIAL_DATES = 35;', self.html)
