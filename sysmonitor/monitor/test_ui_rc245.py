@@ -57,7 +57,7 @@ class UiScopeTests(SimpleTestCase):
 
     def test_first_row_three_boxes_and_off_lamps_are_dim(self):
         html=self.source('monitor/templates/monitor/dashboard.html')
-        self.assertIn('grid-template-areas:"status lamps cycle" "ats ats colo"',html)
+        self.assertIn('grid-template-areas:"status lamps cycle" "ats clock colo"',html)
         self.assertIn('minmax(165px,.56fr)',html)
         self.assertIn('sm-light.off',html)
         self.assertIn("?'unknown':'off'",html)

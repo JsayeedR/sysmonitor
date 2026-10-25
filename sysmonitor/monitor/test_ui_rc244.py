@@ -127,7 +127,7 @@ class UiSourceOnlyTests(SimpleTestCase):
             self.assertIn('data-light-label="'+label+'"', dash)
             self.assertIn('id="'+lamp+'"', dash)
             self.assertIn('id="'+txt+'"', dash)
-        self.assertIn('width:32px; height:32px', dash)
+        self.assertIn('width:37px; height:37px', dash)
         self.assertIn('class="sm-visually-hidden"', dash)
         self.assertIn("assignLight('sm-pdb-light','sm-pdb-text',p.pdb,'UP','pdb-up')", dash)
         self.assertIn("assignLight('sm-gen-light','sm-gen-text',p.generator,'ON','gen-on')", dash)

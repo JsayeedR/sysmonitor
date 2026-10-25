@@ -114,8 +114,9 @@
   <div class="notice">
     <strong>Role permission is always the maximum.</strong>
     All registered pages are listed below. Unavailable pages cannot be granted;
-    the Page Access recovery screen and About page are non-hideable.
-    It cannot grant Viewer/User/Admin pages outside that role.
+    Superadmin always retains Page Access recovery. Superadmin may hide
+    Page Access for ordinary Admin accounts; About remains non-hideable.
+    It cannot grant pages outside a user's existing role.
   </div>
 
   {% for message in messages %}
