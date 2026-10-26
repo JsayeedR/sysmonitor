@@ -1217,11 +1217,15 @@ document.addEventListener('DOMContentLoaded', function () {
  const limits=JSON.parse(document.getElementById('sm-wet-limits').textContent), rates=[100,10,2.488,0.15552];
  const text=area.value;
  const defaults=[19,51,1,9];
- const matches=['100G','10G','STM-16','STM-1'].map((label,i)=>{
-   const line=text.split('\n').find(x=>x.trim().startsWith(label+':'));
-   const parsed=line?Number(line.trim().split(':')[1].trim()):NaN;
-   return Number.isInteger(parsed)?parsed:defaults[i];
- });
+ function readCounts(text){
+   return [['100GbE','100G'],['10GbE (LAN PHY)','10G'],['STM-16','STM-16'],['STM-1','STM-1']].map(pair=>{
+     const line=text.split('\n').find(x=>pair.some(label=>x.trim().startsWith(label+':')||x.trim().startsWith(label+' :')));
+     const match=line && line.match(/:\s*(\d+)(?:\s*\/\s*\d+)?\s*$/);
+     return match?Number(match[1]):null;
+   });
+ }
+ const parsedInitial=readCounts(text);
+ const matches=parsedInitial.every(Number.isInteger)?parsedInitial:defaults;
  const inputs=[];
  let circuitsManuallyEdited=false;
  labels.forEach((label,i)=>{
@@ -1237,14 +1241,33 @@ document.addEventListener('DOMContentLoaded', function () {
    const valid=inputs.every((x,i)=>x.value!=='' && Number.isInteger(values[i]) && values[i]>=0 && values[i]<=limits[i]);
    if(!valid){preview.textContent='Enter valid traffic-carrying circuit counts within the limits.';area.value='';return;}
    const used=values.reduce((s,n,i)=>s+n*rates[i],0);
-   const f=n=>Number(n.toFixed(5)).toLocaleString('en-US',{maximumFractionDigits:5});
+   const assigned=limits.reduce((sum,n,i)=>sum+n*rates[i],0);
+   if(assigned>4650 || used>assigned){preview.textContent='Capacity exceeds total installed capacity.';area.value='';return;}
+   const money=n=>n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+   const pct=n=>money(n*100/4650)+'%';
+   const line=(label,val)=>label.padEnd(21,' ')+': '+val;
+   const sep='-'.repeat(55);
    area.value=[
-    'Total Capacity: 4,650 Gbps',
-    'Used Capacity: '+f(used)+' Gbps ('+f(used/4650*100)+'%) (Currently Carrying Traffic)',
-    'Free Capacity: '+f(4650-used)+' Gbps ('+f((4650-used)/4650*100)+'%)',
-    'Assigned Capacity: Approx. '+f(Math.round(limits.reduce((sum,n,i)=>sum+n*rates[i],0)))+' Gbps (Ready for service)',
-    'Total Active Circuits: '+values.reduce((a,b)=>a+b,0),
-    '100G: '+values[0],'10G: '+values[1],'STM-16: '+values[2],'STM-1: '+values[3]
+     sep,
+     'SMW4 CIRCUIT & BANDWIDTH STATUS',
+     'Report Date & Time: [Shift Report Submission Date & Time]',
+     sep,
+     '\t\t\tCapacity Summary',
+     sep,
+     line('Total Capacity',money(4650)+' Gbps'),
+     line('Used Capacity',money(used)+' Gbps ('+pct(used)+')'),
+     line('Assigned Capacity',money(assigned)+' Gbps ('+pct(assigned)+')'),
+     line('Assigned, No Traffic',money(assigned-used).padStart(8,' ')+' Gbps ('+pct(assigned-used)+')'),
+     line('Unassigned Capacity',money(4650-assigned)+' Gbps ('+pct(4650-assigned)+')'),
+     sep,
+     'Circuit Status (Traffic-Carrying/ Wet-Activated)',
+     sep,
+     ...['100GbE','10GbE (LAN PHY)','STM-16','STM-1'].map((k,i)=>line(k,values[i]+'/'+limits[i])),
+     sep,
+     line('Total Wet-Activated',String(limits.reduce((a,b)=>a+b,0))),
+     line('Carrying Traffic',String(values.reduce((a,b)=>a+b,0))),
+     line('Not Carrying Traffic',String(limits.reduce((a,b)=>a+b,0)-values.reduce((a,b)=>a+b,0))),
+     sep
    ].join('\n');
    preview.textContent=area.value;
  }
@@ -1259,15 +1282,7 @@ document.addEventListener('DOMContentLoaded', function () {
    const text=(event.detail &&
      event.detail.bandwidth_status) || '';
 
-   const parsed=['100G','10G','STM-16','STM-1'].map(label=>{
-     const line=text.split('\n').find(
-       x=>x.trim().startsWith(label+':')
-     );
-     if(!line)return null;
-     const raw=line.split(':').slice(1).join(':').trim();
-     if(!/^\d+$/.test(raw))return null;
-     return Number(raw);
-   });
+   const parsed=readCounts(text);
 
    if(parsed.some(n=>n===null))return;
 

@@ -44,8 +44,8 @@
     <header class="hero">
       <div class="eyebrow">SysMonitor · Security release bulletin</div>
       <h1>Security Patch <span style="color:#b7d9ff">Updates</span></h1>
-      <p>Security improvements from RC24 through RC24.9 FIX2, including authenticated mirror checks, approved Full Viewer read-only pages and controlled dashboard releases.</p>
-      <div class="hero-pills"><span class="pill ok">● Release deployed</span><span class="pill">RC24.9 FIX2 · deployed on both sites</span><span class="pill">For authorized personnel</span></div>
+      <p>Verified security improvements from RC24 through RC25, including authenticated mirror checks, protected SENT reports, corrected shift calculations and controlled source publication.</p>
+      <div class="hero-pills"><span class="pill ok">● RC25 release validated</span><span class="pill">RC25 · master accepted, remote deployment separately verified</span><span class="pill">For authorized personnel</span></div>
       <div class="quick"><a href="#controls">Explore improvements ↓</a><a href="#limitations">Known limitations</a><a href="{{ base_path }}/manual/">Operations manual ↗</a></div>
     </header>
 
@@ -74,12 +74,13 @@
     </section>
 
     <section aria-labelledby="timeline-heading">
-      <div class="section-heading"><div><h2 id="timeline-heading">RC24 validation milestones</h2><p>Evidence observed during this release—not a guarantee against future vulnerabilities.</p></div></div>
+      <div class="section-heading"><div><h2 id="timeline-heading">RC24–RC25 validation milestones</h2><p>Evidence observed during this release—not a guarantee against future vulnerabilities.</p></div></div>
       <div class="timeline-card"><ol class="timeline">
         <li><strong>Offline security regression</strong><span>94 tests passed; private database migrations, retention checks, and eight reversible account-deletion rehearsals completed.</span></li>
         <li><strong>Master cutover</strong><span>48 verified source files installed; six database migrations succeeded; monitoring and HTTP health checks passed.</span></li>
         <li><strong>Remote mirror activation</strong><span>Public login returned HTTP 200, remote-to-master identity verification passed, and the mirrored schema was confirmed.</span></li>
         <li><strong>Update approval guard</strong><span>Automatic-update timer restored with unapproved code activation blocked.</span></li>
+        <li><strong>RC25 validated release</strong><span>148 automated Django regression tests passed and all six master-portal acceptance checks passed on 26 October 2026. Includes immutable SENT report presentation, canonical generator runtime, WET-based capacity and operations manual. Production rollout requires separate deployment and health verification.</span></li>
         <li><strong>RC24.9 FIX2 follow-up</strong><span>59 isolated regression tests passed on 25 October 2026. Master and remote deployments succeeded. Full Viewer browser checks passed for eight reviewed pages; generator navigation remains subject to separate operator confirmation.</span></li>
       </ol></div>
     </section>
@@ -95,7 +96,7 @@
           <li>GitHub main was synchronized by a verified, non-force SSH push after the RC24.9.1 master and remote deployments. Future releases still require fresh backup verification, regression tests, commit-ancestry checks and explicit publication approval.</li>
         </ul>
       </div>
-      <p class="reference">Security baseline: <strong>RC24</strong> · Verified 24 October 2026 · Commit <code>3b69731c256da942dfb6fb87161d7bbdfb3f7382</code>. Operational follow-up: <strong>RC24.9 FIX2</strong> · Deployed 25 October 2026 · Commit <code>51b473c539b287f7cfafc864b7de05b3aed1be81</code>. This page is a static release bulletin. For suspected security problems, contact your designated SysMonitor administrator through approved internal channels; never post passwords, tokens or personal data in reports.</p>
+      <p class="reference">Security baseline: <strong>RC24</strong> · Verified 24 October 2026 · Commit <code>3b69731c256da942dfb6fb87161d7bbdfb3f7382</code>. Operational follow-up: <strong>RC24.9 FIX2</strong> · Deployed 25 October 2026 · Commit <code>51b473c539b287f7cfafc864b7de05b3aed1be81</code>. RC25 validated on master and published to GitHub as commit <code>4eb4242d6b859be4ac58032b7797dd35a8e3957c</code> before the circuit-format follow-up patch. Verify the deployed revision before treating RC25 as deployed on another site. This page is a static release bulletin. For suspected security problems, contact your designated SysMonitor administrator through approved internal channels; never post passwords, tokens or personal data in reports.</p>
     </section>
   </main>
   {% include "monitor/footer.html" %}

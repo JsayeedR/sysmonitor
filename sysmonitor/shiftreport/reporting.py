@@ -239,6 +239,29 @@ def _html_lines(value):
     ).replace('\n', '<br>')
 
 
+def _circuit_status_html(value):
+    # Only newly formatted records render as a fixed-width plain-text block;
+    # historical SENT reports retain the original <br> representation.
+    from .services import is_new_circuit_block
+    if is_new_circuit_block(value):
+        return ('<pre style="white-space:pre;overflow-x:auto;'
+                'margin:0;font:12px/1.55 Consolas,Monaco,monospace">'
+                + html.escape(value) + '</pre>')
+    return _html_lines(value)
+
+
+def _circuit_table_cells(value):
+    from .services import is_new_circuit_block
+    if is_new_circuit_block(value):
+        return ('<td colspan="2" style="border:1px solid #555;padding:6px">'
+                + _circuit_status_html(value) + '</td>')
+    # Legacy/SENT display retains the original two-cell report layout.
+    return ('<td style="border:1px solid #555;padding:6px">'
+            '<strong>SMW4 CIRCUIT &amp; BANDWIDTH STATUS</strong></td>'
+            '<td style="border:1px solid #555;padding:6px">'
+            + _html_lines(value) + '</td>')
+
+
 def _outage_summary_html(summary):
     rows = (summary or {}).get('rows', [])
 
@@ -588,12 +611,7 @@ def build_html_body(report, config):
           </tr>
 
           <tr>
-            <td style="border:1px solid #555;padding:6px">
-              <strong>SMW4 CIRCUIT &amp; BANDWIDTH STATUS</strong>
-            </td>
-            <td style="border:1px solid #555;padding:6px">
-              {_html_lines(report.bandwidth_status)}
-            </td>
+            {_circuit_table_cells(report.bandwidth_status)}
           </tr>
         </table>
         {_previous_day_generator_html(report)}

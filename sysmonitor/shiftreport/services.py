@@ -572,34 +572,84 @@ TOTAL_CAPACITY_GBPS = Decimal('4650')
 
 
 def parse_circuit_counts(text):
-    """Read structured counts from saved report text, including legacy reports."""
-    labels = ('100G', '10G', 'STM-16', 'STM-1')
+    """Read the carrying counts from new-format and historical report text."""
     values = []
-    for label in labels:
-        match = re.search(r'(?m)^' + re.escape(label) + r':\s*(\d+)\s*$', text or '')
+    for modern, legacy in (
+        ('100GbE', '100G'),
+        ('10GbE (LAN PHY)', '10G'),
+        ('STM-16', 'STM-16'),
+        ('STM-1', 'STM-1'),
+    ):
+        # The optional denominator is informational: source-of-truth is WET.
+        pattern = (r'(?mi)^\s*(?:' + re.escape(modern) + '|'
+                   + re.escape(legacy) + r')\s*:\s*(\d+)'
+                   r'(?:\s*/\s*\d+)?\s*$')
+        match = re.search(pattern, text or '')
         if not match:
-            return (19, 51, 1, 9)  # legacy report without structured counts
+            return (19, 51, 1, 9)  # legacy reports without counts
         values.append(int(match.group(1)))
     return tuple(values)
 
 
-def format_circuit_bandwidth(counts):
-    """Nominal carrying bandwidth from exactly four traffic-carrying counts."""
+CIRCUIT_BLOCK_HEADING = 'SMW4 CIRCUIT & BANDWIDTH STATUS'
+CIRCUIT_RULE = '-' * 55
+CIRCUIT_PENDING_SUBMISSION = '[Shift Report Submission Date & Time]'
+
+
+def is_new_circuit_block(text):
+    """Do not reinterpret previously SENT/legacy format reports."""
+    return bool(text and text.startswith(CIRCUIT_RULE + '\n' + CIRCUIT_BLOCK_HEADING + '\n'))
+
+
+def format_circuit_bandwidth(counts, submitted_at=None):
+    """Exact compact SMW4 block; WET max and carrying entries are independent.
+
+    This is used for NEW reports only. The send path freezes the formatted
+    timestamp and values before first SMTP transmission. Old SENT rows are not
+    rewritten, re-rendered in new format, or retroactively recalculated.
+    """
     limits = wet_circuit_limits()
     if len(counts) != 4 or any(type(n) is not int or n < 0 or n > cap
-                                for n, cap in zip(counts, limits)):
+                               for n, cap in zip(counts, limits)):
         raise ValueError('Traffic-carrying circuit counts must be within installed limits.')
     used = sum((n * rate for n, rate in zip(counts, CIRCUIT_BANDWIDTH)), Decimal(0))
-    free = TOTAL_CAPACITY_GBPS - used
-    fmt = lambda x: format(x, ',.5f').rstrip('0').rstrip('.')
+    assigned = sum((n * rate for n, rate in zip(limits, CIRCUIT_BANDWIDTH)), Decimal(0))
+    if assigned > TOTAL_CAPACITY_GBPS or used > assigned:
+        raise ValueError('Wet-activated/used bandwidth exceeds available capacity.')
+    no_traffic = assigned - used
+    unassigned = TOTAL_CAPACITY_GBPS - assigned
+    fmt = lambda n: f'{n.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP):,.2f}'
+    pct = lambda n: fmt(n * Decimal(100) / TOTAL_CAPACITY_GBPS)
+    label = lambda key, value: f'{key:<21}: {value}'
+    if submitted_at is None:
+        timestamp = CIRCUIT_PENDING_SUBMISSION
+    else:
+        from django.utils import timezone
+        timestamp = timezone.localtime(submitted_at, BDT).strftime('%d/%m/%Y %I:%M:%S %p BDT')
     return '\n'.join((
-        'Total Capacity: 4,650 Gbps',
-        f'Used Capacity: {fmt(used)} Gbps ({fmt(used * 100 / TOTAL_CAPACITY_GBPS)}%) (Currently Carrying Traffic)',
-        f'Free Capacity: {fmt(free)} Gbps ({fmt(free * 100 / TOTAL_CAPACITY_GBPS)}%)',
-        f'Assigned Capacity: Approx. {sum((n * rate for n, rate in zip(limits, CIRCUIT_BANDWIDTH)), Decimal(0)).quantize(Decimal("1"), rounding=ROUND_HALF_UP):,} Gbps (Ready for service)',
-        f'Total Active Circuits: {sum(counts)}',
-        *(f'{label}: {n}' for label, n in zip(('100G', '10G', 'STM-16', 'STM-1'), counts)),
+        CIRCUIT_RULE,
+        CIRCUIT_BLOCK_HEADING,
+        'Report Date & Time: ' + timestamp,
+        CIRCUIT_RULE,
+        '\t\t\tCapacity Summary',
+        CIRCUIT_RULE,
+        label('Total Capacity', f'{fmt(TOTAL_CAPACITY_GBPS)} Gbps'),
+        label('Used Capacity', f'{fmt(used)} Gbps ({pct(used)}%)'),
+        label('Assigned Capacity', f'{fmt(assigned)} Gbps ({pct(assigned)}%)'),
+        label('Assigned, No Traffic', f'{fmt(no_traffic):>8} Gbps ({pct(no_traffic)}%)'),
+        label('Unassigned Capacity', f'{fmt(unassigned)} Gbps ({pct(unassigned)}%)'),
+        CIRCUIT_RULE,
+        'Circuit Status (Traffic-Carrying/ Wet-Activated)',
+        CIRCUIT_RULE,
+        *(label(k, f'{n}/{cap}') for k, n, cap in zip(
+            ('100GbE', '10GbE (LAN PHY)', 'STM-16', 'STM-1'), counts, limits)),
+        CIRCUIT_RULE,
+        label('Total Wet-Activated', str(sum(limits))),
+        label('Carrying Traffic', str(sum(counts))),
+        label('Not Carrying Traffic', str(sum(limits) - sum(counts))),
+        CIRCUIT_RULE,
     ))
+
 
 
 def bandwidth_from_post(post, fallback=''):

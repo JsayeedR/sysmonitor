@@ -52,17 +52,17 @@ class WetCapacityCalculationTests(SimpleTestCase):
     @patch('shiftreport.services.wet_circuit_limits', return_value=(20,72,1,16))
     def test_capacity_uses_configured_wet_maximum(self, _limits):
         text=format_circuit_bandwidth((19,51,1,7))
-        self.assertIn('Used Capacity: 2,413.57664 Gbps',text)
-        self.assertIn('Free Capacity: 2,236.42336 Gbps',text)
-        self.assertIn('Assigned Capacity: Approx. 2,725 Gbps',text)
-        self.assertIn('Total Active Circuits: 78',text)
+        self.assertIn('Used Capacity        : 2,413.58 Gbps (51.90%)',text)
+        self.assertIn('Assigned, No Traffic :',text)
+        self.assertIn('Assigned Capacity    : 2,724.98 Gbps',text)
+        self.assertIn('Carrying Traffic     : 78',text)
 
     @patch('shiftreport.services.wet_circuit_limits', return_value=(20,73,1,16))
     def test_one_extra_max_10g_increases_only_assigned_capacity(self, _limits):
         text=format_circuit_bandwidth((19,51,1,7))
-        self.assertIn('Assigned Capacity: Approx. 2,735 Gbps',text)
-        self.assertIn('Used Capacity: 2,413.57664 Gbps',text)
-        self.assertIn('Total Active Circuits: 78',text)
+        self.assertIn('Assigned Capacity    : 2,734.98 Gbps',text)
+        self.assertIn('Used Capacity        : 2,413.58 Gbps (51.90%)',text)
+        self.assertIn('Carrying Traffic     : 78',text)
 
 
 class SentReportReadOnlyTests(TestCase):

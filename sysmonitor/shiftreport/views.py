@@ -1890,15 +1890,24 @@ def shift_report_send(request, report_id):
     report.email_to = to_list
     report.email_cc = cc_list
     report.submitted_at = report.submitted_at or now
-    report.save(
-        update_fields=[
-            'email_subject',
-            'email_to',
-            'email_cc',
-            'submitted_at',
-            'updated_at',
-        ]
-    )
+    update_fields = ['email_subject', 'email_to', 'email_cc',
+                     'submitted_at', 'updated_at']
+    # Freeze only the NEW plain-text format before initial SMTP delivery;
+    # legacy SENT/email snapshots must remain byte-for-byte untouched.
+    if report.main_email_sent_at is None:
+        from .services import (is_new_circuit_block, parse_circuit_counts,
+                               format_circuit_bandwidth)
+        if is_new_circuit_block(report.bandwidth_status):
+            try:
+                report.bandwidth_status = format_circuit_bandwidth(
+                    parse_circuit_counts(report.bandwidth_status),
+                    submitted_at=report.submitted_at,
+                )
+            except ValueError as exc:
+                messages.error(request, f'Circuit/WET configuration changed: {exc}')
+                return redirect('shiftreport:edit', report_id=report.id)
+            update_fields.append('bandwidth_status')
+    report.save(update_fields=update_fields)
 
     # ------------------------------------------------------
     # NORMAL HANDOVER EMAIL
