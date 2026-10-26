@@ -250,16 +250,70 @@ def _circuit_status_html(value):
     return _html_lines(value)
 
 
-def _circuit_table_cells(value):
+def _circuit_table_cells(value, report=None):
+    from datetime import datetime
     from .services import is_new_circuit_block
+
     if is_new_circuit_block(value):
-        return ('<td colspan="2" style="border:1px solid #555;padding:6px">'
-                + _circuit_status_html(value) + '</td>')
-    # Legacy/SENT display retains the original two-cell report layout.
-    return ('<td style="border:1px solid #555;padding:6px">'
-            '<strong>SMW4 CIRCUIT &amp; BANDWIDTH STATUS</strong></td>'
-            '<td style="border:1px solid #555;padding:6px">'
-            + _html_lines(value) + '</td>')
+
+        # Preserve reports SENT before this layout update.
+        if report is not None and report.status == 'SENT':
+            earlier = report.main_email_sent_at or report.sent_at
+
+            if earlier is None or earlier < datetime.fromisoformat('2026-10-26T03:11:54.442750+00:00'):
+                return (
+                    '<td colspan="2" style="border:1px solid #555;padding:6px">'
+                    + _circuit_status_html(value) + '</td>'
+                )
+
+        lines = value.splitlines()
+
+        if (
+            len(lines) >= 5
+            and lines[1] == 'SMW4 CIRCUIT & BANDWIDTH STATUS'
+            and lines[2].startswith('Report Date & Time: ')
+        ):
+            heading = (
+                '<strong style="font-size:12px">'
+                + html.escape(lines[1])
+                + '</strong><div style="margin-top:6px;font-size:12px">'
+                + html.escape(lines[2])
+                + '</div>'
+            )
+            details = '\n'.join(lines[3:])
+
+            def fixed(content):
+                return (
+                    '<pre style="white-space:pre;overflow-x:auto;'
+                    'margin:0;font:12px/1.55 Consolas,Monaco,monospace">'
+                    + html.escape(content)
+                    + '</pre>'
+                )
+
+            # Left: data. Right: report heading and timestamp.
+            return (
+                '<td style="width:40%;vertical-align:top;'
+                'border:1px solid #555;padding:6px">'
+                + heading
+                + '</td>'
+                '<td style="width:60%;vertical-align:top;'
+                'border:1px solid #555;padding:6px">'
+                + fixed(details)
+                + '</td>'
+            )
+
+        return (
+            '<td colspan="2" style="border:1px solid #555;padding:6px">'
+            + _circuit_status_html(value) + '</td>'
+        )
+
+    # Original legacy format remains unchanged.
+    return (
+        '<td style="border:1px solid #555;padding:6px">'
+        '<strong>SMW4 CIRCUIT &amp; BANDWIDTH STATUS</strong></td>'
+        '<td style="border:1px solid #555;padding:6px">'
+        + _html_lines(value) + '</td>'
+    )
 
 
 def _outage_summary_html(summary):
@@ -321,7 +375,7 @@ def _outage_summary_html(summary):
     )
 
 
-def _previous_day_generator_summary_html(previous, shift):
+def _previous_day_generator_summary_html(previous, shift, *, two_column=False):
     if shift != 'NIGHT':
         return ''
     previous = previous or {}
@@ -338,18 +392,64 @@ def _previous_day_generator_summary_html(previous, shift):
                       html.escape(str(log.get(key, '0s'))) + '</p>'
                       for label, key in (('Gen-01', 'Gen-01'), ('Gen-02', 'Gen-02'),
                                          ('Grand Total', 'grand_total')))
-    return ('<div style="margin-top:16px"><b>Generator Log: ' + date + '</b>'
-            '<table style="border-collapse:collapse;width:100%;margin:5px 0">'
+    heading = '<b>Generator Log: ' + date + '</b>'
+    data = ('<table style="border-collapse:collapse;width:100%;margin:5px 0">'
             '<tr><th>Start Time</th><th>End Time</th><th>Duration</th><th>GEN</th></tr>'
-            + content + '</table>' + summary + '</div>')
+            + content + '</table>' + summary)
+
+    if two_column:
+        return (
+            '<tr>'
+            '<td style="width:30%;vertical-align:middle;border:1px solid #555;padding:6px">'
+            + heading + '</td>'
+            '<td style="width:70%;vertical-align:top;border:1px solid #555;padding:6px">'
+            + data + '</td></tr>'
+        )
+
+    return '<div style="margin-top:16px">' + heading + data + '</div>'
 
 
 
 def _outage_rows_html(report):
     return _outage_summary_html(report.outage_summary or {})
 
+def _night_generator_inline_enabled(report):
+    from datetime import datetime
+
+    if report.shift != 'NIGHT':
+        return False
+
+    if report.status != 'SENT':
+        return True
+
+    # Reports sent before this change retain their old layout.
+    sent_at = report.main_email_sent_at or report.sent_at
+
+    if sent_at is None or sent_at.tzinfo is None:
+        return False
+
+    return sent_at >= datetime.fromisoformat('2026-10-26T03:31:18.303722+00:00')
+
+
+def _previous_day_generator_table_row_html(report):
+    if not _night_generator_inline_enabled(report):
+        return ''
+
+    return _previous_day_generator_summary_html(
+        report.previous_day_summary or {},
+        report.shift,
+        two_column=True,
+    )
+
+
 def _previous_day_generator_html(report):
-    return _previous_day_generator_summary_html(report.previous_day_summary or {}, report.shift)
+    if _night_generator_inline_enabled(report):
+        return ''
+
+    return _previous_day_generator_summary_html(
+        report.previous_day_summary or {},
+        report.shift,
+    )
 
 def _activity_rows_html(report):
     rows = list(
@@ -611,8 +711,9 @@ def build_html_body(report, config):
           </tr>
 
           <tr>
-            {_circuit_table_cells(report.bandwidth_status)}
+            {_circuit_table_cells(report.bandwidth_status, report)}
           </tr>
+          {_previous_day_generator_table_row_html(report)}
         </table>
         {_previous_day_generator_html(report)}
 
