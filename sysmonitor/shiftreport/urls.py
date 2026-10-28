@@ -18,6 +18,11 @@ urlpatterns = [
     ),
 
     path(
+        'historical/source-preview/',
+        views.historical_source_preview,
+        name='historical_source_preview',
+    ),
+    path(
         'historical/',
         views.historical_report_home,
         name='historical_home',
@@ -70,6 +75,11 @@ urlpatterns = [
         '<int:report_id>/save/',
         views.shift_report_save,
         name='save',
+    ),
+    path(
+        '<int:report_id>/attachments/<int:attachment_id>/remove/',
+        views.shift_report_attachment_remove,
+        name='attachment_remove',
     ),
     path(
         '<int:report_id>/refresh-summary/',

@@ -142,6 +142,41 @@ body.sm-historical .panel > p {
     margin: 8px 0 12px;
 }
 </style>
+<style id="sm-historical-source-style">
+/* Compact, accessible historical SENT selector; no modification until Save Draft. */
+.sm-history-source{background:#162b44!important;border:1px solid #34577d!important;color:#e8f1ff!important;overflow:hidden}
+.sm-source-strip{display:flex;align-items:center;gap:14px;min-height:54px}
+.sm-source-glyph{display:grid;place-items:center;width:40px;height:40px;flex-shrink:0;border-radius:12px;background:#1d4ed8;color:#fff;font-size:19px}
+.sm-source-overview{flex:1;min-width:0}
+.sm-history-source .sm-source-overview h2{margin:0 0 3px!important;color:white;font-size:16px!important}
+.sm-source-summary{margin:0;color:#b8d1f1;font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.sm-source-state{display:inline-block;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:750;letter-spacing:.04em;background:#1e40af;color:#eff6ff;margin-left:7px;vertical-align:middle}
+.sm-source-toggle{display:flex;align-items:center;gap:8px;flex-shrink:0;border:1px solid #5d7b9b;background:#203b5b;border-radius:8px;padding:10px 12px;min-width:97px;justify-content:center;color:#fff;cursor:pointer}
+.sm-source-chevron{display:inline-block;transition:transform .2s ease;font-size:17px;line-height:1}
+.sm-source-toggle[aria-expanded="true"] .sm-source-chevron{transform:rotate(180deg)}
+.sm-source-details{border-top:1px solid #385875;margin-top:15px;padding-top:16px}
+.sm-source-details[hidden]{display:none!important}
+.sm-source-controls{display:flex;align-items:end;gap:12px;flex-wrap:wrap}
+.sm-source-controls>div{flex:1;min-width:min(260px,100%)}
+.sm-history-source label{display:block;font-size:12px;font-weight:700;margin-bottom:7px;color:#e2edff}
+.sm-history-source select{width:100%;max-width:100%;padding:11px;border-radius:8px;border:1px solid #91adce;color:#101c32;background:#fff;font-size:13px}
+.sm-history-source #smHistoricalLoad{background:#2563eb;border-radius:8px;min-height:42px;font-weight:700}
+.sm-source-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:14px}
+.sm-source-metric{background:#11243d;border:1px solid #365572;border-radius:9px;padding:10px 12px;min-width:0}
+.sm-source-metric .metric-label{display:block;font-size:10px;font-weight:750;color:#a9c5ea;text-transform:uppercase;letter-spacing:.06em}
+.sm-source-metric .metric-value{display:block;color:#fff;font-size:13px;font-weight:650;margin-top:5px;overflow-wrap:anywhere}
+.sm-history-source .source-feedback{font-size:12px;min-height:0;margin-top:12px;color:#dbeafe;line-height:1.5}
+.sm-history-source button:disabled{opacity:.55;cursor:not-allowed}
+.sm-source-note{font-size:11px;color:#b4cae7;margin:9px 0 0;line-height:1.5}
+.sm-historical .sm-draft-title{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.sm-historical .sm-draft-title span{font-size:12px;color:#9fb4d2;font-weight:600}
+.sm-historical .sm-draft-meta{display:flex;gap:8px;flex-wrap:wrap;margin:9px 0 12px!important}
+.sm-historical .sm-draft-meta span{display:inline-flex;gap:5px;align-items:center;font-size:12px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:20px;background:#f8fafc;color:#334155}
+.sm-historical .sm-loaded-notice{margin:10px 0!important;border:1px solid #93c5fd;border-radius:8px;padding:10px 12px;background:#eff6ff;color:#1e3a8a;font-size:12px!important}
+.sm-loaded-notice[hidden]{display:none!important}
+@media(max-width:800px){.sm-source-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:540px){.sm-source-metrics{grid-template-columns:1fr}.sm-source-toggle{min-width:auto}.sm-source-toggle-text{display:none}}
+</style>
 
 </head>
 <body class="sm-historical">
@@ -158,17 +193,75 @@ body.sm-historical .panel > p {
 
   </section>
 
+
+  {% if not readonly_historical and revision and revision.status == 'DRAFT' and not revision.shift_report_id %}
+  <section class="panel sm-history-source" aria-label="Load last SENT historical from a NOC duty officer">
+    <div class="sm-source-strip">
+      <div class="sm-source-glyph" aria-hidden="true">⇄</div>
+      <div class="sm-source-overview">
+        <h2>Historical Sources <span class="sm-source-state">SENT only</span></h2>
+        <p id="smHistoricalSourceHeadline" class="sm-source-summary" aria-live="polite">Default: My last SENT historical</p>
+      </div>
+      <button id="smHistoricalSourceToggle" class="sm-source-toggle" type="button"
+              aria-expanded="false" aria-controls="smHistoricalSourceDetails"
+              aria-label="Expand historical source options">
+        <span class="sm-source-toggle-text">Details</span><span class="sm-source-chevron" aria-hidden="true">⌄</span>
+      </button>
+    </div>
+    <div id="smHistoricalSourceDetails" class="sm-source-details" hidden>
+      <div class="sm-source-controls">
+        <div>
+          <label for="smHistoricalSource">NOC duty officer (default: my own)</label>
+          <select id="smHistoricalSource">
+            {% for source in historical_sources %}
+            <option value="{{ source.key }}"
+                    data-name="{{ source.name }}"
+                    data-available="{% if source.available %}1{% else %}0{% endif %}"
+                    data-updated="{{ source.last_updated|date:'d M Y, h:i A'|default:'—' }}"
+                    data-sent="{{ source.last_sent|date:'d M Y, h:i A'|default:'—' }}"
+                    data-shift-date="{{ source.report_date|date:'d M Y'|default:'Not linked' }}"
+                    data-shift-name="{{ source.shift_label }}"
+                    data-shift-time="{{ source.shift_time }}"
+                    data-entries="{{ source.entry_count }}"
+                    data-revision="{{ source.revision_number|default:'—' }}"
+                    {% if source.key == 'mine' %}selected{% endif %}>
+              {{ source.name }}{% if not source.available %} — No SENT historical{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <button id="smHistoricalLoad" type="button">Load into My Draft</button>
+      </div>
+      <div class="sm-source-metrics" aria-label="Selected source report metadata">
+        <div class="sm-source-metric"><span class="metric-label">NOC duty officer</span><span class="metric-value" id="smSourceOfficer">—</span></div>
+        <div class="sm-source-metric"><span class="metric-label">Shift date</span><span class="metric-value" id="smSourceShiftDate">—</span></div>
+        <div class="sm-source-metric"><span class="metric-label">Shift</span><span class="metric-value" id="smSourceShiftName">—</span></div>
+        <div class="sm-source-metric"><span class="metric-label">Report time (BDT)</span><span class="metric-value" id="smSourceShiftTime">—</span></div>
+        <div class="sm-source-metric"><span class="metric-label">Last updated (BDT)</span><span class="metric-value" id="smSourceUpdated">—</span></div>
+        <div class="sm-source-metric"><span class="metric-label">SENT time (BDT)</span><span class="metric-value" id="smSourceSent">—</span></div>
+        <div class="sm-source-metric"><span class="metric-label">Source revision</span><span class="metric-value" id="smSourceRevision">—</span></div>
+        <div class="sm-source-metric"><span class="metric-label">Source entries</span><span class="metric-value" id="smSourceEntries">—</span></div>
+      </div>
+      <div id="smHistoricalLoadFeedback" class="source-feedback" role="status" aria-live="polite"></div>
+      <p class="sm-source-note">Source preview is read-only. Loading replaces only the rows in your browser after confirmation. Click Save Draft to persist; other officers' reports are never changed.</p>
+    </div>
+  </section>
+  {% endif %}
+
   <div class="panel sm-a5-revision-panel">
     {% if revision %}
-      <h2>
-        {% if readonly_historical %}Historical Data — {{ revision.owner.username }} · {% else %}My Historical Data — {% endif %}Revision V{{ revision.revision_number }}
-      </h2>
-
-      <p>
-        Personal version · Status:
-        <span class="status">{{ revision.get_status_display }}</span>
-        | Total entries: {{ revision.rows|length }}
-      </p>
+      {% if revision.status == 'DRAFT' and not revision.shift_report_id and not readonly_historical %}
+        <h2 class="sm-draft-title">My Historical Draft <span>Revision V{{ revision.revision_number }} · Destination workspace</span></h2>
+        <p class="sm-draft-meta">
+          <span>Owner: Me</span>
+          <span>Status: <strong>{{ revision.get_status_display }}</strong></span>
+          <span>Rows in editor: <strong id="smHistoricalDisplayedRows">{{ revision.rows|length }}</strong></span>
+        </p>
+        <p id="smHistoricalLoadedContext" class="sm-loaded-notice" hidden aria-live="polite"></p>
+      {% else %}
+        <h2>{% if readonly_historical %}Historical Data — {{ revision.owner.username }} · {% else %}My Historical Data — {% endif %}Revision V{{ revision.revision_number }}</h2>
+        <p>Personal version · Status: <span class="status">{{ revision.get_status_display }}</span> | Total entries: {{ revision.rows|length }}</p>
+      {% endif %}
 
       {% if revision.status == "DRAFT" and not revision.shift_report_id and not readonly_historical %}
       <form
@@ -302,5 +395,107 @@ function addHistoricalRow() {
   body.appendChild(row);
 }
 </script>
+
+{% if not readonly_historical and revision and revision.status == 'DRAFT' and not revision.shift_report_id %}
+<script id="sm-historical-source-loader">
+(function(){
+  'use strict';
+  const picker=document.getElementById('smHistoricalSource');
+  const button=document.getElementById('smHistoricalLoad');
+  const toggle=document.getElementById('smHistoricalSourceToggle');
+  const details=document.getElementById('smHistoricalSourceDetails');
+  const headline=document.getElementById('smHistoricalSourceHeadline');
+  const feedback=document.getElementById('smHistoricalLoadFeedback');
+  const draftNotice=document.getElementById('smHistoricalLoadedContext');
+  const rowCount=document.getElementById('smHistoricalDisplayedRows');
+  const form=document.getElementById('historicalForm');
+  if(!picker||!button||!toggle||!details||!headline||!feedback||!form||!rowCount||!draftNotice)return;
+  const tbody=form.querySelector('table tbody');
+  const fields=['category_1','category_2','details','remarks','event_type'];
+  const endpoint="{% url 'shiftreport:historical_source_preview' %}";
+  let requestId=0;
+  const el=id=>document.getElementById(id);
+
+  toggle.addEventListener('click',function(){
+    const expand=toggle.getAttribute('aria-expanded')!=='true';
+    toggle.setAttribute('aria-expanded',String(expand));
+    toggle.setAttribute('aria-label',expand?'Collapse historical source options':'Expand historical source options');
+    details.hidden=!expand;
+  });
+  function updateCount(){
+    rowCount.textContent=String(tbody.querySelectorAll('textarea[name="details"]').length);
+  }
+  // The counter includes loaded rows and any subsequent Add/Remove edits.
+  new MutationObserver(updateCount).observe(tbody,{childList:true});
+  updateCount();
+
+  function updateInfo(){
+    const selected=picker.selectedOptions[0];
+    const available=selected.dataset.available==='1';
+    const get=(name)=>selected.dataset[name]||'—';
+    el('smSourceOfficer').textContent=get('name');
+    el('smSourceShiftDate').textContent=get('shiftDate');
+    el('smSourceShiftName').textContent=get('shiftName');
+    el('smSourceShiftTime').textContent=get('shiftTime');
+    el('smSourceUpdated').textContent=get('updated');
+    el('smSourceSent').textContent=get('sent');
+    el('smSourceRevision').textContent=get('revision')==='—'?'—':'V'+get('revision');
+    el('smSourceEntries').textContent=get('entries');
+    headline.textContent=available?'Selected: '+get('name')+' · Last update: '+get('updated')+' BDT':
+      'Selected: '+get('name')+' · No SENT source available';
+    feedback.textContent=available?'Review this SENT source, then choose Load into My Draft.':
+      'No SENT historical is available for this officer; your draft remains unchanged.';
+    button.disabled=!available;
+  }
+  function newRow(data){
+    const tr=document.createElement('tr');
+    fields.forEach(function(name){
+      const cell=document.createElement('td');
+      const input=document.createElement('textarea');
+      input.name=name;
+      input.value=String(data[name]||'');
+      cell.appendChild(input);tr.appendChild(cell);
+    });
+    const action=document.createElement('td');
+    const remove=document.createElement('button');
+    remove.type='button';remove.textContent='Remove';
+    remove.addEventListener('click',function(){tr.remove()});
+    action.appendChild(remove);tr.appendChild(action);
+    return tr;
+  }
+  picker.addEventListener('change',function(){requestId++;updateInfo()});
+  button.addEventListener('click',async function(){
+    const option=picker.selectedOptions[0];
+    const selectedKey=picker.value;
+    if(!option||option.dataset.available!=='1')return;
+    if(!window.confirm('Load the selected officer\'s last SENT historical into YOUR draft? This replaces the currently visible rows, including unsaved edits. No database changes until Save Draft.'))return;
+    const currentRequest=++requestId;
+    button.disabled=true;picker.disabled=true;
+    feedback.textContent='Loading SENT historical...';
+    try{
+      const url=new URL(endpoint,window.location.href);
+      url.searchParams.set('source',selectedKey);
+      const res=await fetch(url,{credentials:'same-origin',cache:'no-store'});
+      if(!res.ok)throw new Error(res.status===404?'No SENT history is available.':'Historical source is unavailable.');
+      const data=await res.json();
+      if(currentRequest!==requestId||picker.value!==selectedKey)return;
+      if(!Array.isArray(data.rows)||data.rows.length>500||data.rows.some(r=>!r||typeof r!=='object'))throw new Error('Invalid historical rows.');
+      const frag=document.createDocumentFragment();
+      data.rows.forEach(function(row){frag.appendChild(newRow(row))});
+      tbody.replaceChildren(frag);
+      updateCount();
+      draftNotice.hidden=false;
+      draftNotice.textContent='Source loaded into editor: '+data.name+' · '+data.rows.length+
+        ' rows · Shift: '+(data.shift_date||'Not linked')+' · Updated: '+data.updated_at+
+        ' BDT. These are UNSAVED changes to your draft.';
+      headline.textContent='Loaded: '+data.name+' · '+data.rows.length+' rows · Not saved';
+      feedback.textContent='Loaded '+data.rows.length+' rows from '+data.name+'. Review the table and click Save Draft to persist.';
+    }catch(e){feedback.textContent=e.message+' Your draft was not changed.';}
+    finally{if(currentRequest===requestId){picker.disabled=false;button.disabled=false;}}
+  });
+  updateInfo();
+})();
+</script>
+{% endif %}
 </body>
 </html>

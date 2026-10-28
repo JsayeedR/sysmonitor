@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.utils import timezone
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from monitor.views import get_ip, get_role, log_activity
 from monitor.models import Event
@@ -413,6 +413,45 @@ def historical_report_save(request, revision_id):
 
 
 @login_required
+@require_GET
+def historical_source_preview(request):
+    """Read-only JSON copy of one permitted engineer's latest SENT history."""
+    from django.http import JsonResponse
+    from .historical_sources import resolve_historical_source
+    from monitor.access_policy import is_full_viewer
+
+    if not _role_allowed(request.user) or is_full_viewer(request.user):
+        return HttpResponseForbidden('Historical source loading is not permitted.')
+
+    selection = request.GET.get('source', 'mine')
+    if len(selection) > 50:
+        return JsonResponse({'error': 'Invalid historical source.'}, status=400)
+    try:
+        display, revision = resolve_historical_source(request.user, selection)
+    except ValueError:
+        return JsonResponse({'error': 'Invalid or unavailable source.'}, status=400)
+    if revision is None:
+        return JsonResponse({'error': 'No SENT Historical Report is available for this officer.'}, status=404)
+
+    from .historical_sources import sent_source_metadata
+    metadata = sent_source_metadata(revision)
+    response = JsonResponse({
+        'name': display,
+        'revision': revision.revision_number,
+        'updated_at': timezone.localtime(revision.updated_at).strftime('%d %b %Y, %I:%M %p'),
+        'sent_at': timezone.localtime(revision.sent_at).strftime('%d %b %Y, %I:%M %p') if revision.sent_at else None,
+        'shift_date': metadata['report_date'].strftime('%d %b %Y') if metadata['report_date'] else None,
+        'shift_name': metadata['shift_label'],
+        'shift_time': metadata['shift_time'],
+        'rows': [{field: str(row.get(field) or '') for field in (
+            'category_1', 'category_2', 'details', 'remarks', 'event_type',
+        )} for row in revision.rows if isinstance(row, dict)],
+    })
+    response['Cache-Control'] = 'private, no-store, max-age=0'
+    return response
+
+
+@login_required
 def historical_report_home(request):
     """Display the historical workbook revision history."""
     if not _role_allowed(request.user):
@@ -422,6 +461,7 @@ def historical_report_home(request):
 
     from .models import HistoricalReportRevision
     from .historical_revisions import get_personal_draft
+    from .historical_sources import historical_source_choices
     from monitor.access_policy import is_full_viewer
     readonly = is_full_viewer(request.user)
     if readonly:
@@ -447,6 +487,7 @@ def historical_report_home(request):
             'revision': current_revision,
             'role': get_role(request.user),
             'readonly_historical': readonly,
+            'historical_sources': historical_source_choices(request.user) if not readonly else [],
             'revisions': revisions,
         },
     )
@@ -1111,6 +1152,50 @@ def shift_report_edit(request, report_id):
             'activity_rows': report.activity_rows.all(),
         },
     )
+
+
+@login_required
+@require_POST
+def shift_report_attachment_remove(request, report_id, attachment_id):
+    """Remove one existing draft attachment, never a delivered attachment.
+
+    This isolated operation does not submit or overwrite the rest of the draft.
+    Ownership and status checks are server-side, independent of the UI.
+    """
+    from django.db import transaction
+    from django.http import JsonResponse
+    from .models import OptionalReportAttachment
+
+    if not _role_allowed(request.user):
+        return HttpResponseForbidden('Attachment removal is not permitted.')
+
+    with transaction.atomic():
+        report = get_object_or_404(
+            ShiftReport.objects.select_for_update(), pk=report_id,
+        )
+        if not _can_manage_report(request.user, report):
+            return HttpResponseForbidden('You cannot change another engineer\'s attachments.')
+        # A failed email may already have been delivered. Only untouched
+        # DRAFT reports may lose a stored attachment.
+        if (report.status != 'DRAFT' or report.main_email_sent_at is not None
+                or report.submitted_at is not None):
+            return HttpResponseForbidden('Only unsent DRAFT attachments may be removed.')
+        attached = get_object_or_404(
+            OptionalReportAttachment.objects.filter(shift_report_id=report.pk),
+            pk=attachment_id,
+        )
+        original_name = attached.name
+        attached.delete()
+        remaining = report.uploads.count()
+
+    log_activity(
+        request.user, 'SHIFT_ATTACHMENT_REMOVE',
+        f'DRAFT Shift Report {report.pk}: removed attachment ID {attachment_id} ({original_name[:90]}).',
+        get_ip(request),
+    )
+    response = JsonResponse({'removed': True, 'remaining': remaining})
+    response['Cache-Control'] = 'private, no-store, max-age=0'
+    return response
 
 
 @login_required

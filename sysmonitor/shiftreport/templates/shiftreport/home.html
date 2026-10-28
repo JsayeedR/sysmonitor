@@ -442,7 +442,6 @@ table.history th{
         id="reportComposer" enctype="multipart/form-data">
 
     {% csrf_token %}
-    <div class="panel"><label>Optional attachments (PDF, XLSX, CSV, images or TXT, up to 3 files of 3 MB each)</label><input type="file" name="report_attachments" multiple accept=".pdf,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.txt"></div>
     <div class="panel sm-a4-schedule">
       <label style="display:flex;align-items:center;gap:10px;font-weight:650">
         <input type="checkbox" name="auto_send_after_shift" value="on"
@@ -777,6 +776,13 @@ table.history th{
 
     </div>
 
+
+    <div class="panel" id="smNewAttachments">
+      <strong>Optional Attachments</strong>
+      <p class="muted" style="margin:7px 0 11px">Add up to 3 files (3 MB each). PDF, XLSX, XLS, CSV, PNG, JPG and TXT supported.</p>
+      <input type="file" name="report_attachments" multiple
+        accept=".pdf,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.txt" style="max-width:100%">
+    </div>
 
     <div class="panel">
 
@@ -1216,30 +1222,36 @@ document.addEventListener('DOMContentLoaded', function () {
  const keys=['circuit_100gbe','circuit_10ge','circuit_stm16','circuit_stm1'];
  const limits=JSON.parse(document.getElementById('sm-wet-limits').textContent), rates=[100,10,2.488,0.15552];
  const text=area.value;
- const defaults=[19,51,1,9];
+ // Read exact circuit labels, allowing the 21-column spacing of RC25
+ // (e.g. 'STM-1                : 7/11'). Never substitute a preset count.
  function readCounts(text){
-   return [['100GbE','100G'],['10GbE (LAN PHY)','10G'],['STM-16','STM-16'],['STM-1','STM-1']].map(pair=>{
-     const line=text.split('\n').find(x=>pair.some(label=>x.trim().startsWith(label+':')||x.trim().startsWith(label+' :')));
-     const match=line && line.match(/:\s*(\d+)(?:\s*\/\s*\d+)?\s*$/);
-     return match?Number(match[1]):null;
+   const patterns=[
+     /^\s*(?:100GbE|100G)\s*:\s*(\d+)(?:\s*\/\s*\d+)?\s*$/i,
+     /^\s*(?:10GbE \(LAN PHY\)|10G)\s*:\s*(\d+)(?:\s*\/\s*\d+)?\s*$/i,
+     /^\s*STM-16\s*:\s*(\d+)(?:\s*\/\s*\d+)?\s*$/i,
+     /^\s*STM-1\s*:\s*(\d+)(?:\s*\/\s*\d+)?\s*$/i
+   ];
+   const lines=String(text||'').split(/\r?\n/);
+   return patterns.map(pattern=>{
+     const found=lines.map(line=>line.match(pattern)).filter(Boolean);
+     return found.length===1?Number(found[0][1]):null;
    });
  }
- const parsedInitial=readCounts(text);
- const matches=parsedInitial.every(Number.isInteger)?parsedInitial:defaults;
+ const matches=readCounts(text);
  const inputs=[];
  let circuitsManuallyEdited=false;
  labels.forEach((label,i)=>{
    const row=document.createElement('label');row.style.cssText='display:inline-flex;flex-direction:column;margin:5px 10px 5px 0;min-width:145px';
    row.appendChild(document.createTextNode(label+' (max '+limits[i]+')'));
    const field=document.createElement('input');field.type='number';field.min='0';field.max=String(limits[i]);field.step='1';
-   field.name=keys[i];field.value=String(matches[i]);field.required=true;
+   field.name=keys[i];field.value=(Number.isInteger(matches[i]) && matches[i]>=0 && matches[i]<=limits[i])?String(matches[i]):'';field.required=true;
    row.appendChild(field);container.appendChild(row);inputs.push(field);
  });
  const preview=document.createElement('pre');preview.style.cssText='white-space:pre-wrap;margin-top:8px';container.appendChild(preview);
  function update(){
    const values=inputs.map(x=>Number(x.value));
    const valid=inputs.every((x,i)=>x.value!=='' && Number.isInteger(values[i]) && values[i]>=0 && values[i]<=limits[i]);
-   if(!valid){preview.textContent='Enter valid traffic-carrying circuit counts within the limits.';area.value='';return;}
+   if(!valid){preview.textContent='Check circuit counts before saving; no default will be substituted.';return;}
    const used=values.reduce((s,n,i)=>s+n*rates[i],0);
    const assigned=limits.reduce((sum,n,i)=>sum+n*rates[i],0);
    if(assigned>4650 || used>assigned){preview.textContent='Capacity exceeds total installed capacity.';area.value='';return;}

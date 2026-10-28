@@ -586,7 +586,13 @@ def parse_circuit_counts(text):
                    r'(?:\s*/\s*\d+)?\s*$')
         match = re.search(pattern, text or '')
         if not match:
-            return (19, 51, 1, 9)  # legacy reports without counts
+            # A new-format report must never silently revert STM-1 to the
+            # old nine-circuit bootstrap value (or invent any other count).
+            if is_new_circuit_block(text):
+                raise ValueError(
+                    f'Cannot read traffic-carrying {modern} count from the report.'
+                )
+            return (19, 51, 1, 9)  # legacy-only compatibility
         values.append(int(match.group(1)))
     return tuple(values)
 
