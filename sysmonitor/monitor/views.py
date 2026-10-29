@@ -157,6 +157,11 @@ def manual_view(request):
         TROUBLESHOOTING,
     )
 
+    from .access_policy import is_full_viewer
+    from .page_access import user_can_access_page
+    can_view_admin_cli = (not is_full_viewer(request.user)
+                          and user_can_access_page(request.user, 'administrator_cli'))
+
     return render(request, 'monitor/manual.html', {
         'role': get_role(request.user),
         'manual_intro': MANUAL_INTRO,
@@ -165,7 +170,7 @@ def manual_view(request):
         'status_glossary': STATUS_GLOSSARY,
         'page_guides': PAGE_GUIDES,
         'operating_workflows': OPERATING_WORKFLOWS,
-        'admin_terminal_cli': ADMIN_TERMINAL_CLI if get_role(request.user) == 'admin' else [],
+        'admin_terminal_cli': ADMIN_TERMINAL_CLI if can_view_admin_cli else [],
         'security_rules': SECURITY_RULES,
         'troubleshooting': TROUBLESHOOTING,
     })
@@ -181,7 +186,11 @@ def manual_pdf(request):
 
     revision = sync_git_revision()
     version = revision.version if revision is not None else '1.1.1234'
-    pdf_bytes = build_manual_pdf(version, include_admin_cli=get_role(request.user) == 'admin')
+    from .access_policy import is_full_viewer
+    from .page_access import user_can_access_page
+    allow_admin_cli = (not is_full_viewer(request.user)
+                       and user_can_access_page(request.user, 'administrator_cli'))
+    pdf_bytes = build_manual_pdf(version, include_admin_cli=allow_admin_cli)
 
     response = HttpResponse(
         pdf_bytes,
@@ -657,11 +666,42 @@ def _fmt_usage(total_seconds):
     return '<1m'
 
 
+def _retired_account_ids():
+    """Recognize only confirmed retirement audit entries, never a mere disabled login.
+
+    Retirement deliberately retains the User record and existing report attribution.
+    The action actor is the administrator, so the target ID lives in the detail.
+    """
+    import re
+    entries = ActivityLog.objects.filter(
+        action='USER_EDITED',
+        detail__startswith='Account login retired for ID '
+    ).values_list('detail', flat=True)
+    ids = set()
+    for detail in entries:
+        match = re.fullmatch(
+            r'Account login retired for ID (\d+); history and user record retained\.',
+            detail or ''
+        )
+        if match:
+            ids.add(int(match.group(1)))
+    return ids
+
+
+def _is_retired_account(target, retired_ids=None):
+    return (not target.is_active and not target.has_usable_password()
+            and target.pk in (retired_ids if retired_ids is not None
+                              else _retired_account_ids()))
+
+
 @role_required('admin')
 def user_list(request):
     users = User.objects.all().order_by('username')
-    user_data = []
-    user_details = []
+    retired_ids = _retired_account_ids()
+    user_data = []               # Active accounts only
+    disabled_data = []           # Suspended login, reversible
+    retired_data = []            # Archived login, not a reversible toggle
+    user_details = []            # Active-account details only
 
     for u in users:
         role = get_role(u)
@@ -695,13 +735,19 @@ def user_list(request):
 
         recent_logs = logs[:8]
 
-        user_data.append({
+        user_row = {
             'obj': u,
             'role': role,
             'usage_time': _fmt_usage(usage_seconds),
-        })
+        }
+        if _is_retired_account(u, retired_ids):
+            retired_data.append(user_row)
+        elif not u.is_active:
+            disabled_data.append(user_row)
+        else:
+            user_data.append(user_row)
 
-        user_details.append({
+        user_details_entry = {
             'obj': u,
             'profile': profile,
             'role': role,
@@ -720,7 +766,9 @@ def user_list(request):
             'last_failed_login': last_failed_login_log.timestamp if last_failed_login_log else None,
             'profile_picture': profile.profile_picture if profile is not None else None,
             'recent_logs': recent_logs,
-        })
+        }
+        if u.is_active:
+            user_details.append(user_details_entry)
 
     # Pending self-service profile change requests (email / mobile number)
     # are shown as a second tab on this same page so admins don't need a
@@ -732,6 +780,8 @@ def user_list(request):
 
     return render(request, 'monitor/user_list.html', {
         'user_data': user_data,
+        'disabled_data': disabled_data,
+        'retired_data': retired_data,
         'user_details': user_details,
         'pending': pending,
         'role': get_role(request.user),
@@ -850,6 +900,9 @@ def user_create(request):
 @role_required('admin')
 def user_edit(request, user_id):
     target = get_object_or_404(User, id=user_id)
+    if _is_retired_account(target):
+        messages.error(request, 'Retired records are archival. Editing cannot reactivate an account.')
+        return redirect('user_list')
     if (target.is_superuser or get_role(target) == 'admin') and not request.user.is_superuser:
         messages.error(request, 'Only a Superadmin may edit an Admin or Superadmin account.')
         return redirect('user_list')
@@ -938,10 +991,11 @@ def user_edit(request, user_id):
 
 @role_required('admin')
 def user_toggle_active(request, user_id):
-    """Enable/disable a login without deleting the account. A disabled
-    account fails authenticate() immediately (Django's ModelBackend checks
-    is_active) and login_view() shows a clear 'account disabled' message."""
+    """Enable/disable a normal login; retirement cannot be undone here."""
     target = get_object_or_404(User, id=user_id)
+    if _is_retired_account(target):
+        messages.error(request, 'Retired accounts cannot be re-enabled using the Disable/Enable control.')
+        return redirect('user_list')
     if (target.is_superuser or get_role(target) == 'admin') and not request.user.is_superuser:
         messages.error(request, 'Only a Superadmin may enable or disable an Admin or Superadmin account.')
         return redirect('user_list')
@@ -965,19 +1019,50 @@ def user_toggle_active(request, user_id):
 
 @role_required('admin')
 def user_delete(request, user_id):
-    """Stage 2 is not deployed. Never cascade-delete operational history.
+    """Superadmin-only, non-destructive account retirement.
 
-    Retain the confirmation route so old links fail safely. Permanent deletion
-    will only be enabled after the historical actor migration and DB rehearsal.
+    The historical Stage-2 deletion rehearsal does not support production
+    hard-deletion of report authors. Retire access instead: keep the original
+    User PK, signatures, report relationships and activity history intact.
     """
+    from django.db import transaction
+    from django.http import HttpResponseForbidden
+
     if not request.user.is_superuser or not request.user.is_active:
-        return HttpResponseForbidden('Only an active Superadmin may access account deletion.')
+        return HttpResponseForbidden('Only an active Superadmin may retire accounts.')
     target = get_object_or_404(User, id=user_id)
-    messages.error(
-        request,
-        f'Permanent deletion of "{target.username}" is disabled until User Deletion Stage 2 '
-        'is verified. Use account deactivation for ordinary users instead.'
-    )
+    if target.pk == request.user.pk:
+        return HttpResponseForbidden('A Superadmin cannot retire their own account.')
+    if request.method == 'GET':
+        return render(request, 'monitor/user_confirm_delete.html', {
+            'target_user': target,
+            'role': get_role(request.user),
+        })
+    if request.method != 'POST':
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['GET', 'POST'])
+    if request.POST.get('confirm_username', '').strip() != target.username:
+        messages.error(request, 'Type the exact username to confirm retirement.')
+        return redirect('user_delete', user_id=target.pk)
+
+    with transaction.atomic():
+        locked = User.objects.select_for_update().get(pk=target.pk)
+        if locked.pk == request.user.pk:
+            return HttpResponseForbidden('Cannot retire your own account.')
+        if not locked.is_active and not locked.has_usable_password():
+            messages.info(request, 'Account access was already retired.')
+            return redirect('user_list')
+        locked.is_active = False
+        locked.is_staff = False
+        locked.is_superuser = False
+        locked.set_unusable_password()
+        locked.save(update_fields=['is_active', 'is_staff', 'is_superuser', 'password'])
+        log_activity(request.user, 'USER_EDITED',
+                     f'Account login retired for ID {locked.pk}; '
+                     'history and user record retained.',
+                     ip=get_ip(request))
+
+    messages.success(request, 'Account login retired. Reports, audits, and attribution remain preserved.')
     return redirect('user_list')
 
 

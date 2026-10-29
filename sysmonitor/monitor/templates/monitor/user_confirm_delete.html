@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>SysMonitor — Delete User</title>
+  <title>SysMonitor — Retire Account Access</title>
   <style>
     :root {
       --bg:#0f172a; --surface:#1e293b; --border:#334155; --text:#f1f5f9;
@@ -33,13 +33,15 @@
 <div class="container">
   <div class="card">
     <div class="icon">⚠️</div>
-    <h1>Delete User?</h1>
-    <p>You are about to permanently delete <strong>{{ target_user.username }}</strong>. This cannot be undone.</p>
+    <h1>Retire Account Access?</h1>
+    <p>Only a Superadmin can retire <strong>{{ target_user.username }}</strong>. This disables login, invalidates the password, and removes staff/superuser access. The user database row and all reports, signatures, historical records, and audit entries remain preserved. This is <strong>not</strong> permanent database deletion.</p>
     <form method="post">
       {% csrf_token %}
+      <label style="display:block;text-align:left;color:#cbd5e1;font-size:.82rem;margin-bottom:.55rem" for="confirm_username">Type username to confirm</label>
+      <input id="confirm_username" name="confirm_username" type="text" autocomplete="off" required placeholder="{{ target_user.username }}" style="width:100%;padding:.7rem;background:#0f172a;color:white;border:1px solid #64748b;border-radius:8px;margin-bottom:1rem">
       <div class="btn-row">
         <a href="{{ base_path }}/users/" class="btn btn-secondary">Cancel</a>
-        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+        <button type="submit" class="btn btn-danger">Retire Login Access</button>
       </div>
     </form>
   </div>

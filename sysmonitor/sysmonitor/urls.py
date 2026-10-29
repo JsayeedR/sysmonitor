@@ -2,8 +2,10 @@ from monitor import outage_remarks as outage_remark_views
 from django.contrib import admin
 from django.urls import include, path, re_path
 from monitor import views, roster_views
+from monitor.android_download import android_application_view
 from monitor.mirror_authority import mirror_auth_validate
 from monitor.security_updates import security_patch_updates_view
+from monitor.code_reference import code_reference_view
 
 urlpatterns = [
     path('shift-report/', include('shiftreport.urls')),
@@ -12,6 +14,9 @@ urlpatterns = [
     path('login/',                            views.login_view,        name='login'),
     path('password-reset/',                   views.password_reset_request, name='password_reset'),
     path('password-reset/confirm/<uidb64>/<token>/', views.password_reset_confirm, name='password_reset_confirm'),
+    path('code-reference/', code_reference_view, name='code_reference'),
+    path('android-application/', android_application_view, name='android_application'),
+    path('duty-schedule/', roster_views.duty_roster_readonly, name='duty_roster_readonly'),
     path('about/',                            views.about_view,        name='about'),
     path('security-patch-updates/', security_patch_updates_view, name='security_patch_updates'),
     path('manual/',                           views.manual_view,       name='manual'),

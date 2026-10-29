@@ -66,6 +66,27 @@
     .tab-btn:hover { color:#f1f5f9; }
     .tab-btn.active { color:#3b82f6; border-bottom-color:#3b82f6; font-weight:600; }
     .tab-panel { display:none; }
+    .tabs { flex-wrap:wrap; gap:.15rem; }
+    .section-count {font-size:.72rem;color:#93c5fd;border-radius:999px;background:#172b49;padding:.12rem .4rem;}
+    .directory-head {display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:.45rem;
+      color:#e2e8f0;margin:.9rem 0;padding:0 .2rem;}
+    .directory-head strong {font-size:1.03rem;}
+    .directory-head span {font-size:.79rem;color:#a8b8cc;}
+    .directory-scroll {overflow-x:auto;border:1px solid #334155;border-radius:12px;}
+    .directory-scroll td, .directory-scroll th {font-size:.79rem;}
+    .directory-scroll .actions {display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;}
+    .directory-scroll .actions form {margin:0;}
+    .directory-empty {color:#94a3b8;text-align:center;padding:1.6rem;}
+    .user-state-disabled {color:#fbbf24;font-weight:700;}
+    .user-state-retired {color:#fda4af;font-weight:700;}
+    .directory-footnote {font-size:.77rem;color:#a8b8cc;margin-top:.75rem;}
+    .android-monitor-note {border:1px solid #334155;border-radius:14px;background:#182338;
+      display:flex;gap:1rem;align-items:start;padding:1.35rem;max-width:1000px;}
+    .android-monitor-icon {font-size:1.8rem;background:#253b58;border-radius:11px;padding:.45rem;}
+    .android-monitor-note h2 {font-size:1.08rem;margin-bottom:.55rem;}
+    .android-monitor-note p {font-size:.83rem;line-height:1.6;color:#bac9db;margin-bottom:.65rem;}
+    .android-monitor-pill {display:inline-block;padding:.3rem .65rem;border-radius:999px;font-size:.75rem;
+      background:#273449;color:#bfdbfe;border:1px solid #3f5371;}
     .tab-panel.active { display:block; }
     .badge-count { background:#dc2626; color:white; font-size:.68rem; font-weight:700; border-radius:20px; padding:1px 7px; }
 
@@ -105,20 +126,23 @@
   {% endif %}
 
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('all')">👥 All Users</button>
-    <button class="tab-btn" onclick="switchTab('pending')">
+    <button type="button" class="tab-btn active" onclick="switchTab('all', this)">👥 Active Users <span class="section-count">{{ user_data|length }}</span></button>
+    <button type="button" class="tab-btn" onclick="switchTab('disabled', this)">⏸️ Disabled Users <span class="section-count">{{ disabled_data|length }}</span></button>
+    <button type="button" class="tab-btn" onclick="switchTab('retired', this)">🗃️ Retired / Removed <span class="section-count">{{ retired_data|length }}</span></button>
+    <button type="button" class="tab-btn" onclick="switchTab('android', this)">📱 Android App Users</button>
+    <button type="button" class="tab-btn" onclick="switchTab('pending', this)">
       ⏳ Pending Approvals
       {% if pending %}<span class="badge-count">{{ pending|length }}</span>{% endif %}
     </button>
-    <button class="tab-btn" onclick="switchTab('details')">👤 User Details</button>
+    <button class="tab-btn" onclick="switchTab('details', this)">👤 User Details</button>
   </div>
 
   <div id="tab-all" class="tab-panel active">
     <div class="user-list-panel">
       <div class="user-toolbar">
         <div>
-          <div style="font-size:1rem;font-weight:700">Account directory</div>
-          <div class="user-summary">{{ user_data|length }} accounts · sensitive details remain in User Details</div>
+          <div style="font-size:1rem;font-weight:700">Active account directory</div>
+          <div class="user-summary">{{ user_data|length }} active accounts · disabled and retired accounts have separate sections</div>
         </div>
         <label>Search username
           <input id="accountSearch" type="search" placeholder="Find an account…" autocomplete="off">
@@ -133,7 +157,7 @@
         <div class="user-summary" id="accountShowing" aria-live="polite"></div>
       </div>
       <div style="overflow-x:auto">
-      <table aria-label="All SysMonitor users">
+      <table aria-label="Active SysMonitor users">
         <thead><tr><th class="row-number">#</th><th>Account</th><th>Role</th><th>Status</th><th>Manage</th></tr></thead>
         <tbody id="accountRows">
           {% for u in user_data %}
@@ -157,13 +181,55 @@
                   </button>
                 </form>
                 {% endif %}
-                <span style="font-size:.7rem;color:#94a3b8" title="Stage 2 production deletion remains disabled">Deletion protected</span>
+                {% if user.is_superuser and user.id != u.obj.id %}
+                <a href="{{ base_path }}/users/{{ u.obj.id }}/delete/" class="btn btn-danger" title="Retire login; historical records are retained">Retire access</a>
+                {% endif %}
               </div>
             </details></td>
           </tr>
           {% endfor %}
         </tbody>
       </table></div>
+    </div>
+  </div>
+
+  <div id="tab-disabled" class="tab-panel">
+    <div class="directory-head"><strong>Disabled Users</strong><span>{{ disabled_data|length }} accounts · Login suspended · History preserved</span></div>
+    <div class="directory-scroll"><table aria-label="Disabled SysMonitor accounts">
+      <thead><tr><th>#</th><th>Account</th><th>Role</th><th>Status</th><th>Management</th></tr></thead>
+      <tbody>{% for u in disabled_data %}
+      <tr><td>{{ forloop.counter }}</td><td><strong>{{ u.obj.username }}</strong></td>
+      <td><span class="role-badge {{ u.role }}">{{ u.role|upper }}</span></td>
+      <td><span class="user-state-disabled">Disabled</span></td>
+      <td><div class="actions"><a class="btn btn-secondary" href="{{ base_path }}/users/{{ u.obj.id }}/edit/">Edit</a>
+      <form method="post" action="{{ base_path }}/users/{{ u.obj.id }}/toggle-active/" onsubmit="return confirm('Enable this account?');">
+      {% csrf_token %}<button class="btn btn-primary" type="submit">Enable</button></form>
+      {% if user.is_superuser and user.id != u.obj.id %}<a class="btn btn-danger" href="{{ base_path }}/users/{{ u.obj.id }}/delete/">Retire</a>{% endif %}
+      </div></td></tr>
+      {% empty %}<tr><td colspan="5" class="directory-empty">No disabled accounts.</td></tr>{% endfor %}
+      </tbody></table></div>
+  </div>
+
+  <div id="tab-retired" class="tab-panel">
+    <div class="directory-head"><strong>Retired / Removed Accounts</strong><span>{{ retired_data|length }} archived logins · Reports and audit history retained</span></div>
+    <div class="directory-scroll"><table aria-label="Retired SysMonitor accounts">
+      <thead><tr><th>ID</th><th>Account</th><th>Last assigned role</th><th>Status</th></tr></thead>
+      <tbody>{% for u in retired_data %}
+      <tr><td>{{ u.obj.pk }}</td><td><strong>{{ u.obj.username }}</strong></td>
+      <td><span class="role-badge {{ u.role }}">{{ u.role|upper }}</span></td>
+      <td><span class="user-state-retired">Retired · Login revoked</span></td></tr>
+      {% empty %}<tr><td colspan="4" class="directory-empty">No retired accounts.</td></tr>{% endfor %}
+      </tbody></table></div>
+    <p class="directory-footnote">Retired accounts retain their original user ID for historical reports, signatures and audit attribution. They cannot be re-enabled through the regular Enable control. No database record has been permanently deleted.</p>
+  </div>
+
+  <div id="tab-android" class="tab-panel">
+    <div class="android-monitor-note">
+      <div class="android-monitor-icon">📱</div>
+      <div><h2>Android App Users</h2>
+      <p>Native Android usage tracking is not yet enabled. The currently distributed WebView APK does not report a verified app-install identity, foreground session duration, FCM push status or installed app version to SysMonitor.</p>
+      <p>Web-based login counts and total usage are <strong>not Android-only statistics</strong>. No user list or activity duration is shown here until the Android client and authenticated reporting endpoint are implemented and tested.</p>
+      <span class="android-monitor-pill">Telemetry integration required · No data collected here</span></div>
     </div>
   </div>
 
@@ -515,11 +581,13 @@
 {% include "monitor/footer.html" %}
 
 <script>
-function switchTab(name) {
+function switchTab(name, button) {
+  const panel = document.getElementById('tab-' + name);
+  if (!panel || !button) return;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  event.target.closest('.tab-btn').classList.add('active');
+  panel.classList.add('active');
+  button.classList.add('active');
 }
 
 function toast(msg) {

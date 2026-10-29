@@ -20,6 +20,11 @@
     .history .row{grid-template-columns:1fr 1.15fr .55fr 1fr .75fr}
     @media(max-width:800px){.history .row{grid-template-columns:1fr 1fr}}
   </style>
+  <style>
+    .roster-overview{margin-top:1rem}.roster-heading{display:flex;justify-content:space-between;gap:1rem;align-items:start}.roster-heading p{font-size:.78rem;margin:.25rem 0 1rem}.roster-chip{background:#153f37;color:#a7f3d0;border:1px solid #236d5d;padding:.35rem .6rem;border-radius:100px;font-size:.7rem;white-space:nowrap}.roster-scroll{overflow-x:auto}.roster-table{border-collapse:collapse;min-width:750px;width:100%;text-align:left}.roster-table th,.roster-table td{border-bottom:1px solid #263449;padding:.7rem .6rem;vertical-align:top}.roster-table thead th{font-size:.71rem;color:#bfdbfe;text-transform:uppercase}.roster-table tbody th{white-space:nowrap;font-size:.75rem}.roster-table tr.today{background:#162f42}.roster-table small{display:block;color:#34d399}.roster-tag{display:block;color:#94a3b8;font-size:.66rem;margin-bottom:.35rem}.roster-table td strong{font-size:.78rem;color:#e5edf7}.roster-table td strong.unassigned{color:#fbbf24;font-weight:500}
+    .roster-leave{display:block;font-size:.68rem;color:#fcd34d;margin-top:3px}
+    .roster-overview .roster-table td,.roster-overview .roster-table th{padding:10px 8px}
+  </style>
 </head>
 <body>
 {% include "monitor/navbar.html" %}
@@ -71,8 +76,8 @@
     <section class="panel">
       <h2>Live Duty Preview</h2>
       <div class="shift-grid">
-        <div class="shift current"><div class="tag">🟢 Current Shift</div><strong>{{ duty_state.current.engineer }}</strong><div class="meta">{{ duty_state.current.label }} · {{ duty_state.current.start_time }}–{{ duty_state.current.end_time }}<br>{{ duty_state.current.date_label }}</div></div>
-        <div class="shift next"><div class="tag">⏭ Next Shift</div><strong>{{ duty_state.next.engineer }}</strong><div class="meta">{{ duty_state.next.label }} · {{ duty_state.next.start_time }}–{{ duty_state.next.end_time }}<br>{{ duty_state.next.date_label }}</div></div>
+        <div class="shift current"><div class="tag">🟢 Current Shift</div><strong>{{ duty_state.current.short_engineer }}</strong><div class="meta">{{ duty_state.current.label }} · {{ duty_state.current.start_time }}–{{ duty_state.current.end_time }}<br>{{ duty_state.current.date_label }}</div></div>
+        <div class="shift next"><div class="tag">⏭ Next Shift</div><strong>{{ duty_state.next.short_engineer }}</strong><div class="meta">{{ duty_state.next.label }} · {{ duty_state.next.start_time }}–{{ duty_state.next.end_time }}<br>{{ duty_state.next.date_label }}</div></div>
       </div>
       <h3 style="font-size:.86rem;margin:1.2rem 0 .7rem">Upcoming Duty Assignments</h3>
       <div class="shift-grid" style="max-height:600px;overflow-y:auto">
@@ -86,6 +91,14 @@
   </div>
   <script>(function(){const colors=['#60a5fa','#34d399','#fbbf24','#f472b6','#c4b5fd','#fb923c','#67e8f9'];const map=new Map();document.querySelectorAll('.shift strong').forEach(el=>{let n=(el.dataset.engineer||el.textContent).trim();if(!map.has(n))map.set(n,colors[map.size%colors.length]);el.style.color=map.get(n);});})();</script>
 
+  {% if show_admin_overview %}
+  <section class="panel roster-overview" aria-label="10-day NOC roster overview">
+    <div class="roster-heading"><div><h2>10-Day Duty Matrix</h2><p class="muted">M 09–17 · E 17–23 · N 23–09 · G General · O Off. Leave retains its roster code.</p></div><span class="roster-chip">Admin only</span></div>
+    <div class="roster-scroll"><table class="roster-table"><thead><tr><th>Date</th><th>M</th><th>E</th><th>N</th><th>G</th><th>Off / Leave</th></tr></thead><tbody>
+    {% for day in overview_10 %}<tr class="{% if day.is_today %}today{% endif %}"><th scope="row">{{ day.date|date:"D, d M" }}{% if day.is_today %}<small>Today</small>{% endif %}</th>{% for shift in day.shifts %}<td><strong class="{% if not shift.assigned %}unassigned{% endif %}" title="{{ shift.label }}">{{ shift.short_display }}</strong></td>{% endfor %}<td><strong>{{ day.off_display }}</strong>{% for item in day.leave %}<span class="roster-leave">{{ item.name }} · {{ item.code }}</span>{% endfor %}</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+  {% endif %}
   <section class="panel history">
     <h2>Imported Roster History</h2>
     <div class="row head"><div>Month</div><div>Source</div><div>Entries</div><div>Imported</div><div>File</div></div>

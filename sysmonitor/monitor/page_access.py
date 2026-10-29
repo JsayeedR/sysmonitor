@@ -113,6 +113,27 @@ PAGE_DEFINITIONS = {
         ),
     },
 
+    'android_application': {
+        'label': '📱 Android Application', 'group': 'Others',
+        'roles': ('user', 'admin'),
+        'prefixes': ('/android-application/',),
+    },
+    'duty_roster_view': {
+        'label': '📅 Duty Roster (read-only)', 'group': 'Others',
+        'roles': ('user', 'admin'),
+        'prefixes': ('/duty-schedule/',),
+    },
+    'code_reference': {
+        'label': '🧭 Code Reference', 'group': 'Others',
+        'roles': ('user', 'admin'),
+        'prefixes': ('/code-reference/',),
+    },
+    'administrator_cli': {
+        'label': '💻 Administrator CLI Commands', 'group': 'Others',
+        'roles': ('user', 'admin'),
+        # In-manual section: no independent URL; view and PDF enforce this key.
+        'prefixes': (),
+    },
     'manual': {
         'label': '📘 Manual',
         'group': 'Others',
@@ -323,6 +344,13 @@ def user_can_access_page(user, key):
     cfg = PAGE_DEFINITIONS.get(key)
     if cfg is None:
         return True
+
+    # Full Viewer has a compatibility read ceiling of Admin for older pages;
+    # never use that ceiling to grant these restricted documentation/roster pages.
+    from .access_policy import is_full_viewer
+    if key in ('android_application', 'duty_roster_view',
+               'code_reference', 'administrator_cli') and is_full_viewer(user):
+        return False
 
     role = user_role(user)
 

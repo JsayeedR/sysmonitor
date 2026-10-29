@@ -33,7 +33,7 @@ class SecurityUpdatesPageTests(TestCase):
                 response = self.client.get(self.url)
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, 'Security Patch Updates')
-                self.assertContains(response, '94 / 94')
+                self.assertContains(response, '172 / 172')
                 self.assertEqual(response['Cache-Control'], 'private, no-store')
                 self.assertIn(b'/security-patch-updates/', response.content)
                 self.assertIn(b'About Us', response.content)
@@ -47,3 +47,13 @@ class SecurityUpdatesPageTests(TestCase):
     def test_post_is_not_supported(self):
         self._account('user')
         self.assertEqual(self.client.post(self.url).status_code, 405)
+
+    def test_rc26_latest_release_information(self):
+        self._account('viewer')
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '172 / 172')
+        self.assertContains(response, 'f892ae7fbc0dc4d949de4e958846a4ce2b607e74')
+        self.assertContains(response, 'STM-1 carrying count remains stable')
+        self.assertContains(response, 'RC26’s operational fixes do not establish')
+        self.assertNotContains(response, 'RC25 · master accepted')

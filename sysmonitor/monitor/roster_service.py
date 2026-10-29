@@ -9,7 +9,7 @@ from __future__ import annotations
 import calendar
 import hashlib
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date, datetime, time, timedelta
 from io import BytesIO
 from pathlib import Path
@@ -472,6 +472,21 @@ def _assignment_for(slot):
     return roster, names
 
 
+def _short_slot_display(names):
+    """Short on-screen label; the underlying full author names stay unchanged."""
+    def label(name):
+        parts = [part.strip('.,') for part in re.sub(r'\s*\(\d+\)\s*$', '', name).split()]
+        while parts and parts[0].casefold() in {
+            'engr', 'eng', 'md', 'mohammad', 'mohammed', 'mr', 'mrs', 'ms', 'abu',
+        }:
+            parts.pop(0)
+        return parts[0] if parts else name
+    candidate = [label(name) for name in names]
+    if len(set(x.casefold() for x in candidate)) != len(candidate):
+        return ' / '.join(names)  # Distinct officers must not become identical.
+    return ' / '.join(candidate) if candidate else 'Not assigned'
+
+
 def _serialize_slot(slot):
     roster, names = _assignment_for(slot)
     start_dt = slot['start_dt']
@@ -483,6 +498,7 @@ def _serialize_slot(slot):
         'duty_date': slot['duty_date'].isoformat(),
         'engineers': names,
         'engineer': ' / '.join(names) if names else 'Not assigned',
+        'short_engineer': _short_slot_display(names),
         'assigned': bool(names),
         'roster_month': roster.month.strftime('%B %Y') if roster else None,
         'start_iso': start_dt.isoformat(),
@@ -513,3 +529,83 @@ def resolve_current_and_next(now=None):
         'next': _serialize_slot(next_slot),
         'upcoming': _future_slots(current, 8),
     }
+
+
+# RC27 read-only views: same imported monthly assignment source as the roster manager.
+def rolling_duty_days(*, start_date=None, days=10):
+    """Return consecutive Bangladesh-local days and saved M/E/N/G assignments.
+
+    Missing imported months remain explicitly unassigned; no fallback names,
+    guessed duty codes, or records are written.
+    """
+    if days not in (5, 10, 31):
+        raise ValueError('Unsupported roster window')
+    if start_date is None:
+        start_date = _ensure_bdt(None).date()
+    end_date = start_date + timedelta(days=days - 1)
+    entries = (DutyRosterAssignment.objects
+               .filter(duty_date__range=(start_date, end_date))
+               .order_by('duty_date', 'duty_code', 'engineer_name')
+               .values('duty_date', 'duty_code', 'engineer_name'))
+    by_date = defaultdict(lambda: defaultdict(list))
+    full_names = set()
+    for entry in entries:
+        # Preserve every imported code, including OFF and leave; no guessed duty.
+        name = entry['engineer_name'].strip()
+        by_date[entry['duty_date']][entry['duty_code']].append(name)
+        full_names.add(name)
+
+    def words(name):
+        raw = re.sub(r'\s*\(\d+\)\s*$', '', name).strip()
+        bits = [b.strip('.,') for b in raw.split()]
+        while bits and bits[0].casefold().rstrip('.') in {
+            'engr', 'eng', 'md', 'mohammad', 'mohammed', 'mr', 'mrs', 'ms', 'abu',
+        }:
+            bits.pop(0)
+        return [b for b in bits if b] or [name]
+
+    # Short labels stay unambiguous across the entire displayed window.
+    roots = {name: words(name) for name in full_names}
+    counts = Counter(b[0].casefold() for b in roots.values())
+    labels = {}
+    for name, bits in roots.items():
+        if counts[bits[0].casefold()] > 1 and len(bits) > 1:
+            labels[name] = f'{bits[0]} {bits[-1]}'
+        else:
+            labels[name] = bits[0]
+    collisions = Counter(x.casefold() for x in labels.values())
+    for name in labels:
+        if collisions[labels[name].casefold()] > 1:
+            labels[name] = name  # Never make two engineers indistinguishable.
+
+    def compact(names):
+        return ' / '.join(labels[name] for name in sorted(names)) if names else '—'
+
+    result = []
+    for offset in range(days):
+        day = start_date + timedelta(days=offset)
+        shifts = []
+        for code in ('M', 'E', 'N', 'G'):
+            item = SHIFT_META.get(code)
+            names = by_date[day].get(code, [])
+            shifts.append({
+                'code': code,
+                'label': item['label'] if item else 'General',
+                'timing': (f"{item['start']:%H:%M}–{item['end']:%H:%M}"
+                           if item else 'As assigned'),
+                'engineers': names,
+                'assigned': bool(names),
+                'display': ' / '.join(names) if names else 'Not assigned',
+                'short_display': compact(names),
+            })
+        off = by_date[day].get('O', [])
+        leave = []
+        for code, names in sorted(by_date[day].items()):
+            if code not in {'M', 'E', 'N', 'G', 'O'}:
+                for name in names:
+                    leave.append({'name': labels[name], 'code': code})
+        result.append({'date': day, 'is_today': offset == 0,
+                       'weekday': day.strftime('%A'), 'shifts': shifts,
+                       'off_display': compact(off), 'off_count': len(off),
+                       'leave': leave})
+    return result

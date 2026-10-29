@@ -6,7 +6,7 @@ ASSIGNABLE_ROLES = frozenset({'admin', 'user', 'viewer', 'fullviewer', 'guest'})
 REMOTE_LOCAL_ONLY_PREFIXES = (
     '/admin/', '/users/', '/page-access/', '/system/',
     '/notifications/gateway/', '/notifications/recipient/',
-    '/cctv-setup/', '/shift-report/config/',
+    '/cctv-setup/', '/shift-report/config/', '/code-reference/',
     '/profile/pending-changes/',
 )
 

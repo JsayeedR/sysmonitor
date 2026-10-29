@@ -49,6 +49,7 @@ def page_access(request):
     from .page_access import (
         hidden_pages_for_user,
         pages_for_role,
+        user_can_access_page,
         user_role,
     )
 
@@ -76,6 +77,8 @@ def page_access(request):
         'profile',
         'manual',
         'security_patch_updates',
+        'android_application', 'duty_roster_view', 'code_reference',
+        'administrator_cli',
     }
 
     admin_keys = {
@@ -95,6 +98,10 @@ def page_access(request):
 
     return {
         'page_hidden': hidden,
+        'page_can_android': user_can_access_page(user, 'android_application'),
+        'page_can_duty_schedule': user_can_access_page(user, 'duty_roster_view'),
+        'page_can_code_reference': user_can_access_page(user, 'code_reference'),
+        'page_can_cli': user_can_access_page(user, 'administrator_cli'),
         'page_show_generator': bool(available_generator),
         'page_show_others': bool(available_others),
 

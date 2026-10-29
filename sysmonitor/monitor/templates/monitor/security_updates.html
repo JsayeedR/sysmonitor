@@ -44,17 +44,17 @@
     <header class="hero">
       <div class="eyebrow">SysMonitor · Security release bulletin</div>
       <h1>Security Patch <span style="color:#b7d9ff">Updates</span></h1>
-      <p>Verified security improvements from RC24 through RC25, including authenticated mirror checks, protected SENT reports, corrected shift calculations and controlled source publication.</p>
-      <div class="hero-pills"><span class="pill ok">● RC25 release validated</span><span class="pill">RC25 · master accepted, remote deployment separately verified</span><span class="pill">For authorized personnel</span></div>
+      <p>Security safeguards established in RC24 and operational improvements delivered through RC26. The RC26 release covers reporting accuracy, historical-source loading, and draft attachment controls; it is not a dependency-security upgrade.</p>
+      <div class="hero-pills"><span class="pill ok">● RC26 deployed · 172/172 tests</span><span class="pill">Master &amp; remote verified</span><span class="pill">For authorized personnel</span></div>
       <div class="quick"><a href="#controls">Explore improvements ↓</a><a href="#limitations">Known limitations</a><a href="{{ base_path }}/manual/">Operations manual ↗</a></div>
     </header>
 
     <section aria-labelledby="release-heading">
-      <div class="section-heading"><div><h2 id="release-heading">Release verification</h2><p>Historical RC24 security-release evidence; later UI releases use separate regression checks. Not a real-time security rating.</p></div></div>
+      <div class="section-heading"><div><h2 id="release-heading">Release verification</h2><p>RC26 release regression evidence. Earlier RC24 security-test results remain in the timeline below. This is not a real-time security rating or penetration-test certification.</p></div></div>
       <div class="release-kpis">
-        <article class="metric"><span>Offline automated tests</span><strong>94 / 94</strong><span>Passed in the isolated release rehearsal</span></article>
-        <article class="metric"><span>Master database migrations</span><strong>6 / 6</strong><span>Applied with integrity verification</span></article>
-        <article class="metric"><span>Release deployment</span><strong>2 sites</strong><span>Master and remote mirror verified</span></article>
+        <article class="metric"><span>RC26 full regression</span><strong>172 / 172</strong><span>Passed on Ubuntu Master before GitHub publication</span></article>
+        <article class="metric"><span>RC26 database migrations</span><strong>None</strong><span>RC26 modified application and test source only; no schema migration included</span></article>
+        <article class="metric"><span>RC26 deployment</span><strong>2 sites</strong><span>Master and remote services verified active; rollback backups retained</span></article>
       </div>
     </section>
 
@@ -74,14 +74,15 @@
     </section>
 
     <section aria-labelledby="timeline-heading">
-      <div class="section-heading"><div><h2 id="timeline-heading">RC24–RC25 validation milestones</h2><p>Evidence observed during this release—not a guarantee against future vulnerabilities.</p></div></div>
+      <div class="section-heading"><div><h2 id="timeline-heading">RC24–RC26 validation milestones</h2><p>Evidence observed during this release—not a guarantee against future vulnerabilities.</p></div></div>
       <div class="timeline-card"><ol class="timeline">
         <li><strong>Offline security regression</strong><span>94 tests passed; private database migrations, retention checks, and eight reversible account-deletion rehearsals completed.</span></li>
         <li><strong>Master cutover</strong><span>48 verified source files installed; six database migrations succeeded; monitoring and HTTP health checks passed.</span></li>
         <li><strong>Remote mirror activation</strong><span>Public login returned HTTP 200, remote-to-master identity verification passed, and the mirrored schema was confirmed.</span></li>
         <li><strong>Update approval guard</strong><span>Automatic-update timer restored with unapproved code activation blocked.</span></li>
-        <li><strong>RC25 validated release</strong><span>148 automated Django regression tests passed and all six master-portal acceptance checks passed on 26 October 2026. Includes immutable SENT report presentation, canonical generator runtime, WET-based capacity and operations manual. Production rollout requires separate deployment and health verification.</span></li>
         <li><strong>RC24.9 FIX2 follow-up</strong><span>59 isolated regression tests passed on 25 October 2026. Master and remote deployments succeeded. Full Viewer browser checks passed for eight reviewed pages; generator navigation remains subject to separate operator confirmation.</span></li>
+        <li><strong>RC25 final deployment</strong><span>151/151 Django regression tests passed, including the SMW4 circuit formatting and Night Shift generator-log checks. Final commit c37b68c955549ea2d4998cd45ffcccc38d6f64d6 was deployed to Master and remote; the source archive was checksum-verified.</span></li>
+        <li><strong>RC26 reporting and Historical workflow release</strong><span>172/172 full Django tests passed. STM-1 carrying count remains stable on Draft Save; configured NOC Duty Officers’ last SENT Historical can be previewed and copied to the current user’s draft without modifying the source; the compact source card shows attributed metadata and correct loaded-row counts. Draft attachments can be removed by authorized users and the attachment section appears before Email Recipients. Commit f892ae7fbc0dc4d949de4e958846a4ce2b607e74 was verified in GitHub main and deployed to Master and remote with rollback backups.</span></li>
       </ol></div>
     </section>
 
@@ -91,12 +92,12 @@
         <p>RC24 security tests and subsequent release regressions do not constitute a penetration-test certification. Full Viewer display access is limited to reviewed read-only pages; ongoing browser acceptance and route-by-route security review remain necessary.</p>
         <ul>
           <li>Permanent account deletion remains disabled pending separate operational authorization. Legacy SENT-report authors retain additional protections where original signature snapshots were unavailable.</li>
-          <li>Interactive end-user acceptance, ongoing dependency review and infrastructure exposure checks remain part of operational security.</li>
+          <li>Interactive end-user acceptance, dependency-security updates, upload controls, rate limiting and infrastructure exposure reviews remain part of operational security. RC26’s operational fixes do not establish that these separate hardening tasks are complete.</li>
           <li>A post-release colocation notification reported missing live sensor data; device/connectivity health requires separate investigation.</li>
           <li>GitHub main was synchronized by a verified, non-force SSH push after the RC24.9.1 master and remote deployments. Future releases still require fresh backup verification, regression tests, commit-ancestry checks and explicit publication approval.</li>
         </ul>
       </div>
-      <p class="reference">Security baseline: <strong>RC24</strong> · Verified 24 October 2026 · Commit <code>3b69731c256da942dfb6fb87161d7bbdfb3f7382</code>. Operational follow-up: <strong>RC24.9 FIX2</strong> · Deployed 25 October 2026 · Commit <code>51b473c539b287f7cfafc864b7de05b3aed1be81</code>. RC25 validated on master and published to GitHub as commit <code>4eb4242d6b859be4ac58032b7797dd35a8e3957c</code> before the circuit-format follow-up patch. Verify the deployed revision before treating RC25 as deployed on another site. This page is a static release bulletin. For suspected security problems, contact your designated SysMonitor administrator through approved internal channels; never post passwords, tokens or personal data in reports.</p>
+      <p class="reference">Security baseline: <strong>RC24</strong> · Verified 24 October 2026 · Commit <code>3b69731c256da942dfb6fb87161d7bbdfb3f7382</code>. Operational follow-up: <strong>RC24.9 FIX2</strong> · Deployed 25 October 2026 · Commit <code>51b473c539b287f7cfafc864b7de05b3aed1be81</code>. RC25 final release: commit <code>c37b68c955549ea2d4998cd45ffcccc38d6f64d6</code>, deployed and backed up. RC26 functional release: commit <code>f892ae7fbc0dc4d949de4e958846a4ce2b607e74</code>, 172/172 regression tests and verified Master/remote deployment on 29 October 2026 (BDT). This page is a static release bulletin. For suspected security problems, contact your designated SysMonitor administrator through approved internal channels; never post passwords, tokens or personal data in reports.</p>
     </section>
   </main>
   {% include "monitor/footer.html" %}

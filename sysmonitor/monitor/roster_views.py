@@ -13,6 +13,7 @@ from .roster_service import (
     build_roster_template,
     import_roster,
     resolve_current_and_next,
+    rolling_duty_days,
 )
 from .views import get_ip, log_activity, role_required
 
@@ -28,10 +29,14 @@ def duty_roster_manage(request):
         .select_related('imported_by')
         .order_by('-month')[:18]
     )
+    from .access_policy import is_full_viewer
+    show_admin_overview = not is_full_viewer(request.user)
     return render(request, 'monitor/duty_roster.html', {
         'role': 'admin',
         'rosters': rosters,
         'duty_state': resolve_current_and_next(),
+        'show_admin_overview': show_admin_overview,
+        'overview_10': (rolling_duty_days(days=10) if show_admin_overview else []),
         'template_month': timezone.localdate().strftime('%Y-%m'),
     })
 
@@ -165,3 +170,26 @@ def duty_roster_template_download(request):
 def duty_roster_current(request):
     state = resolve_current_and_next()
     return JsonResponse({'ok': True, **state})
+
+
+@role_required('user', 'admin')
+def duty_roster_readonly(request):
+    """Django-only, read-only roster overview for assigned User/Admin roles."""
+    from .access_policy import is_full_viewer
+    from .page_access import user_can_access_page
+    if (is_full_viewer(request.user)
+            or not user_can_access_page(request.user, 'duty_roster_view')):
+        return render(request, 'monitor/denied.html', status=403)
+    if request.method not in ('GET', 'HEAD'):
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['GET', 'HEAD'])
+    from .views import get_role
+    state = resolve_current_and_next()
+    response = render(request, 'monitor/duty_roster_view.html', {
+        'role': get_role(request.user),
+        'duty_state': state,
+        'overview_10': rolling_duty_days(days=10),
+        'overview_31': rolling_duty_days(days=31),
+    })
+    response['Cache-Control'] = 'private, no-store, max-age=0'
+    return response

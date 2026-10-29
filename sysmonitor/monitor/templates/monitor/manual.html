@@ -151,6 +151,27 @@
     .trouble th { color:#cbd5e1; background:var(--surface2); }
     .trouble td { color:var(--muted); }
 
+
+    .cli-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .cli-card{background:linear-gradient(145deg,#1e2e48,#162237);border:1px solid #425572;border-radius:13px;min-width:0;overflow:hidden}
+    .cli-card[open]{border-color:#60a5fa}
+    .cli-card summary{list-style:none;cursor:pointer;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .cli-card summary::-webkit-details-marker{display:none}
+    .cli-card summary:focus-visible{outline:2px solid #93c5fd;outline-offset:-3px}
+    .cli-heading{display:flex;gap:11px;align-items:center;min-width:0}
+    .cli-heading strong{font-size:.92rem;display:block;color:#f1f5f9}
+    .cli-heading small{color:#a6bcd9;display:block;font-size:.73rem;margin-top:2px}
+    .cli-icon{display:grid;place-items:center;width:35px;height:35px;background:#243e66;color:#d9eaff;border-radius:10px;flex-shrink:0}
+    .cli-toggle{color:#bcd8fa;white-space:nowrap;font-size:.74rem;font-weight:700}
+    .cli-card[open] .cli-toggle span{display:inline-block;transform:rotate(180deg)}
+    .cli-body{border-top:1px solid #354969;padding:12px 16px 17px}
+    .cli-body>p{font-size:.79rem;color:#b6c9de;margin:0 0 12px}
+    .cli-command{display:flex;gap:8px;margin-top:8px;align-items:stretch}
+    .cli-command pre{background:#0b172b;border:1px solid #32445f;color:#d9eaff;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;padding:11px;flex:1;min-width:0;border-radius:8px;font-size:.76rem}
+    .cli-copy{border:1px solid #557aa4;border-radius:8px;color:#daeaff;background:#234061;cursor:pointer;padding:0 12px;font:600 .74rem Segoe UI,sans-serif}
+    .cli-copy:hover{background:#30577e}
+    @media(max-width:900px){.cli-grid{grid-template-columns:1fr}}
+
     .back-top {
       position:fixed; right:18px; bottom:18px; width:42px; height:42px; display:grid; place-items:center;
       border-radius:50%; background:#2563eb; color:white; text-decoration:none; box-shadow:var(--shadow); z-index:30;
@@ -346,15 +367,22 @@
       <section class="section" id="admin-cli">
         <h2>Administrator Terminal CLI — command templates</h2>
         <p class="section-lead">For authorized administrators only. Copy commands into an approved terminal after reviewing target host and release; these buttons do not execute commands.</p>
-        <div class="workflow-grid">
+        <div class="cli-grid">
           {% for group in admin_terminal_cli %}
-          <article class="workflow-card">
-            <h3>{{ group.title }}</h3>
-            <p>{{ group.note }}</p>
-            {% for command in group.commands %}
-              <pre style="white-space:pre-wrap;overflow-wrap:anywhere;background:#0f172a;padding:.65rem;border:1px solid #334155;border-radius:8px;user-select:text"><code>{{ command }}</code></pre>
-            {% endfor %}
-          </article>
+          <details class="cli-card">
+            <summary aria-label="Expand {{ group.title }} commands">
+              <span class="cli-heading"><span class="cli-icon">⌘</span><span><strong>{{ group.title }}</strong><small>{{ group.scope|default:"CLI reference" }} · {{ group.commands|length }} commands</small></span></span>
+              <span class="cli-toggle">View commands <span aria-hidden="true">⌄</span></span>
+            </summary>
+            <div class="cli-body">
+              <p>{{ group.note }}</p>
+              {% for command in group.commands %}
+              <div class="cli-command"><pre><code>{{ command }}</code></pre>
+                <button type="button" class="cli-copy" aria-label="Copy command {{ forloop.counter }}" data-copy-target="cli-code">Copy</button>
+              </div>
+              {% endfor %}
+            </div>
+          </details>
           {% endfor %}
         </div>
       </section>
@@ -388,6 +416,32 @@
 </div>
 
 <a class="back-top" href="#top" aria-label="Back to top">↑</a>
+
+<script>
+(function(){
+  document.addEventListener('click', async function(event){
+    const button=event.target.closest('button.cli-copy');
+    if(!button) return;
+    const code=button.parentElement.querySelector('code');
+    if(!code) return;
+    try{
+      if(navigator.clipboard && window.isSecureContext){
+        await navigator.clipboard.writeText(code.textContent);
+      } else {
+        const helper=document.createElement('textarea');
+        helper.value=code.textContent;
+        helper.style.position='fixed';helper.style.opacity='0';
+        document.body.appendChild(helper);helper.select();
+        const ok=document.execCommand('copy');helper.remove();
+        if(!ok)throw new Error('Copy unavailable');
+      }
+      button.textContent='Copied';
+    } catch (error) {
+      button.textContent='Select text';
+    }
+  });
+})();
+</script>
 
 {% include "monitor/footer.html" %}
 
