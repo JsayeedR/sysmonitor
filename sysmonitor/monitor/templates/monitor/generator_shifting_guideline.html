@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Generator Shifting Guideline · SysMonitor</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0a1425;--panel:#15253c;--panel2:#1a2e47;--text:#f0f6ff;--muted:#b4c8e1;--line:#36516e;--aqua:#77d4ed;--warning:#ffe2a6}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 86% 3%,#1a3a53 0,transparent 32%),var(--bg);font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text)}
+    .page{width:min(1180px,calc(100% - 32px));margin:28px auto 60px}
+    .hero{background:linear-gradient(125deg,#17375a,#0d2036);border:1px solid #3a5d7d;border-radius:20px;padding:30px 32px;box-shadow:0 16px 38px #0002}
+    .eyebrow{font-weight:800;font-size:.77rem;color:#9be8fc;text-transform:uppercase;letter-spacing:.1em}
+    h1{font-size:clamp(1.65rem,3vw,2.55rem);letter-spacing:-.035em;line-height:1.15;margin:11px 0}
+    .hero p{margin:0;max-width:820px;color:#d4e3f4}h2{font-size:1.22rem;margin:0}h3{font-size:1.02rem;margin:0}
+    .status{display:inline-flex;margin-top:17px;padding:7px 12px;border-radius:8px;background:#57381d;color:#ffe8b7;border:1px solid #946832;font-size:.8rem;font-weight:800}
+    .tabs{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 22px}
+    .tab{display:inline-flex;gap:9px;align-items:center;padding:13px 18px;border:1px solid var(--line);border-radius:12px;text-decoration:none;color:var(--muted);font-weight:700;background:#17263b}
+    .tab[aria-current="page"]{background:#1c4e68;color:white;border-color:#58b7dc;box-shadow:inset 0 -3px 0 #64d0ed}
+    .notice{background:#3f2c22;border:1px solid #996c41;border-left:5px solid #f5bc65;border-radius:12px;padding:18px 20px;color:#ffedce;margin-bottom:19px}
+    .notice strong{display:block;margin-bottom:5px}.notice p{margin:4px 0;font-size:.87rem}
+    .content-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:22px 0 14px}.content-header p{margin:4px 0;color:var(--muted);font-size:.88rem}
+    .concept{margin:16px 0 24px;background:#fff;color:#19344c;border-radius:15px;padding:12px;border:1px solid #617e9b}
+    .concept img{display:block;width:100%;max-width:770px;height:auto;margin:0 auto;border-radius:7px}
+    .concept figcaption{font-size:.78rem;text-align:center;line-height:1.5;color:#455a75;padding:9px 12px}
+    .sections{display:grid;gap:17px}.section{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+    .section-top{padding:18px 21px;display:flex;gap:13px;align-items:center;background:var(--panel2);border-bottom:1px solid var(--line)}
+    .section-code{flex:none;display:grid;place-items:center;width:39px;height:39px;border-radius:11px;background:#2f7099;color:#fff;font-size:1.15rem;font-weight:900}
+    .section-top p{margin:2px 0 0;color:var(--muted);font-size:.82rem}.steps{list-style:none;margin:0;padding:9px 20px 20px}
+    .steps li{display:grid;grid-template-columns:39px minmax(0,1fr);gap:14px;padding:14px 0;border-bottom:1px solid #2b425a;align-items:start}
+    .steps li:last-child{border-bottom:0;padding-bottom:0}.step-no{display:grid;place-items:center;border:1px solid #5a93b4;width:34px;height:34px;background:#214765;border-radius:50%;color:#c2ecff;font-weight:900}
+    .steps p{margin:4px 0 0;color:#e0ebfb}.pending{border:1px dashed #6787aa;background:linear-gradient(120deg,#152b43,#1a314a);border-radius:18px;padding:40px 28px;text-align:center}
+    .pending .icon{font-size:2.6rem}.pending p{max-width:660px;margin:10px auto;color:#c1d4e8}.pending h2{font-size:1.4rem}
+    .footer{border-top:1px solid var(--line);margin-top:28px;padding:16px 3px;font-size:.79rem;color:var(--muted)}
+    a:focus-visible{outline:3px solid #9fe7ff;outline-offset:3px}
+    @media(max-width:660px){.page{width:calc(100% - 20px);margin-top:12px}.hero{padding:21px 19px}.tab{flex:1 1 100%;justify-content:center}.steps{padding:7px 14px 15px}.steps li{gap:8px}.content-header{display:block}}
+  </style>
+</head>
+<body>
+  {% include 'monitor/navbar.html' %}
+  <main class="page">
+    <header class="hero">
+      <div class="eyebrow">SysMonitor · Generator Data · Operations reference</div>
+      <h1>Generator Shifting Guideline</h1>
+      <p>ATS-1 / GEN-1 → ATS-2 / GEN-2 · Two site scenarios, maintained as separate read-only references.</p>
+      <span class="status" role="status">⚠ DRAFT — PENDING TECHNICAL APPROVAL</span>
+    </header>
+    <nav class="tabs" aria-label="Generator shifting scenarios">
+      <a class="tab" href="{{ base_path }}/generator-shifting-guideline/pdb-active/" {% if scenario == 'pdb-active' %}aria-current="page"{% endif %}>⚡ Scenario 1 — PDB Active / Live</a>
+      <a class="tab" href="{{ base_path }}/generator-shifting-guideline/pdb-out/" {% if scenario == 'pdb-out' %}aria-current="page"{% endif %}>⏳ Scenario 2 — PDB Out / Unavailable</a>
+    </nav>
+    <aside class="notice" role="note">
+      <strong>Mandatory safety review before field use</strong>
+      <p>This page transcribes operator-submitted notes. The electrical single-line diagram, breaker identifiers, ATS/ACB interlocks, AVR controls, transfer conditions, load limits and rollback arrangements have <strong>not</strong> been independently verified. It is not an authorized switching order.</p>
+      <p>Only a qualified site electrical authority may approve and execute an equipment-specific switching procedure under the site's permit, communication and safety systems. Stop and use the approved local SOP if equipment indications differ.</p>
+    </aside>
+    {% if scenario == 'pdb-active' %}
+      <div class="content-header"><div><h2>Scenario 1 · PDB Active</h2><p>Submitted sequence: PDB transfer, generator selection and proposed generator test.</p></div></div>
+      <div class="sections">
+        {% for section in sections %}
+        <section class="section" aria-labelledby="part-{{ section.code }}">
+          <header class="section-top"><div class="section-code">{{ section.code }}</div><div><h2 id="part-{{ section.code }}">{{ section.title }}</h2><p>{{ section.subtitle }}</p></div></header>
+          <ol class="steps" aria-label="Submitted steps">
+            {% for number, instruction in section.steps %}
+            <li><span class="step-no" aria-label="Step {{ number }}">{{ number }}</span><p>{{ instruction }}</p></li>
+            {% endfor %}
+          </ol>
+        </section>
+        {% endfor %}
+      </div>
+      <figure class="concept">
+        <img src="{{ base_path }}/generator-shifting-guideline/illustration/" alt="Illustrative draft showing ATS-1 and GEN-1, live PDB, ATS-2 and GEN-2, with a three-part proposed switching sequence" loading="lazy" decoding="async">
+        <figcaption><strong>Concept illustration only.</strong> This generated graphic may contain inaccurate equipment labels, state indications or sequencing. Do not use it as a wiring diagram, switching authority or replacement for the verified site SOP.</figcaption>
+      </figure>
+    {% else %}
+      <section class="pending" aria-labelledby="pdb-out-heading">
+        <div class="icon" aria-hidden="true">⏳</div>
+        <h2 id="pdb-out-heading">PDB Out — Procedure Not Yet Provided</h2>
+        <p>This scenario is intentionally reserved for the separate GEN-1 → GEN-2 shifting procedure when the PDB supply is unavailable. No switching steps are published here until the operator supplies them and the qualified site authority approves them.</p>
+        <p>Use the facility's current approved emergency switching SOP; do not infer steps from the PDB Active scenario.</p>
+      </section>
+    {% endif %}
+    <footer class="footer">SysMonitor · Read-only generator operations reference · Draft, not an approved procedure · No equipment control or data modification on this page</footer>
+  </main>
+  {% include 'monitor/footer.html' %}
+</body>
+</html>

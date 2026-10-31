@@ -106,6 +106,20 @@ class GeneratorNavigationRegression(SimpleTestCase):
         self.assertIn(marker, text)
         self.assertEqual(text.count(remarks), 1)
         self.assertGreater(text.index(remarks), text.index(marker))
-        # The Viewer-only menu contains an earlier Fuel Report link.
-        # Compare ordering within the Admin menu after the Manual entry.
-        self.assertLess(text.index(remarks), text.index('>📊 Generator Fuel Report</a>', text.index(marker)))
+        # Validate the updated operational menu order within the User/Admin
+        # dropdown. The Viewer-only menu appears earlier in this template.
+        generator_start = text.index('    {% if page_show_generator %}')
+        admin_start = text.index('    {% elif role == "user" or role == "admin" %}', generator_start)
+        others_start = text.index('    {% if page_show_others %}', admin_start)
+        admin_menu = text[admin_start:others_start]
+        labels = (
+            '>📘 Generator Shifting Guideline</a>',
+            '>🔄 Generator Shifting Entry</a>',
+            '>⛽ Generator Fuel Entry</a>',
+            '>📊 Generator Fuel Report</a>',
+            '>🕵️ Generator Manual Cycle Entry</a>',
+            '>⚡ Outage Cycle Remarks</a>',
+            '>⏱️ Generator Runtime</a>',
+        )
+        positions = [admin_menu.index(label) for label in labels]
+        self.assertEqual(positions, sorted(positions))

@@ -6,6 +6,7 @@ from monitor.android_download import android_application_view
 from monitor.mirror_authority import mirror_auth_validate
 from monitor.security_updates import security_patch_updates_view
 from monitor.code_reference import code_reference_view
+from monitor.generator_guideline import generator_shifting_guideline_view, guideline_illustration
 
 urlpatterns = [
     path('shift-report/', include('shiftreport.urls')),
@@ -16,6 +17,10 @@ urlpatterns = [
     path('password-reset/confirm/<uidb64>/<token>/', views.password_reset_confirm, name='password_reset_confirm'),
     path('code-reference/', code_reference_view, name='code_reference'),
     path('android-application/', android_application_view, name='android_application'),
+    path('generator-shifting-guideline/', generator_shifting_guideline_view, name='generator_guideline'),
+    path('generator-shifting-guideline/pdb-active/', generator_shifting_guideline_view, {'scenario': 'pdb-active'}, name='generator_guideline_active'),
+    path('generator-shifting-guideline/pdb-out/', generator_shifting_guideline_view, {'scenario': 'pdb-out'}, name='generator_guideline_out'),
+    path('generator-shifting-guideline/illustration/', guideline_illustration, name='generator_guideline_illustration'),
     path('duty-schedule/', roster_views.duty_roster_readonly, name='duty_roster_readonly'),
     path('about/',                            views.about_view,        name='about'),
     path('security-patch-updates/', security_patch_updates_view, name='security_patch_updates'),

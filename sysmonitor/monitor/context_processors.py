@@ -60,6 +60,7 @@ def page_access(request):
     role_pages = set(pages_for_role(role).keys())
 
     generator_keys = {
+        'generator_shifting_guideline',
         'generator_shifting',
         'generator_fuel_entry',
         'generator_manual_cycle',
@@ -98,6 +99,7 @@ def page_access(request):
 
     return {
         'page_hidden': hidden,
+        'page_can_generator_guideline': user_can_access_page(user, 'generator_shifting_guideline'),
         'page_can_android': user_can_access_page(user, 'android_application'),
         'page_can_duty_schedule': user_can_access_page(user, 'duty_roster_view'),
         'page_can_code_reference': user_can_access_page(user, 'code_reference'),

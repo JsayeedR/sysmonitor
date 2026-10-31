@@ -353,21 +353,23 @@ window.addEventListener('DOMContentLoaded', function () {
     {% if page_show_generator %}
     {% if role == "viewer" %}
     <div class="nav-dropdown" id="generator-data-dropdown">
-      <a href="#" class="nav-dropdown-toggle {% if '/genruntime/' in request.path or '/generator-fuel-report/' in request.path %}active{% endif %}" onclick="toggleGeneratorDataDropdown(event)">⚙️ Generator Data ▾</a>
+      <a href="#" class="nav-dropdown-toggle {% if '/generator-shifting-guideline/' in request.path or '/genruntime/' in request.path or '/generator-fuel-report/' in request.path %}active{% endif %}" onclick="toggleGeneratorDataDropdown(event)">⚙️ Generator Data ▾</a>
       <div class="nav-dropdown-menu">
-        {% if "generator_runtime" not in page_hidden %}<a href="{{ base_path }}/genruntime/" class="{% if '/genruntime/' in request.path %}active{% endif %}">⏱️ Generator Runtime</a>{% endif %}
+        {% if page_can_generator_guideline %}<a href="{{ base_path }}/generator-shifting-guideline/pdb-active/" class="{% if '/generator-shifting-guideline/' in request.path %}active{% endif %}">📘 Generator Shifting Guideline</a>{% endif %}
         {% if "generator_fuel_report" not in page_hidden %}<a href="{{ base_path }}/generator-fuel-report/" class="{% if '/generator-fuel-report/' in request.path %}active{% endif %}">📊 Generator Fuel Report</a>{% endif %}
+        {% if "generator_runtime" not in page_hidden %}<a href="{{ base_path }}/genruntime/" class="{% if '/genruntime/' in request.path %}active{% endif %}">⏱️ Generator Runtime</a>{% endif %}
       </div>
     </div>
     {% elif role == "user" or role == "admin" %}
     <div class="nav-dropdown" id="generator-data-dropdown">
-      <a href="#" class="nav-dropdown-toggle {% if '/generator-log/' in request.path or '/generator-fuel/' in request.path or '/generator-fuel-report/' in request.path or '/generator-cycle-audit/' in request.path or '/outage-cycle-remarks/' in request.path or '/genruntime/' in request.path %}active{% endif %}" onclick="toggleGeneratorDataDropdown(event)">⚙️ Generator Data ▾</a>
+      <a href="#" class="nav-dropdown-toggle {% if '/generator-shifting-guideline/' in request.path or '/generator-log/' in request.path or '/generator-fuel/' in request.path or '/generator-fuel-report/' in request.path or '/generator-cycle-audit/' in request.path or '/outage-cycle-remarks/' in request.path or '/genruntime/' in request.path %}active{% endif %}" onclick="toggleGeneratorDataDropdown(event)">⚙️ Generator Data ▾</a>
       <div class="nav-dropdown-menu">
+        {% if page_can_generator_guideline %}<a href="{{ base_path }}/generator-shifting-guideline/pdb-active/" class="{% if '/generator-shifting-guideline/' in request.path %}active{% endif %}">📘 Generator Shifting Guideline</a>{% endif %}
         {% if "generator_shifting" not in page_hidden %}<a href="{{ base_path }}/generator-log/" class="{% if '/generator-log/' in request.path %}active{% endif %}">🔄 Generator Shifting Entry</a>{% endif %}
         {% if "generator_fuel_entry" not in page_hidden %}<a href="{{ base_path }}/generator-fuel/" class="{% if request.path == '/generator-fuel/' %}active{% endif %}">⛽ Generator Fuel Entry</a>{% endif %}
+        {% if "generator_fuel_report" not in page_hidden %}<a href="{{ base_path }}/generator-fuel-report/" class="{% if '/generator-fuel-report/' in request.path %}active{% endif %}">📊 Generator Fuel Report</a>{% endif %}
         {% if "generator_manual_cycle" not in page_hidden %}<a href="{{ base_path }}/generator-cycle-audit/" class="{% if '/generator-cycle-audit/' in request.path %}active{% endif %}">🕵️ Generator Manual Cycle Entry</a>{% endif %}
         {% if "outage_cycle_remarks" not in page_hidden %}<a href="{{ base_path }}/outage-cycle-remarks/" class="{% if '/outage-cycle-remarks/' in request.path %}active{% endif %}">⚡ Outage Cycle Remarks</a>{% endif %}
-        {% if "generator_fuel_report" not in page_hidden %}<a href="{{ base_path }}/generator-fuel-report/" class="{% if '/generator-fuel-report/' in request.path %}active{% endif %}">📊 Generator Fuel Report</a>{% endif %}
         {% if "generator_runtime" not in page_hidden %}<a href="{{ base_path }}/genruntime/" class="{% if '/genruntime/' in request.path %}active{% endif %}">⏱️ Generator Runtime</a>{% endif %}
       </div>
     </div>

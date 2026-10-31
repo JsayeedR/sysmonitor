@@ -37,6 +37,12 @@ PAGE_DEFINITIONS = {
         ),
     },
 
+    'generator_shifting_guideline': {
+        'label': '📘 Generator Shifting Guideline',
+        'group': 'Generator Data',
+        'roles': ('viewer', 'user', 'admin'),
+        'prefixes': ('/generator-shifting-guideline/',),
+    },
     'generator_shifting': {
         'label': '🔄 Generator Shifting Entry',
         'group': 'Generator Data',
@@ -349,7 +355,8 @@ def user_can_access_page(user, key):
     # never use that ceiling to grant these restricted documentation/roster pages.
     from .access_policy import is_full_viewer
     if key in ('android_application', 'duty_roster_view',
-               'code_reference', 'administrator_cli') and is_full_viewer(user):
+               'code_reference', 'administrator_cli',
+               'generator_shifting_guideline') and is_full_viewer(user):
         return False
 
     role = user_role(user)
